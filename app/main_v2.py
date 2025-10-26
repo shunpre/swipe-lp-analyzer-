@@ -99,6 +99,9 @@ st.markdown("""
         display: none !important;
     }
 </style>
+<script>
+    window.parent.document.querySelector('section.main').scrollTo(0, 0);
+</script>
 """, unsafe_allow_html=True)
 
 # データ読み込み
