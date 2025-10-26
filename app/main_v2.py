@@ -150,7 +150,7 @@ if 'selected_analysis' not in st.session_state:
 # グルーピングされたメニュー項目
 menu_groups = {
     "AIアナリスト": ["AIによる分析・考察"],
-    "基本分析": ["リアルタイムビュー", "全体分析", "時系列分析", "デモグラフィック情報"],
+    "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
     "詳細分析": ["セグメント分析", "インタラクション分析", "動画・スクロール分析"],
     "ヘルプ": ["使用ガイド", "専門用語解説"]
@@ -184,24 +184,28 @@ df['channel'] = df['utm_source'].map(channel_map).fillna("Referral")
 
 # 選択された分析項目に応じて表示を切り替え
 
-if selected_analysis == "全体分析":
-    st.markdown('<div class="sub-header">全体分析</div>', unsafe_allow_html=True) # type: ignore
+if selected_analysis == "全体サマリー":
+    st.markdown('<div class="sub-header">全体サマリー</div>', unsafe_allow_html=True)
     
-    # --- ページパス別KPIの計算ロジック（変更なし） ---
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
     col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
 
     with col1:
-        # 期間選択
+        # 期間選択（キーを一意にするためにプレフィックスを追加）
         period_options = {
             "過去7日間": 7,
             "過去30日間": 30,
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
+        selected_period = st.selectbox(
+            "期間を選択", 
+            list(period_options.keys()), 
+            index=1, 
+            key="period_selector_overall"
+        )
 
     with col2:
         # LP選択
@@ -209,8 +213,12 @@ if selected_analysis == "全体分析":
         selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
 
     with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
+        # 比較機能（キーを一意にするためにプレフィックスを追加）
+        enable_comparison = st.checkbox(
+            "比較機能", 
+            value=False, 
+            key="comparison_checkbox_overall"
+        )
 
     with col4:
         # 比較対象
@@ -222,7 +230,9 @@ if selected_analysis == "全体分析":
                 "前月": "previous_month",
                 "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox(
+                "比較対象", list(comparison_options.keys()), key="comparison_selector_overall"
+            )
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
@@ -239,7 +249,13 @@ if selected_analysis == "全体分析":
 
     st.markdown("---")
 
-    # データフィルタリング
+    # 期間フィルターのみを適用したDataFrame（テーブル表示用）
+    period_filtered_df = df[
+        (df['event_date'] >= pd.to_datetime(start_date)) &
+        (df['event_date'] <= pd.to_datetime(end_date))
+    ]
+
+    # KPIカードやグラフ用のデータフィルタリング（期間＋LP）
     filtered_df = df.copy()
 
     # 期間フィルター
@@ -369,74 +385,74 @@ if selected_analysis == "全体分析":
         
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    # page_pathごとのKPIを計算
-    path_sessions = filtered_df.groupby('page_path')['session_id'].nunique()
-    path_users = filtered_df.groupby('page_path')['user_pseudo_id'].nunique()
-    path_conversions = filtered_df[filtered_df['cv_type'].notna()].groupby('page_path')['session_id'].nunique()
-    path_clicks = filtered_df[filtered_df['event_name'] == 'click'].groupby('page_path').size()
+    # page_pathごとのKPIを計算（期間フィルターのみ適用したデータを使用）
+    path_sessions = period_filtered_df.groupby('page_path')['session_id'].nunique()
+    path_users = period_filtered_df.groupby('page_path')['user_pseudo_id'].nunique()
+    path_conversions = period_filtered_df[period_filtered_df['cv_type'].notna()].groupby('page_path')['session_id'].nunique()
+    path_clicks = period_filtered_df[period_filtered_df['event_name'] == 'click'].groupby('page_path').size()
     kpi_by_path = pd.DataFrame({
         'セッション数': path_sessions,
         'CV数': path_conversions,
         'クリック数': path_clicks,
-        '平均滞在時間': filtered_df.groupby('page_path')['stay_ms'].mean() / 1000,
-        '平均到達ページ': filtered_df.groupby('page_path')['max_page_reached'].mean()
+        '平均滞在時間': period_filtered_df.groupby('page_path')['stay_ms'].mean() / 1000,
+        '平均到達ページ': period_filtered_df.groupby('page_path')['max_page_reached'].mean()
     }).fillna(0)
 
     kpi_by_path['CVR'] = (kpi_by_path['CV数'] / kpi_by_path['セッション数'] * 100).fillna(0)
     kpi_by_path['CTR'] = (kpi_by_path['クリック数'] / kpi_by_path['セッション数'] * 100).fillna(0)
     # FV残存率
-    fv_sessions = filtered_df[filtered_df['max_page_reached'] >= 2].groupby('page_path')['session_id'].nunique()
+    fv_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 2].groupby('page_path')['session_id'].nunique()
     kpi_by_path['FV残存率'] = (fv_sessions / path_sessions * 100).fillna(0)
     # 最終CTA到達率
-    final_cta_sessions = filtered_df[filtered_df['max_page_reached'] >= 10].groupby('page_path')['session_id'].nunique()
+    final_cta_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 10].groupby('page_path')['session_id'].nunique()
     kpi_by_path['最終CTA到達率'] = (final_cta_sessions / path_sessions * 100).fillna(0)
 
     kpi_by_path = kpi_by_path.reset_index()
     kpi_by_path.rename(columns={'page_path': 'ページパス'}, inplace=True)
 
-    # 表示する列を定義
+    # 表示する列を定義（変更なし）
     display_cols = [
         'ページパス', 'セッション数', 'CV数', 'CVR', 'クリック数', 'CTR', 
         'FV残存率', '最終CTA到達率', '平均到達ページ', '平均滞在時間'
     ]
 
-    # --- インタラクションKPIの計算ロジック（変更なし） ---
+    # --- インタラクションKPIの計算ロジック（期間フィルターのみ適用したデータを使用） ---
     # CTAクリック
-    cta_clicks = filtered_df[
-        (filtered_df['event_name'] == 'click') & 
-        (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False))
+    cta_clicks = period_filtered_df[
+        (period_filtered_df['event_name'] == 'click') & 
+        (period_filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False))
     ].groupby('page_path').size()
 
     # フローティングバナークリック
-    floating_clicks = filtered_df[
-        (filtered_df['event_name'] == 'click') & 
-        (filtered_df['elem_classes'].str.contains('floating', na=False))
+    floating_clicks = period_filtered_df[
+        (period_filtered_df['event_name'] == 'click') & 
+        (period_filtered_df['elem_classes'].str.contains('floating', na=False))
     ].groupby('page_path').size()
 
     # 離脱防止ポップアップクリック
-    exit_popup_clicks = filtered_df[
-        (filtered_df['event_name'] == 'click') & 
-        (filtered_df['elem_classes'].str.contains('exit', na=False))
+    exit_popup_clicks = period_filtered_df[
+        (period_filtered_df['event_name'] == 'click') & 
+        (period_filtered_df['elem_classes'].str.contains('exit', na=False))
     ].groupby('page_path').size()
 
     interaction_kpis = pd.DataFrame({
         'セッション数': path_sessions,
         'ユニークユーザー数': path_users,
         'CTAクリック数': cta_clicks,
-        'フローティングバナークリック数': floating_clicks,
-        '離脱防止ポップアップクリック数': exit_popup_clicks
+        'FBクリック数': floating_clicks,
+        '離脱防止POPクリック数': exit_popup_clicks
     }).fillna(0)
 
     interaction_kpis['CTAクリック率'] = (interaction_kpis['CTAクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
-    interaction_kpis['フローティングバナークリック率'] = (interaction_kpis['フローティングバナークリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
-    interaction_kpis['離脱防止ポップアップクリック率'] = (interaction_kpis['離脱防止ポップアップクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
+    interaction_kpis['FBクリック率'] = (interaction_kpis['FBクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
+    interaction_kpis['離脱防止POPクリック率'] = (interaction_kpis['離脱防止POPクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
 
     interaction_kpis = interaction_kpis.reset_index().rename(columns={'page_path': 'ページパス'})
 
     interaction_display_cols = [
-        'ページパス', 'ユニークユーザー数', 'CTAクリック数', 'CTAクリック率', 
-        'フローティングバナークリック数', 'フローティングバナークリック率', 
-        '離脱防止ポップアップクリック数', '離脱防止ポップアップクリック率'
+        'ページパス', 'ユニークユーザー数', 'CTAクリック数', 'CTAクリック率',
+        'FBクリック数', 'FBクリック率',
+        '離脱防止POPクリック数', '離脱防止POPクリック率'
     ]
     
     # --- expanderを使って表を表示 ---
@@ -460,10 +476,10 @@ if selected_analysis == "全体分析":
             'ユニークユーザー数': '{:,.0f}',
             'CTAクリック数': '{:,.0f}',
             'CTAクリック率': '{:.2f}%',
-            'フローティングバナークリック数': '{:,.0f}',
-            'フローティングバナークリック率': '{:.2f}%',
-            '離脱防止ポップアップクリック数': '{:,.0f}',
-            '離脱防止ポップアップクリック率': '{:.2f}%'
+            'FBクリック数': '{:,.0f}',
+            'FBクリック率': '{:.2f}%',
+            '離脱防止POPクリック数': '{:,.0f}',
+            '離脱防止POPクリック率': '{:.2f}%'
         }), use_container_width=True, hide_index=True)
 
     st.markdown("---")
@@ -480,11 +496,12 @@ if selected_analysis == "全体分析":
     
     with col2:
         show_channel_breakdown = st.checkbox("チャネル別分析", value=True)
-        show_funnel = st.checkbox("LP進行ファネル", value=True)
-        show_hourly_cvr = st.checkbox("時間帯別CVR", value=False)
+        show_funnel = st.checkbox("LP進行ファネル", value=False)
+        # show_sankey_flow = st.checkbox("ユーザーフロー分析（サンキー）", value=True) # サンキーダイアグラムを削除
     
     with col3:
-        show_dow_cvr = st.checkbox("曜日別CVR", value=False)
+        show_hourly_cvr = st.checkbox("時間帯別CVR", value=False)
+        show_dow_cvr = st.checkbox("曜日別CVR", value=False) # type: ignore
         show_utm_analysis = st.checkbox("UTM分析", value=False)
         show_load_time = st.checkbox("読込時間分析", value=False)
     
@@ -499,12 +516,14 @@ if selected_analysis == "全体分析":
             # 比較データを追加
             comp_daily_sessions = comparison_df.groupby(comparison_df['event_date'].dt.date)['session_id'].nunique().reset_index()
             comp_daily_sessions.columns = ['日付', '比較期間セッション数']
-            
+
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=daily_sessions['日付'], y=daily_sessions['セッション数'], 
-                                    mode='lines+markers', name='現在期間', line=dict(color='#002060')))
+                                    mode='lines+markers', name='現在期間', line=dict(color='#002060'),
+                                    hovertemplate='日付: %{x}<br>セッション数: %{y:,}<extra></extra>'))
             fig.add_trace(go.Scatter(x=comp_daily_sessions['日付'], y=comp_daily_sessions['比較期間セッション数'], 
-                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash')))
+                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash'),
+                                    hovertemplate='日付: %{x}<br>比較期間セッション数: %{y:,}<extra></extra>'))
             fig.update_layout(height=400, hovermode='x unified')
         else:
             fig = px.line(daily_sessions, x='日付', y='セッション数', markers=True)
@@ -543,10 +562,12 @@ if selected_analysis == "全体分析":
             comp_daily_cvr['比較期間CVR'] = (comp_daily_cvr['コンバージョン数'] / comp_daily_cvr['セッション数'] * 100)
             
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=daily_cvr['日付'], y=daily_cvr['コンバージョン率'], 
-                                    mode='lines+markers', name='現在期間', line=dict(color='#002060')))
+            fig.add_trace(go.Scatter(x=daily_cvr['日付'], y=daily_cvr['コンバージョン率'],
+                                    mode='lines+markers', name='現在期間', line=dict(color='#002060'),
+                                    hovertemplate='日付: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>'))
             fig.add_trace(go.Scatter(x=comp_daily_cvr['日付'], y=comp_daily_cvr['比較期間CVR'], 
-                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash')))
+                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash'),
+                                    hovertemplate='日付: %{x}<br>比較期間CVR: %{y:.2f}%<extra></extra>'))
             fig.update_layout(height=400, hovermode='x unified', yaxis_title='コンバージョン率 (%)')
         else:
             fig = px.line(daily_cvr, x='日付', y='コンバージョン率', markers=True)
@@ -570,16 +591,22 @@ if selected_analysis == "全体分析":
         device_stats['コンバージョン率'] = (device_stats['コンバージョン数'] / device_stats['セッション数'] * 100)
         
         fig = go.Figure()
-        fig.add_trace(go.Bar(name='セッション数', x=device_stats['デバイス'], y=device_stats['セッション数'], yaxis='y', offsetgroup=1))
-        fig.add_trace(go.Bar(name='コンバージョン数', x=device_stats['デバイス'], y=device_stats['コンバージョン数'], yaxis='y', offsetgroup=2))
-        fig.add_trace(go.Scatter(name='コンバージョン率', x=device_stats['デバイス'], y=device_stats['コンバージョン率'], yaxis='y2', mode='lines+markers'))
+        # 主軸（左Y軸）にセッション数とコンバージョン数の棒グラフを追加
+        fig.add_trace(go.Bar(name='セッション数', x=device_stats['デバイス'], y=device_stats['セッション数'], yaxis='y', offsetgroup=1,
+                             hovertemplate='デバイス: %{x}<br>セッション数: %{y:,}<extra></extra>'))
+        fig.add_trace(go.Bar(name='コンバージョン数', x=device_stats['デバイス'], y=device_stats['コンバージョン数'], yaxis='y', offsetgroup=2,
+                             hovertemplate='デバイス: %{x}<br>コンバージョン数: %{y:,}<extra></extra>'))
+        # 第二軸（右Y軸）にコンバージョン率の折れ線グラフを追加
+        fig.add_trace(go.Scatter(name='コンバージョン率', x=device_stats['デバイス'], y=device_stats['コンバージョン率'], yaxis='y2', mode='lines+markers',
+                                 hovertemplate='デバイス: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>'))
         
         fig.update_layout(
             yaxis=dict(title='セッション数 / コンバージョン数'),
-            yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right'),
-            height=400
+            yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right', showgrid=False),
+            height=400,
+            legend=dict(x=0, y=1.1, orientation='h')
         )
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_3')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_combined')
     
     # チャネル別分析
     if show_channel_breakdown:
@@ -602,12 +629,14 @@ if selected_analysis == "全体分析":
         
         with col1:
             fig = px.pie(channel_stats, values='セッション数', names='チャネル', title='チャネル別セッション数')
+            fig.update_traces(hovertemplate='チャネル: %{label}<br>セッション数: %{value:,} (%{percent})<extra></extra>')
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_4')
         
         with col2:
             fig = px.bar(channel_stats, x='チャネル', y='コンバージョン率', title='チャネル別コンバージョン率')
+            fig.update_traces(hovertemplate='チャネル: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_5')
-    
+
     # LP進行ファネルと滞在時間別ファネル
     if show_funnel:
         st.markdown("#### LP進行状況とページ内滞在時間")
@@ -628,7 +657,8 @@ if selected_analysis == "全体分析":
             fig_funnel = go.Figure(go.Funnel(
                 y=funnel_df['ページ'],
                 x=funnel_df['セッション数'],
-                textinfo="value+percent initial"
+                textinfo="value+percent initial",
+                hovertemplate='ページ: %{y}<br>セッション数: %{x:,}<extra></extra>'
             ))
             fig_funnel.update_layout(height=600)
             st.markdown("**LP進行ファネル**")
@@ -688,7 +718,8 @@ if selected_analysis == "全体分析":
                     y=page_stay_df['ページ'],
                     x=page_stay_df[label],
                     name=label,
-                    orientation='h',
+                    orientation='h', # type: ignore
+                    hovertemplate='ページ: %{y}<br>割合: %{x:.2f}%<extra></extra>',
                     marker_color=colors[i]
                 ))
 
@@ -715,7 +746,8 @@ if selected_analysis == "全体分析":
         hourly_cvr['コンバージョン率'] = (hourly_cvr['コンバージョン数'] / hourly_cvr['セッション数'] * 100)
         
         fig = px.bar(hourly_cvr, x='時間', y='コンバージョン率')
-        fig.update_layout(height=400)
+        fig.update_traces(hovertemplate='時間: %{x}時台<br>コンバージョン率: %{y:.2f}%<extra></extra>')
+        fig.update_layout(height=400, xaxis_title='時間帯')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_7')
     
     # 曜日別CVR
@@ -739,7 +771,8 @@ if selected_analysis == "全体分析":
         dow_cvr = dow_cvr.sort_values('曜日_order')
         
         fig = px.bar(dow_cvr, x='曜日_日本語', y='コンバージョン率')
-        fig.update_layout(height=400)
+        fig.update_traces(hovertemplate='曜日: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
+        fig.update_layout(height=400, xaxis_title='曜日')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_8')
     
     # UTM分析
@@ -756,16 +789,18 @@ if selected_analysis == "全体分析":
             utm_source_stats = utm_source_stats.sort_values('セッション数', ascending=False)
             
             fig = px.bar(utm_source_stats, x='UTMソース', y='セッション数')
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_9')
+            fig.update_traces(hovertemplate='UTMソース: %{x}<br>セッション数: %{y:,}<extra></extra>')
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_9') # type: ignore
         
         with col2:
             st.markdown("**UTMメディア別**")
             utm_medium_stats = filtered_df.groupby('utm_medium')['session_id'].nunique().reset_index()
             utm_medium_stats.columns = ['UTMメディア', 'セッション数']
             utm_medium_stats = utm_medium_stats.sort_values('セッション数', ascending=False)
-            
+
             fig = px.bar(utm_medium_stats, x='UTMメディア', y='セッション数')
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_10')
+            fig.update_traces(hovertemplate='UTMメディア: %{x}<br>セッション数: %{y:,}<extra></extra>')
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_10') # type: ignore
     
     # 読込時間分析
     if show_load_time:
@@ -776,7 +811,8 @@ if selected_analysis == "全体分析":
         load_time_stats.columns = ['デバイス', '平均読込時間(ms)']
         
         fig = px.bar(load_time_stats, x='デバイス', y='平均読込時間(ms)')
-        fig.update_layout(height=400)
+        fig.update_traces(hovertemplate='デバイス: %{x}<br>平均読込時間: %{y:.0f}ms<extra></extra>')
+        fig.update_layout(height=400, yaxis_title='平均読込時間 (ms)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_11')
 
 # 続く...（次のファイルでタブ2以降を実装）
@@ -786,6 +822,7 @@ if selected_analysis == "全体分析":
 # タブ2: ページ分析
 elif selected_analysis == "ページ分析":
     st.markdown('<div class="sub-header">ページ分析</div>', unsafe_allow_html=True)
+
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
@@ -1203,7 +1240,7 @@ elif selected_analysis == "ページ分析":
     high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率', 'ビュー数']]    
     fig = px.bar(high_exit_pages, x='ページ番号', y='離脱率', text='離脱率')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400)
+    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='離脱率 (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_13')
     
     # 逆行パターン
@@ -1470,11 +1507,13 @@ elif selected_analysis == "セグメント分析":
     
     with col1:
         fig = px.bar(segment_stats, x=segment_name, y='コンバージョン率', title=f'{segment_type}のコンバージョン率')
+        fig.update_traces(hovertemplate='%{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_14')
     
     with col2:
         fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間(秒)', title=f'{segment_type}の平均滞在時間')
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15')
+        fig.update_traces(hovertemplate='%{x}<br>平均滞在時間: %{y:.1f}秒<extra></extra>')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15') # type: ignore
 
 # タブ4: A/Bテスト分析
 elif selected_analysis == "A/Bテスト分析":
@@ -1761,7 +1800,7 @@ elif selected_analysis == "A/Bテスト分析":
     # CVR向上率×有意性のバブルチャート
     st.markdown("#### CVR向上率×有意性バブルチャート")
     st.markdown('<div class="graph-description">CVR向上率（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR向上率×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True) # type: ignore
-    
+
     if len(ab_stats) >= 2:
         # ベースラインを除外
         ab_bubble = ab_stats[ab_stats.index > 0].copy()
@@ -1770,7 +1809,7 @@ elif selected_analysis == "A/Bテスト分析":
                         x='CVR向上率', 
                         y='有意性',
                         size='セッション数',
-                        text='バリアント',
+                        text='バリアント', # type: ignore
                         hover_data=['コンバージョン率', 'p値', '有意差'],
                         title='CVR向上率 vs 有意性')
         
@@ -1780,7 +1819,7 @@ elif selected_analysis == "A/Bテスト分析":
         fig.add_vline(x=0, line_dash="dash", line_color="gray")
         
         fig.update_traces(textposition='top center')
-        fig.update_layout(height=500, 
+        fig.update_layout(height=500,
                          xaxis_title='CVR向上率 (%)',
                          yaxis_title='有意性 (1 - p値)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
@@ -1791,7 +1830,7 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown("#### A/BテストCVR比較")
     fig = px.bar(ab_stats, x='バリアント', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400)
+    fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_16')
     
     # A/Bテスト時系列推移
@@ -1812,7 +1851,7 @@ elif selected_analysis == "A/Bテスト分析":
     ab_daily['コンバージョン率'] = (ab_daily['コンバージョン数'] / ab_daily['セッション数'] * 100)
     
     fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='バリアント', markers=True)
-    fig.update_layout(height=400)
+    fig.update_layout(height=400, yaxis_title='コンバージョン率 (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_17')
 
 # タブ5: インタラクション分析
@@ -2031,7 +2070,7 @@ elif selected_analysis == "インタラクション分析":
     
     fig = px.bar(interaction_df, x='要素', y='クリック率 (CTR)', text='クリック率 (CTR)')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, xaxis_title='インタラクション要素', yaxis_title='CTR (%)')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='CTR (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_ctr')
     
     # クリック数比較グラフ
@@ -2040,7 +2079,7 @@ elif selected_analysis == "インタラクション分析":
     
     fig = px.bar(interaction_df, x='要素', y='クリック数 (CTs)', text='クリック数 (CTs)')
     fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(height=400, xaxis_title='インタラクション要素', yaxis_title='クリック数')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='クリック数')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_cts')
     
     # デバイス別分析
@@ -2257,7 +2296,7 @@ elif selected_analysis == "動画・スクロール分析":
     
     fig = px.bar(scroll_stats, x='ページ番号', y='平均逆行率(%)', text='平均逆行率(%)')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400)
+    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均逆行率 (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_18')
     
     # 動画視聴分析（動画イベントがある場合）
@@ -2298,7 +2337,7 @@ elif selected_analysis == "動画・スクロール分析":
         
         fig = px.bar(comparison_data, x='グループ', y='コンバージョン率', text='コンバージョン率')
         fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-        fig.update_layout(height=400)
+        fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_19')
     
     # 逆行率別CVR
@@ -2323,7 +2362,7 @@ elif selected_analysis == "動画・スクロール分析":
     
     fig = px.bar(scroll_range_stats, x='逆行率', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400)
+    fig.update_layout(height=400, showlegend=False, xaxis_title='逆行率', yaxis_title='コンバージョン率 (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_20')
 
 # タブ6: 時系列分析
@@ -2560,7 +2599,7 @@ elif selected_analysis == "時系列分析":
     ])
     
     fig = px.line(daily_stats, x='日付', y=metric_to_plot, markers=True)
-    fig.update_layout(height=400)
+    fig.update_layout(height=400, yaxis_title=metric_to_plot)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_21')
     
     # 月間推移（データが十分にある場合）
@@ -2611,7 +2650,7 @@ elif selected_analysis == "リアルタイムビュー":
 
         # KPI表示
         st.markdown("#### 直近1時間のモニタリング")
-        st.markdown("直近1時間のサイト活動を監視し、急な変化や異常がないかを確認します。")
+        st.markdown("直近1時間で急な変化や異常がないかを確認します")
         kpi_cols = st.columns(5)
         kpi_cols[0].metric("セッション数", f"{rt_sessions:,}")
         kpi_cols[1].metric("平均到達ページ数", f"{rt_avg_pages:.1f}")
@@ -2630,7 +2669,7 @@ elif selected_analysis == "リアルタイムビュー":
         rt_trend.columns = ['時刻', 'セッション数']
         
         fig = px.area(rt_trend, x='時刻', y='セッション数', markers=True)
-        fig.update_layout(height=400)
+        fig.update_layout(height=400, yaxis_title='セッション数')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')
     else:
         st.info("直近1時間のデータがありません")
@@ -2842,7 +2881,7 @@ elif selected_analysis == "デモグラフィック情報":
     # 年齢層別CVRグラフ
     fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400, xaxis_title='年齢層', yaxis_title='CVR (%)')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
     
     # 性別分析
@@ -2875,7 +2914,7 @@ elif selected_analysis == "デモグラフィック情報":
         # 性別CVR比較
         fig = px.bar(gender_demo_df, x='性別', y='CVR (%)', text='CVR (%)')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400, xaxis_title='性別', yaxis_title='CVR (%)')
+        fig.update_layout(height=400, showlegend=False, xaxis_title='性別', yaxis_title='CVR (%)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
     
     # 地域別分析
@@ -2897,7 +2936,7 @@ elif selected_analysis == "デモグラフィック情報":
     # 地域別セッション数グラフ
     fig = px.bar(region_demo_df, x='地域', y='セッション数', text='セッション数')
     fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(height=400, xaxis_title='地域', yaxis_title='セッション数')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='地域', yaxis_title='セッション数')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_region_sessions')
     
     # デバイス別分析
@@ -2930,7 +2969,7 @@ elif selected_analysis == "デモグラフィック情報":
         # デバイス別CVR比較
         fig = px.bar(device_demo_df, x='デバイス', y='CVR (%)', text='CVR (%)')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400, xaxis_title='デバイス', yaxis_title='CVR (%)')
+        fig.update_layout(height=400, showlegend=False, xaxis_title='デバイス', yaxis_title='CVR (%)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_cvr')
 
 # タブ9: AI提案
