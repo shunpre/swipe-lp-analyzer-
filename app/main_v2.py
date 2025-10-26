@@ -352,37 +352,47 @@ if selected_analysis == "全体サマリー":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     # page_pathごとのKPIを計算（期間フィルターのみ適用したデータを使用）
@@ -525,11 +535,12 @@ if selected_analysis == "全体サマリー":
                                     mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash'),
                                     hovertemplate='日付: %{x}<br>比較期間セッション数: %{y:,}<extra></extra>'))
             fig.update_layout(height=400, hovermode='x unified')
+            fig.update_layout(dragmode=False)
         else:
             fig = px.line(daily_sessions, x='日付', y='セッション数', markers=True)
-            fig.update_layout(height=400)
+            fig.update_layout(height=400, dragmode=False)
         
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_1')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_1') # This already has use_container_width=True
     
     # コンバージョン率の推移
     if show_cvr_trend:
@@ -569,11 +580,12 @@ if selected_analysis == "全体サマリー":
                                     mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash'),
                                     hovertemplate='日付: %{x}<br>比較期間CVR: %{y:.2f}%<extra></extra>'))
             fig.update_layout(height=400, hovermode='x unified', yaxis_title='コンバージョン率 (%)')
+            fig.update_layout(dragmode=False)
         else:
             fig = px.line(daily_cvr, x='日付', y='コンバージョン率', markers=True)
-            fig.update_layout(height=400)
+            fig.update_layout(height=400, dragmode=False)
         
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_2')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_2') # This already has use_container_width=True
     
     # デバイス別分析
     if show_device_breakdown:
@@ -604,6 +616,7 @@ if selected_analysis == "全体サマリー":
             yaxis=dict(title='セッション数 / コンバージョン数'),
             yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right', showgrid=False),
             height=400,
+            dragmode=False,
             legend=dict(x=0, y=1.1, orientation='h')
         )
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_combined')
@@ -630,11 +643,13 @@ if selected_analysis == "全体サマリー":
         with col1:
             fig = px.pie(channel_stats, values='セッション数', names='チャネル', title='チャネル別セッション数')
             fig.update_traces(hovertemplate='チャネル: %{label}<br>セッション数: %{value:,} (%{percent})<extra></extra>')
+            fig.update_layout(dragmode=False)
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_4')
         
         with col2:
             fig = px.bar(channel_stats, x='チャネル', y='コンバージョン率', title='チャネル別コンバージョン率')
             fig.update_traces(hovertemplate='チャネル: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
+            fig.update_layout(dragmode=False)
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_5')
 
     # LP進行ファネルと滞在時間別ファネル
@@ -660,7 +675,7 @@ if selected_analysis == "全体サマリー":
                 textinfo="value+percent initial",
                 hovertemplate='ページ: %{y}<br>セッション数: %{x:,}<extra></extra>'
             ))
-            fig_funnel.update_layout(height=600)
+            fig_funnel.update_layout(height=600, dragmode=False)
             st.markdown("**LP進行ファネル**")
             st.markdown('<div class="graph-description">各ページに到達したセッション数と、次のページへの遷移率です。急激に減少している箇所が大きな離脱ポイントです。</div>', unsafe_allow_html=True) # type: ignore
             st.plotly_chart(fig_funnel, use_container_width=True, key='plotly_chart_funnel_revived')
@@ -724,7 +739,7 @@ if selected_analysis == "全体サマリー":
                 ))
 
             fig_stay_pct.update_layout(barmode='stack', height=600,
-                              xaxis_title='セッションの割合 (%)', yaxis_title='ページ',
+                              xaxis_title='セッションの割合 (%)', yaxis_title='ページ', dragmode=False,
                               xaxis_ticksuffix='%', legend=dict(traceorder='normal'))
             st.markdown("**ページ内滞在時間の分布**")
             st.markdown('<div class="graph-description">各ページに到達し、滞在時間が計測されたセッションの行動内訳です。横軸は割合（%）を表します。</div>', unsafe_allow_html=True) # type: ignore
@@ -747,7 +762,7 @@ if selected_analysis == "全体サマリー":
         
         fig = px.bar(hourly_cvr, x='時間', y='コンバージョン率')
         fig.update_traces(hovertemplate='時間: %{x}時台<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-        fig.update_layout(height=400, xaxis_title='時間帯')
+        fig.update_layout(height=400, xaxis_title='時間帯', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_7')
     
     # 曜日別CVR
@@ -772,7 +787,7 @@ if selected_analysis == "全体サマリー":
         
         fig = px.bar(dow_cvr, x='曜日_日本語', y='コンバージョン率')
         fig.update_traces(hovertemplate='曜日: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-        fig.update_layout(height=400, xaxis_title='曜日')
+        fig.update_layout(height=400, xaxis_title='曜日', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_8')
     
     # UTM分析
@@ -789,6 +804,7 @@ if selected_analysis == "全体サマリー":
             utm_source_stats = utm_source_stats.sort_values('セッション数', ascending=False)
             
             fig = px.bar(utm_source_stats, x='UTMソース', y='セッション数')
+            fig.update_layout(dragmode=False)
             fig.update_traces(hovertemplate='UTMソース: %{x}<br>セッション数: %{y:,}<extra></extra>')
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_9') # type: ignore
         
@@ -799,6 +815,7 @@ if selected_analysis == "全体サマリー":
             utm_medium_stats = utm_medium_stats.sort_values('セッション数', ascending=False)
 
             fig = px.bar(utm_medium_stats, x='UTMメディア', y='セッション数')
+            fig.update_layout(dragmode=False)
             fig.update_traces(hovertemplate='UTMメディア: %{x}<br>セッション数: %{y:,}<extra></extra>')
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_10') # type: ignore
     
@@ -812,7 +829,7 @@ if selected_analysis == "全体サマリー":
         
         fig = px.bar(load_time_stats, x='デバイス', y='平均読込時間(ms)')
         fig.update_traces(hovertemplate='デバイス: %{x}<br>平均読込時間: %{y:.0f}ms<extra></extra>')
-        fig.update_layout(height=400, yaxis_title='平均読込時間 (ms)')
+        fig.update_layout(height=400, yaxis_title='平均読込時間 (ms)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_11')
 
 # 続く...（次のファイルでタブ2以降を実装）
@@ -1227,7 +1244,7 @@ elif selected_analysis == "ページ分析":
         # シンプルにTOP5のみ表示
         fig = px.bar(short_stay_pages, x='ページ番号', y='平均滞在時間(秒)', text='平均滞在時間(秒)')
         fig.update_traces(texttemplate='%{text:.1f}秒', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均滞在時間(秒)')
+        fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均滞在時間(秒)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_short_stay')
     else:
         st.info("データがありません。")
@@ -1240,7 +1257,7 @@ elif selected_analysis == "ページ分析":
     high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率', 'ビュー数']]    
     fig = px.bar(high_exit_pages, x='ページ番号', y='離脱率', text='離脱率')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='離脱率 (%)')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='離脱率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_13')
     
     # 逆行パターン
@@ -1411,37 +1428,47 @@ elif selected_analysis == "セグメント分析":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
@@ -1507,11 +1534,13 @@ elif selected_analysis == "セグメント分析":
     
     with col1:
         fig = px.bar(segment_stats, x=segment_name, y='コンバージョン率', title=f'{segment_type}のコンバージョン率')
+        fig.update_layout(dragmode=False)
         fig.update_traces(hovertemplate='%{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_14')
     
     with col2:
         fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間(秒)', title=f'{segment_type}の平均滞在時間')
+        fig.update_layout(dragmode=False)
         fig.update_traces(hovertemplate='%{x}<br>平均滞在時間: %{y:.1f}秒<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15') # type: ignore
 
@@ -1666,37 +1695,47 @@ elif selected_analysis == "A/Bテスト分析":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
@@ -1820,7 +1859,7 @@ elif selected_analysis == "A/Bテスト分析":
         
         fig.update_traces(textposition='top center')
         fig.update_layout(height=500,
-                         xaxis_title='CVR向上率 (%)',
+                         xaxis_title='CVR向上率 (%)', dragmode=False,
                          yaxis_title='有意性 (1 - p値)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
@@ -1830,7 +1869,7 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown("#### A/BテストCVR比較")
     fig = px.bar(ab_stats, x='バリアント', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)')
+    fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_16')
     
     # A/Bテスト時系列推移
@@ -1851,7 +1890,7 @@ elif selected_analysis == "A/Bテスト分析":
     ab_daily['コンバージョン率'] = (ab_daily['コンバージョン数'] / ab_daily['セッション数'] * 100)
     
     fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='バリアント', markers=True)
-    fig.update_layout(height=400, yaxis_title='コンバージョン率 (%)')
+    fig.update_layout(height=400, yaxis_title='コンバージョン率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_17')
 
 # タブ5: インタラクション分析
@@ -2005,37 +2044,47 @@ elif selected_analysis == "インタラクション分析":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
@@ -2070,7 +2119,7 @@ elif selected_analysis == "インタラクション分析":
     
     fig = px.bar(interaction_df, x='要素', y='クリック率 (CTR)', text='クリック率 (CTR)')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='CTR (%)')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='CTR (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_ctr')
     
     # クリック数比較グラフ
@@ -2079,7 +2128,7 @@ elif selected_analysis == "インタラクション分析":
     
     fig = px.bar(interaction_df, x='要素', y='クリック数 (CTs)', text='クリック数 (CTs)')
     fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='クリック数')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='クリック数', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_cts')
     
     # デバイス別分析
@@ -2253,37 +2302,47 @@ elif selected_analysis == "動画・スクロール分析":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
@@ -2296,7 +2355,7 @@ elif selected_analysis == "動画・スクロール分析":
     
     fig = px.bar(scroll_stats, x='ページ番号', y='平均逆行率(%)', text='平均逆行率(%)')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均逆行率 (%)')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均逆行率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_18')
     
     # 動画視聴分析（動画イベントがある場合）
@@ -2337,7 +2396,7 @@ elif selected_analysis == "動画・スクロール分析":
         
         fig = px.bar(comparison_data, x='グループ', y='コンバージョン率', text='コンバージョン率')
         fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)')
+        fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_19')
     
     # 逆行率別CVR
@@ -2362,7 +2421,7 @@ elif selected_analysis == "動画・スクロール分析":
     
     fig = px.bar(scroll_range_stats, x='逆行率', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='逆行率', yaxis_title='コンバージョン率 (%)')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='逆行率', yaxis_title='コンバージョン率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_20')
 
 # タブ6: 時系列分析
@@ -2516,37 +2575,47 @@ elif selected_analysis == "時系列分析":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
@@ -2599,7 +2668,7 @@ elif selected_analysis == "時系列分析":
     ])
     
     fig = px.line(daily_stats, x='日付', y=metric_to_plot, markers=True)
-    fig.update_layout(height=400, yaxis_title=metric_to_plot)
+    fig.update_layout(height=400, yaxis_title=metric_to_plot, dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_21')
     
     # 月間推移（データが十分にある場合）
@@ -2628,9 +2697,51 @@ elif selected_analysis == "時系列分析":
         fig.update_layout(
             yaxis=dict(title='セッション数'),
             yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right'),
-            height=400
+            height=400,
+            dragmode=False
         )
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_22')
+
+    st.markdown("---")
+
+    # 曜日・時間帯別 CVRヒートマップ
+    st.markdown("#### 曜日・時間帯別 CVRヒートマップ")
+    st.markdown('<div class="graph-description">曜日と時間帯をクロス集計し、コンバージョン率（CVR）をヒートマップで表示します。色が濃い部分がCVRの高い「ゴールデンタイム」です。</div>', unsafe_allow_html=True)
+
+    # 曜日と時間の列を追加
+    heatmap_df = filtered_df.copy()
+    heatmap_df['hour'] = heatmap_df['event_timestamp'].dt.hour
+    heatmap_df['dow_name'] = heatmap_df['event_timestamp'].dt.day_name()
+
+    # 時間と曜日でグループ化してセッション数とCV数を計算
+    heatmap_sessions = heatmap_df.groupby(['hour', 'dow_name'])['session_id'].nunique().reset_index(name='セッション数')
+    heatmap_cv = heatmap_df[heatmap_df['cv_type'].notna()].groupby(['hour', 'dow_name'])['session_id'].nunique().reset_index(name='コンバージョン数')
+
+    # データをマージしてCVRを計算
+    heatmap_stats = pd.merge(heatmap_sessions, heatmap_cv, on=['hour', 'dow_name'], how='left').fillna(0)
+    heatmap_stats['コンバージョン率'] = (heatmap_stats['コンバージョン数'] / heatmap_stats['セッション数'] * 100).fillna(0)
+
+    # 曜日の順序を定義
+    dow_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    dow_map_jp = {'Monday': '月', 'Tuesday': '火', 'Wednesday': '水', 'Thursday': '木', 'Friday': '金', 'Saturday': '土', 'Sunday': '日'}
+    heatmap_stats['dow_name'] = pd.Categorical(heatmap_stats['dow_name'], categories=dow_order, ordered=True)
+    heatmap_stats = heatmap_stats.sort_values(['dow_name', 'hour'])
+
+    # ピボットテーブルを作成
+    heatmap_pivot = heatmap_stats.pivot_table(index='dow_name', columns='hour', values='コンバージョン率')
+    heatmap_pivot = heatmap_pivot.reindex(dow_order) # 曜日の順序を保証
+    heatmap_pivot.index = heatmap_pivot.index.map(dow_map_jp) # 曜日を日本語に変換
+
+    # ヒートマップを描画
+    fig_heatmap = go.Figure(data=go.Heatmap(
+        z=heatmap_pivot.values,
+        x=[f"{h}時" for h in heatmap_pivot.columns],
+        y=heatmap_pivot.index,
+        colorscale='Blues',
+        hovertemplate='曜日: %{y}<br>時間帯: %{x}<br>CVR: %{z:.2f}%<extra></extra>'
+    ))
+    fig_heatmap.update_layout(title='曜日・時間帯別 CVR', height=500, dragmode=False)
+    st.plotly_chart(fig_heatmap, use_container_width=True, key='plotly_chart_heatmap_cvr')
 
 # タブ7: リアルタイム分析
 elif selected_analysis == "リアルタイムビュー":
@@ -2669,7 +2780,7 @@ elif selected_analysis == "リアルタイムビュー":
         rt_trend.columns = ['時刻', 'セッション数']
         
         fig = px.area(rt_trend, x='時刻', y='セッション数', markers=True)
-        fig.update_layout(height=400, yaxis_title='セッション数')
+        fig.update_layout(height=400, yaxis_title='セッション数', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')
     else:
         st.info("直近1時間のデータがありません")
@@ -2825,37 +2936,47 @@ elif selected_analysis == "デモグラフィック情報":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     st.markdown("ユーザーの属性情報（年齢、性別、地域、デバイス）を分析します。")
@@ -2881,7 +3002,7 @@ elif selected_analysis == "デモグラフィック情報":
     # 年齢層別CVRグラフ
     fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
     
     # 性別分析
@@ -2907,14 +3028,14 @@ elif selected_analysis == "デモグラフィック情報":
     with col1:
         # 性別割合円グラフ
         fig = px.pie(gender_demo_df, values='セッション数', names='性別', title='性別割合')
-        fig.update_layout(height=400)
+        fig.update_layout(height=400, dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_pie')
     
     with col2:
         # 性別CVR比較
         fig = px.bar(gender_demo_df, x='性別', y='CVR (%)', text='CVR (%)')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, xaxis_title='性別', yaxis_title='CVR (%)')
+        fig.update_layout(height=400, showlegend=False, xaxis_title='性別', yaxis_title='CVR (%)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
     
     # 地域別分析
@@ -2936,7 +3057,7 @@ elif selected_analysis == "デモグラフィック情報":
     # 地域別セッション数グラフ
     fig = px.bar(region_demo_df, x='地域', y='セッション数', text='セッション数')
     fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='地域', yaxis_title='セッション数')
+    fig.update_layout(height=400, showlegend=False, xaxis_title='地域', yaxis_title='セッション数', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_region_sessions')
     
     # デバイス別分析
@@ -2962,14 +3083,14 @@ elif selected_analysis == "デモグラフィック情報":
     with col1:
         # デバイス別セッション数
         fig = px.pie(device_demo_df, values='セッション数', names='デバイス', title='デバイス別セッション数')
-        fig.update_layout(height=400)
+        fig.update_layout(height=400, dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_pie')
     
     with col2:
         # デバイス別CVR比較
         fig = px.bar(device_demo_df, x='デバイス', y='CVR (%)', text='CVR (%)')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, xaxis_title='デバイス', yaxis_title='CVR (%)')
+        fig.update_layout(height=400, showlegend=False, xaxis_title='デバイス', yaxis_title='CVR (%)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_cvr')
 
 # タブ9: AI提案
@@ -3123,37 +3244,47 @@ elif selected_analysis == "AIによる分析・考察":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
@@ -3791,37 +3922,47 @@ elif selected_analysis == "使用ガイド":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
@@ -4039,37 +4180,47 @@ elif selected_analysis == "専門用語解説":
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
         st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
         
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
         st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
 
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
 
     with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
         st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
 
     with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
         st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
 
     with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     
