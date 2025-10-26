@@ -919,37 +919,17 @@ with tab6:
 
 # タブ7: リアルタイム分析
 with tab7:
-    st.markdown('<div class="sub-header">リアルタイム分析</div>', unsafe_allow_html=True)
-    st.markdown("直近1時間のデータをリアルタイムで確認できます")
+    st.markdown('<div class="sub-header">リアルタイム分析</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown("サイト全体の直近1時間の活動状況をリアルタイムで確認できます。この分析は上部のフィルター設定の影響を受けません。")
     
-    # 直近1時間のデータをフィルタリング
-    one_hour_ago = filtered_df['event_timestamp'].max() - timedelta(hours=1)
-    realtime_df = filtered_df[filtered_df['event_timestamp'] >= one_hour_ago]
+    # 直近1時間のデータをフィルタリング（filtered_dfではなく、元のdfから取得）
+    one_hour_ago = df['event_timestamp'].max() - timedelta(hours=1)
+    realtime_df = df[df['event_timestamp'] >= one_hour_ago]
     
     if len(realtime_df) > 0:
-        # リアルタイムKPI
-        rt_sessions = realtime_df['session_id'].nunique()
-        rt_conversions = realtime_df[realtime_df['cv_type'].notna()]['session_id'].nunique()
-        rt_cvr = (rt_conversions / rt_sessions * 100) if rt_sessions > 0 else 0
-        rt_avg_stay = realtime_df['stay_ms'].mean() / 1000
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("セッション数", f"{rt_sessions:,}")
-        
-        with col2:
-            st.metric("コンバージョン数", f"{rt_conversions}")
-        
-        with col3:
-            st.metric("コンバージョン率", f"{rt_cvr:.2f}%")
-        
-        with col4:
-            st.metric("平均滞在時間", f"{rt_avg_stay:.1f}秒")
-        
         # 分単位の推移
-        st.markdown("#### 直近1時間のセッション数推移（分10分単位）")
-        st.markdown("直近1時間のデータを、10分ごとに集計して表示します")
+        st.markdown("#### 直近1時間のセッション数推移（10分単位）")
+        st.markdown("直近1時間のセッション数を、10分ごとに集計して表示します")
         
         realtime_df['minute_bin'] = realtime_df['event_timestamp'].dt.floor('10T')
         rt_trend = realtime_df.groupby('minute_bin')['session_id'].nunique().reset_index()
@@ -1256,4 +1236,3 @@ with tab11:
 # フッター
 st.markdown("---")
 st.markdown("**瞬ジェネ AIアナリスト** - Powered by Streamlit & Gemini 2.5 Pro")
-
