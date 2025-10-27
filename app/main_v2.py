@@ -20,7 +20,7 @@ except ImportError:
 # ページ設定
 st.set_page_config(
     page_title="瞬ジェネ AIアナリスト",
-    page_icon=None,
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -138,16 +138,13 @@ st.markdown("""
         box-shadow: 0 0 10px rgba(0,0,0,0.5); /* 影を追加して見やすく */
     }
 </style>
-<script>
-    window.parent.document.querySelector('section.main').scrollTo(0, 0);
-</script>
 """, unsafe_allow_html=True)
 
 # データ読み込み
 @st.cache_data
 def load_data():
     """ダミーデータを読み込む"""
-    df = pd.read_csv("app/dummy_data.csv")
+    df = pd.read_csv("/home/ubuntu/swipe_lp_analyzer/app/dummy_data.csv")
     df['event_timestamp'] = pd.to_datetime(df['event_timestamp'])
     df['event_date'] = pd.to_datetime(df['event_date'])
     return df
@@ -185,28 +182,37 @@ df = load_data()
 st.sidebar.markdown('<h1 style="color: #002060; font-size: 1.8rem; font-weight: bold; margin-bottom: 1rem; line-height: 1.3;">瞬ジェネ<br>AIアナリスト</h1>', unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
+# サイドバー: 分析項目メニュー
+st.sidebar.header("📊 分析項目")
+
 # session_stateで選択状態を管理
 if 'selected_analysis' not in st.session_state:
-    st.session_state.selected_analysis = "AIによる分析・考察"
+    st.session_state.selected_analysis = "AI分析"
 
-# グルーピングされたメニュー項目
-menu_groups = {
-    "AIアナリスト": ["AIによる分析・考察"],
-    "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報"],
-    "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
-    "詳細分析": ["セグメント分析", "インタラクション分析", "動画・スクロール分析"],
-    "ヘルプ": ["使用ガイド", "専門用語解説"]
-}
+# メニュー項目リスト
+menu_items = [
+    "AI分析",
+    "全体分析",
+    "ページ分析",
+    "セグメント分析",
+    "A/Bテスト分析",
+    "インタラクション分析",
+    "動画・スクロール分析",
+    "時系列分析",
+    "リアルタイム分析",
+    "デモグラフィック情報",
+    "使用ガイド",
+    "専門用語解説"
+]
 
-# グループごとにメニューを表示
-for group_name, items in menu_groups.items():
-    st.sidebar.markdown(f"**{group_name}**")
-    for item in items: # type: ignore
-        is_selected = st.session_state.selected_analysis == item
-        button_key = f"menu_{item}"
-        if st.sidebar.button(item, key=button_key, use_container_width=True, type="secondary"):
-            # ページ遷移時にトップにスクロールするJavaScriptを実行
-            st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
+# テキストリンク形式で表示
+for item in menu_items:
+    if st.session_state.selected_analysis == item:
+        # 選択中の項目は太字で表示
+        st.sidebar.markdown(f'<div style="padding: 0.5rem; background-color: #e6f0ff; border-left: 4px solid #002060; margin-bottom: 0.25rem;"><strong>{item}</strong></div>', unsafe_allow_html=True)
+    else:
+        # 選択されていない項目はクリック可能
+        if st.sidebar.button(item, key=f"menu_{item}", use_container_width=True):
             st.session_state.selected_analysis = item
 
     st.sidebar.markdown("---")
@@ -233,7 +239,7 @@ if st.session_state.selected_analysis:
 selected_analysis = st.session_state.selected_analysis
 
 # チャネルマッピング（データ処理に必要）
-channel_map = { # type: ignore
+channel_map = {
     "google": "Organic Search",
     "facebook": "Organic Social",
     "instagram": "Organic Social",
@@ -242,316 +248,251 @@ channel_map = { # type: ignore
 }
 df['channel'] = df['utm_source'].map(channel_map).fillna("Referral")
 
+# メインエリア: フィルターと比較設定
+st.markdown('<div class="sub-header">⚙️ フィルター設定</div>', unsafe_allow_html=True)
+
+col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+
+with col1:
+    # 期間選択
+    period_options = {
+        "過去7日間": 7,
+        "過去30日間": 30,
+        "過去90日間": 90,
+        "カスタム期間": None
+    }
+    selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
+
+with col2:
+    # LP選択
+    lp_options = ["すべて"] + sorted(df['page_location'].dropna().unique().tolist())
+    selected_lps = st.multiselect("LP選択", lp_options, default=["すべて"])
+
+with col3:
+    # 比較機能
+    enable_comparison = st.checkbox("比較機能", value=False)
+
+with col4:
+    # 比較対象
+    comparison_type = None
+    if enable_comparison:
+        comparison_options = {
+            "前期間": "previous_period",
+            "前週": "previous_week",
+            "前月": "previous_month",
+            "前年": "previous_year"
+        }
+        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+        comparison_type = comparison_options[selected_comparison]
+
+# カスタム期間の場合
+if selected_period == "カスタム期間":
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input("開始日", df['event_date'].min())
+    with col2:
+        end_date = st.date_input("終了日", df['event_date'].max())
+else:
+    days = period_options[selected_period]
+    end_date = df['event_date'].max()
+    start_date = end_date - timedelta(days=days)
+
+st.markdown("---")
+
+# データフィルタリング
+filtered_df = df.copy()
+
+# 期間フィルター
+filtered_df = filtered_df[
+    (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
+    (filtered_df['event_date'] <= pd.to_datetime(end_date))
+]
+
+# LPフィルター
+if "すべて" not in selected_lps:
+    filtered_df = filtered_df[filtered_df['page_location'].isin(selected_lps)]
+
+# チャネルフィルター（削除）
+# デバイスフィルター（削除）
+# A/Bテストフィルター（削除）
+
+# 比較データの取得
+comparison_df = None
+comp_start = None
+comp_end = None
+if enable_comparison and comparison_type:
+    result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
+    if result is not None:
+        comparison_df, comp_start, comp_end = result
+        # 比較データにも同じフィルターを適用
+        if "すべて" not in selected_lps:
+            comparison_df = comparison_df[comparison_df['page_location'].isin(selected_lps)]
+        # 比較データが空の場合は無効化
+        if len(comparison_df) == 0:
+            comparison_df = None
+            st.info(f"ℹ️ 比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
+
+# データが空の場合の処理
+if len(filtered_df) == 0:
+    st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
+    st.stop()
+
+# 基本メトリクス計算
+total_sessions = filtered_df['session_id'].nunique()
+total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
+conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
+total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
+click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
+avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
+avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
+fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
+final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
+avg_load_time = filtered_df['load_time_ms'].mean()
+
+# 比較データのKPI計算
+comp_kpis = {}
+if comparison_df is not None and len(comparison_df) > 0:
+    comp_total_sessions = comparison_df['session_id'].nunique()
+    comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
+    comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
+    comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
+    comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
+    comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
+    comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
+    comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
+    comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
+    comp_avg_load_time = comparison_df['load_time_ms'].mean()
+    
+    comp_kpis = {
+        'sessions': comp_total_sessions,
+        'conversions': comp_total_conversions,
+        'conversion_rate': comp_conversion_rate,
+        'clicks': comp_total_clicks,
+        'click_rate': comp_click_rate,
+        'avg_stay_time': comp_avg_stay_time,
+        'avg_pages_reached': comp_avg_pages_reached,
+        'fv_retention_rate': comp_fv_retention_rate,
+        'final_cta_rate': comp_final_cta_rate,
+        'avg_load_time': comp_avg_load_time
+    }
+
+# KPI表示
+st.markdown('<div class="sub-header">📈 主要指標（KPI）</div>', unsafe_allow_html=True)
+
+# KPIカード表示
+col1, col2, col3, col4, col5 = st.columns(5)
+
+with col1:
+    delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
+    st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
+    
+    delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
+    st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
+
+with col2:
+    delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+    st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+    
+    delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+    st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+with col3:
+    delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+    st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+    
+    delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
+    st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
+
+with col4:
+    delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
+    st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
+    
+    delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+    st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+with col5:
+    delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+    st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
+    
+    delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
+    st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
+
 # 選択された分析項目に応じて表示を切り替え
 
-if selected_analysis == "全体サマリー":
-    st.markdown('<div class="sub-header">全体サマリー</div>', unsafe_allow_html=True)
+if selected_analysis == "全体分析":
+    st.markdown('<div class="sub-header">全体分析</div>', unsafe_allow_html=True)
     
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択（キーを一意にするためにプレフィックスを追加）
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox(
-            "期間を選択", 
-            list(period_options.keys()), 
-            index=1, 
-            key="summary_period_selector"
-        )
-
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
-    with col3:
-        # 比較機能（キーを一意にするためにプレフィックスを追加）
-        enable_comparison = st.checkbox(
-            "比較機能", 
-            value=False, 
-            key="summary_comparison_checkbox"
-        )
-
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox(
-                "比較対象", list(comparison_options.keys()), key="summary_comparison_selector"
-            )
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # 期間フィルターのみを適用したDataFrame（テーブル表示用）
-    period_filtered_df = df[
-        (df['event_date'] >= pd.to_datetime(start_date)) &
-        (df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # KPIカードやグラフ用のデータフィルタリング（期間＋LP）
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    # page_pathごとのKPIを計算（期間フィルターのみ適用したデータを使用）
-    path_sessions = period_filtered_df.groupby('page_path')['session_id'].nunique()
-    path_users = period_filtered_df.groupby('page_path')['user_pseudo_id'].nunique()
-    path_conversions = period_filtered_df[period_filtered_df['cv_type'].notna()].groupby('page_path')['session_id'].nunique()
-    path_clicks = period_filtered_df[period_filtered_df['event_name'] == 'click'].groupby('page_path').size()
-    kpi_by_path = pd.DataFrame({
-        'セッション数': path_sessions,
-        'CV数': path_conversions,
-        'クリック数': path_clicks,
-        '平均滞在時間': period_filtered_df.groupby('page_path')['stay_ms'].mean() / 1000,
-        '平均到達ページ': period_filtered_df.groupby('page_path')['max_page_reached'].mean()
-    }).fillna(0)
-
-    kpi_by_path['CVR'] = (kpi_by_path['CV数'] / kpi_by_path['セッション数'] * 100).fillna(0)
-    kpi_by_path['CTR'] = (kpi_by_path['クリック数'] / kpi_by_path['セッション数'] * 100).fillna(0)
-    # FV残存率
-    fv_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 2].groupby('page_path')['session_id'].nunique()
-    kpi_by_path['FV残存率'] = (fv_sessions / path_sessions * 100).fillna(0)
-    # 最終CTA到達率
-    final_cta_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 10].groupby('page_path')['session_id'].nunique()
-    kpi_by_path['最終CTA到達率'] = (final_cta_sessions / path_sessions * 100).fillna(0)
-
-    kpi_by_path = kpi_by_path.reset_index()
-    kpi_by_path.rename(columns={'page_path': 'ページパス'}, inplace=True)
-
-    # 表示する列を定義（変更なし）
-    display_cols = [
-        'ページパス', 'セッション数', 'CV数', 'CVR', 'クリック数', 'CTR', 
-        'FV残存率', '最終CTA到達率', '平均到達ページ', '平均滞在時間'
-    ]
-
-    # --- インタラクションKPIの計算ロジック（期間フィルターのみ適用したデータを使用） ---
-    # CTAクリック
-    cta_clicks = period_filtered_df[
-        (period_filtered_df['event_name'] == 'click') & 
-        (period_filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False))
-    ].groupby('page_path').size()
-
-    # フローティングバナークリック
-    floating_clicks = period_filtered_df[
-        (period_filtered_df['event_name'] == 'click') & 
-        (period_filtered_df['elem_classes'].str.contains('floating', na=False))
-    ].groupby('page_path').size()
-
-    # 離脱防止ポップアップクリック
-    exit_popup_clicks = period_filtered_df[
-        (period_filtered_df['event_name'] == 'click') & 
-        (period_filtered_df['elem_classes'].str.contains('exit', na=False))
-    ].groupby('page_path').size()
-
-    interaction_kpis = pd.DataFrame({
-        'セッション数': path_sessions,
-        'ユニークユーザー数': path_users,
-        'CTAクリック数': cta_clicks,
-        'FBクリック数': floating_clicks,
-        '離脱防止POPクリック数': exit_popup_clicks
-    }).fillna(0)
-
-    interaction_kpis['CTAクリック率'] = (interaction_kpis['CTAクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
-    interaction_kpis['FBクリック率'] = (interaction_kpis['FBクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
-    interaction_kpis['離脱防止POPクリック率'] = (interaction_kpis['離脱防止POPクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
-
-    interaction_kpis = interaction_kpis.reset_index().rename(columns={'page_path': 'ページパス'})
-
-    interaction_display_cols = [
-        'ページパス', 'ユニークユーザー数', 'CTAクリック数', 'CTAクリック率',
-        'FBクリック数', 'FBクリック率',
-        '離脱防止POPクリック数', '離脱防止POPクリック率'
-    ]
+    # 主要指標詳細表（LP別の表形式）
+    st.markdown("主要指標詳細表")
+    st.markdown('<div class="graph-description">主要なKPIをLP別に一覧表示します。左列がページパス（LP URL）、上行が指標です。</div>', unsafe_allow_html=True)
     
-    # --- expanderを使って表を表示 ---
-    with st.expander("詳細1: ページパス別 主要指標詳細表"):
-        st.markdown('<div class="graph-description">LP（ページパス）ごとの主要なKPIを一覧表示します。</div>', unsafe_allow_html=True) # type: ignore
-        st.dataframe(kpi_by_path[display_cols].style.format({
-            'セッション数': '{:,.0f}',
-            'CV数': '{:,.0f}',
-            'CVR': '{:.2f}%',
-            'クリック数': '{:,.0f}',
-            'CTR': '{:.2f}%',
-            'FV残存率': '{:.2f}%',
-            '最終CTA到達率': '{:.2f}%',
-            '平均到達ページ': '{:.2f}',
-            '平均滞在時間': '{:.1f}秒'
-        }), use_container_width=True, hide_index=True)
-
-    with st.expander("詳細2: ページパス別 インタラクション指標詳細表"):
-        st.markdown('<div class="graph-description">LP（ページパス）ごとの主要なインタラクション指標を一覧表示します。</div>', unsafe_allow_html=True) # type: ignore
-        st.dataframe(interaction_kpis[interaction_display_cols].style.format({
-            'ユニークユーザー数': '{:,.0f}',
-            'CTAクリック数': '{:,.0f}',
-            'CTAクリック率': '{:.2f}%',
-            'FBクリック数': '{:,.0f}',
-            'FBクリック率': '{:.2f}%',
-            '離脱防止POPクリック数': '{:,.0f}',
-            '離脱防止POPクリック率': '{:.2f}%'
-        }), use_container_width=True, hide_index=True)
-
+    # LP別にメトリクスを計算
+    lp_metrics = []
+    
+    # 選択されたLPごとに計算
+    for lp_key in selected_lps:
+        if lp_key == 'すべて':
+            continue
+        
+        # page_locationを使用してフィルタリング
+        lp_data = filtered_df[filtered_df['page_location'] == lp_key]
+        
+        if len(lp_data) == 0:
+            continue
+        
+        # メトリクス計算
+        lp_sessions = lp_data['session_id'].nunique()
+        lp_conversions = lp_data[lp_data['cv_type'].notna()]['session_id'].nunique()
+        lp_conversion_rate = (lp_conversions / lp_sessions * 100) if lp_sessions > 0 else 0
+        
+        lp_clicks = lp_data[lp_data['event_name'] == 'click']['session_id'].nunique()
+        lp_click_rate = (lp_clicks / lp_sessions * 100) if lp_sessions > 0 else 0
+        
+        lp_fv_sessions = lp_data[lp_data['page_num_dom'] == 1]['session_id'].nunique()
+        lp_fv_retention = lp_data[(lp_data['page_num_dom'] == 1) & (lp_data['max_page_reached'] > 1)]['session_id'].nunique()
+        lp_fv_retention_rate = (lp_fv_retention / lp_fv_sessions * 100) if lp_fv_sessions > 0 else 0
+        
+        lp_max_page = lp_data['page_num_dom'].max()
+        lp_final_cta_reached = lp_data[lp_data['max_page_reached'] >= lp_max_page]['session_id'].nunique()
+        lp_final_cta_rate = (lp_final_cta_reached / lp_sessions * 100) if lp_sessions > 0 else 0
+        
+        lp_avg_pages = lp_data.groupby('session_id')['page_num_dom'].max().mean()
+        lp_avg_stay = lp_data.groupby('session_id')['stay_ms'].sum().mean() / 1000
+        lp_avg_load = lp_data['load_time_ms'].mean()
+        
+        lp_metrics.append({
+            'ページパス': lp_key,
+            'セッション数': f"{lp_sessions:,}",
+            'CV数': f"{lp_conversions:,}",
+            'CVR': f"{lp_conversion_rate:.2f}%",
+            'クリック数': f"{lp_clicks:,}",
+            'CTR': f"{lp_click_rate:.2f}%",
+            'FV残存率': f"{lp_fv_retention_rate:.2f}%",
+            '最終CTA到達率': f"{lp_final_cta_rate:.2f}%",
+            '平均到達ページ': f"{lp_avg_pages:.2f}",
+            '平均滞在時間': f"{lp_avg_stay:.1f}秒",
+            '平均読込時間': f"{lp_avg_load:.0f}ms"
+        })
+    
+    # 「すべて」が選択されている場合は全体の集計を追加
+    if 'すべて' in selected_lps or len(lp_metrics) == 0:
+        lp_metrics.append({
+            'ページパス': '全体',
+            'セッション数': f"{total_sessions:,}",
+            'CV数': f"{total_conversions:,}",
+            'CVR': f"{conversion_rate:.2f}%",
+            'クリック数': f"{total_clicks:,}",
+            'CTR': f"{click_rate:.2f}%",
+            'FV残存率': f"{fv_retention_rate:.2f}%",
+            '最終CTA到達率': f"{final_cta_rate:.2f}%",
+            '平均到達ページ': f"{avg_pages_reached:.2f}",
+            '平均滞在時間': f"{avg_stay_time:.1f}秒",
+            '平均読込時間': f"{avg_load_time:.0f}ms"
+        })
+    
+    kpi_table_df = pd.DataFrame(lp_metrics)
+    st.table(kpi_table_df)
+    
     st.markdown("---")
     
     # グラフ選択
@@ -560,25 +501,24 @@ if selected_analysis == "全体サマリー":
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        show_session_trend = st.checkbox("セッション数の推移", value=True, key="summary_show_session_trend")
-        show_cvr_trend = st.checkbox("コンバージョン率の推移", value=True, key="summary_show_cvr_trend")
-        show_device_breakdown = st.checkbox("デバイス別分析", value=True, key="summary_show_device_breakdown")
+        show_session_trend = st.checkbox("セッション数の推移", value=True)
+        show_cvr_trend = st.checkbox("コンバージョン率の推移", value=True)
+        show_device_breakdown = st.checkbox("デバイス別分析", value=True)
     
     with col2:
-        show_channel_breakdown = st.checkbox("チャネル別分析", value=True, key="summary_show_channel_breakdown")
-        show_funnel = st.checkbox("LP進行ファネル", value=False, key="summary_show_funnel")
-        # show_sankey_flow = st.checkbox("ユーザーフロー分析（サンキー）", value=True) # サンキーダイアグラムを削除
+        show_channel_breakdown = st.checkbox("チャネル別分析", value=True)
+        show_funnel = st.checkbox("LP進行ファネル", value=True)
+        show_hourly_cvr = st.checkbox("時間帯別CVR", value=False)
     
     with col3:
-        show_hourly_cvr = st.checkbox("時間帯別CVR", value=False, key="summary_show_hourly_cvr")
-        show_dow_cvr = st.checkbox("曜日別CVR", value=False, key="summary_show_dow_cvr") # type: ignore
-        show_utm_analysis = st.checkbox("UTM分析", value=False, key="summary_show_utm_analysis")
-        show_load_time = st.checkbox("読込時間分析", value=False, key="summary_show_load_time")
+        show_dow_cvr = st.checkbox("曜日別CVR", value=False)
+        show_utm_analysis = st.checkbox("UTM分析", value=False)
+        show_load_time = st.checkbox("読込時間分析", value=False)
     
     # セッション数の推移
     if show_session_trend:
         st.markdown("#### セッション数の推移")
-        st.markdown('<div class="graph-description">日ごとのセッション数（訪問数）の変化を表示します。トレンドや曜日ごとのパターンを把握できます。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">日ごとのセッション数（訪問数）の変化を表示します。トレンドや曜日ごとのパターンを把握できます。</div>', unsafe_allow_html=True)
         daily_sessions = filtered_df.groupby(filtered_df['event_date'].dt.date)['session_id'].nunique().reset_index()
         daily_sessions.columns = ['日付', 'セッション数']
         
@@ -586,26 +526,23 @@ if selected_analysis == "全体サマリー":
             # 比較データを追加
             comp_daily_sessions = comparison_df.groupby(comparison_df['event_date'].dt.date)['session_id'].nunique().reset_index()
             comp_daily_sessions.columns = ['日付', '比較期間セッション数']
-
+            
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=daily_sessions['日付'], y=daily_sessions['セッション数'], 
-                                    mode='lines+markers', name='現在期間', line=dict(color='#002060'),
-                                    hovertemplate='日付: %{x}<br>セッション数: %{y:,}<extra></extra>'))
+                                    mode='lines+markers', name='現在期間', line=dict(color='#002060')))
             fig.add_trace(go.Scatter(x=comp_daily_sessions['日付'], y=comp_daily_sessions['比較期間セッション数'], 
-                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash'),
-                                    hovertemplate='日付: %{x}<br>比較期間セッション数: %{y:,}<extra></extra>'))
+                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash')))
             fig.update_layout(height=400, hovermode='x unified')
-            fig.update_layout(dragmode=False)
         else:
             fig = px.line(daily_sessions, x='日付', y='セッション数', markers=True)
-            fig.update_layout(height=400, dragmode=False)
+            fig.update_layout(height=400)
         
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_1') # This already has use_container_width=True
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_1')
     
     # コンバージョン率の推移
     if show_cvr_trend:
         st.markdown("#### コンバージョン率の推移")
-        st.markdown('<div class="graph-description">日ごとのコンバージョン率（CVR）の変化を表示します。LPの改善効果や外部要因の影響を確認できます。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">日ごとのコンバージョン率（CVR）の変化を表示します。LPの改善効果や外部要因の影響を確認できます。</div>', unsafe_allow_html=True)
         daily_cvr = filtered_df.groupby(filtered_df['event_date'].dt.date).agg({
             'session_id': 'nunique',
         }).reset_index()
@@ -633,24 +570,21 @@ if selected_analysis == "全体サマリー":
             comp_daily_cvr['比較期間CVR'] = (comp_daily_cvr['コンバージョン数'] / comp_daily_cvr['セッション数'] * 100)
             
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=daily_cvr['日付'], y=daily_cvr['コンバージョン率'],
-                                    mode='lines+markers', name='現在期間', line=dict(color='#002060'),
-                                    hovertemplate='日付: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>'))
+            fig.add_trace(go.Scatter(x=daily_cvr['日付'], y=daily_cvr['コンバージョン率'], 
+                                    mode='lines+markers', name='現在期間', line=dict(color='#002060')))
             fig.add_trace(go.Scatter(x=comp_daily_cvr['日付'], y=comp_daily_cvr['比較期間CVR'], 
-                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash'),
-                                    hovertemplate='日付: %{x}<br>比較期間CVR: %{y:.2f}%<extra></extra>'))
+                                    mode='lines+markers', name='比較期間', line=dict(color='#999999', dash='dash')))
             fig.update_layout(height=400, hovermode='x unified', yaxis_title='コンバージョン率 (%)')
-            fig.update_layout(dragmode=False)
         else:
             fig = px.line(daily_cvr, x='日付', y='コンバージョン率', markers=True)
-            fig.update_layout(height=400, dragmode=False)
+            fig.update_layout(height=400)
         
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_2') # This already has use_container_width=True
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_2')
     
     # デバイス別分析
     if show_device_breakdown:
         st.markdown("#### デバイス別分析")
-        st.markdown('<div class="graph-description">デバイス（スマホ、PC、タブレット）ごとのセッション数、コンバージョン数、CVRを比較します。デバイス最適化の優先度を判断できます。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">デバイス（スマホ、PC、タブレット）ごとのセッション数、コンバージョン数、CVRを比較します。デバイス最適化の優先度を判断できます。</div>', unsafe_allow_html=True)
         device_stats = filtered_df.groupby('device_type').agg({
             'session_id': 'nunique',
         }).reset_index()
@@ -663,28 +597,21 @@ if selected_analysis == "全体サマリー":
         device_stats['コンバージョン率'] = (device_stats['コンバージョン数'] / device_stats['セッション数'] * 100)
         
         fig = go.Figure()
-        # 主軸（左Y軸）にセッション数とコンバージョン数の棒グラフを追加
-        fig.add_trace(go.Bar(name='セッション数', x=device_stats['デバイス'], y=device_stats['セッション数'], yaxis='y', offsetgroup=1,
-                             hovertemplate='デバイス: %{x}<br>セッション数: %{y:,}<extra></extra>'))
-        fig.add_trace(go.Bar(name='コンバージョン数', x=device_stats['デバイス'], y=device_stats['コンバージョン数'], yaxis='y', offsetgroup=2,
-                             hovertemplate='デバイス: %{x}<br>コンバージョン数: %{y:,}<extra></extra>'))
-        # 第二軸（右Y軸）にコンバージョン率の折れ線グラフを追加
-        fig.add_trace(go.Scatter(name='コンバージョン率', x=device_stats['デバイス'], y=device_stats['コンバージョン率'], yaxis='y2', mode='lines+markers',
-                                 hovertemplate='デバイス: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>'))
+        fig.add_trace(go.Bar(name='セッション数', x=device_stats['デバイス'], y=device_stats['セッション数'], yaxis='y', offsetgroup=1))
+        fig.add_trace(go.Bar(name='コンバージョン数', x=device_stats['デバイス'], y=device_stats['コンバージョン数'], yaxis='y', offsetgroup=2))
+        fig.add_trace(go.Scatter(name='コンバージョン率', x=device_stats['デバイス'], y=device_stats['コンバージョン率'], yaxis='y2', mode='lines+markers'))
         
         fig.update_layout(
             yaxis=dict(title='セッション数 / コンバージョン数'),
-            yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right', showgrid=False),
-            height=400,
-            dragmode=False,
-            legend=dict(x=0, y=1.1, orientation='h')
+            yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right'),
+            height=400
         )
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_combined')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_3')
     
     # チャネル別分析
     if show_channel_breakdown:
         st.markdown("#### チャネル別分析")
-        st.markdown('<div class="graph-description">流入経路（Google、SNS、直接アクセスなど）ごとのパフォーマンスを比較します。効果的な集客チャネルを特定できます。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">流入経路（Google、SNS、直接アクセスなど）ごとのパフォーマンスを比較します。効果的な集客チャネルを特定できます。</div>', unsafe_allow_html=True)
         channel_stats = filtered_df.groupby('channel').agg({
             'session_id': 'nunique',
             'stay_ms': 'mean'
@@ -702,113 +629,71 @@ if selected_analysis == "全体サマリー":
         
         with col1:
             fig = px.pie(channel_stats, values='セッション数', names='チャネル', title='チャネル別セッション数')
-            fig.update_traces(hovertemplate='チャネル: %{label}<br>セッション数: %{value:,} (%{percent})<extra></extra>')
-            fig.update_layout(dragmode=False)
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_4')
         
         with col2:
             fig = px.bar(channel_stats, x='チャネル', y='コンバージョン率', title='チャネル別コンバージョン率')
-            fig.update_traces(hovertemplate='チャネル: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-            fig.update_layout(dragmode=False)
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_5')
-
+    
     # LP進行ファネルと滞在時間別ファネル
     if show_funnel:
-        st.markdown("#### LP進行状況とページ内滞在時間")
-
-        # LPのページ数をデータから動的に取得
-        actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df['page_num_dom'].dropna().empty else 10
-
+        st.markdown("③③ LP進行ファネルと滞在時間別ファネル")
+        st.markdown('<div class="graph-description">ユーザーがLPを進む過程で、各ページでどれだけ離脱したかを可視化します。</div>', unsafe_allow_html=True)
+        
+        # 実際のページ数を取得
+        max_page = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 10
+        
+        # 2カラムレイアウト
         col1, col2 = st.columns(2)
-
+        
         with col1:
+            st.markdown("**LP進行ファネル**")
             funnel_data = []
-            for page_num in range(1, actual_page_count + 1):
+            for page_num in range(1, max_page + 1):
                 count = filtered_df[filtered_df['max_page_reached'] >= page_num]['session_id'].nunique()
                 funnel_data.append({'ページ': f'ページ{page_num}', 'セッション数': count})
             
             funnel_df = pd.DataFrame(funnel_data)
             
-            fig_funnel = go.Figure(go.Funnel(
+            fig = go.Figure(go.Funnel(
                 y=funnel_df['ページ'],
                 x=funnel_df['セッション数'],
-                textinfo="value+percent initial",
-                hovertemplate='ページ: %{y}<br>セッション数: %{x:,}<extra></extra>'
+                textinfo="value+percent initial"
             ))
-            fig_funnel.update_layout(height=600, dragmode=False)
-            st.markdown("**LP進行ファネル**")
-            st.markdown('<div class="graph-description">各ページに到達したセッション数と、次のページへの遷移率です。急激に減少している箇所が大きな離脱ポイントです。</div>', unsafe_allow_html=True) # type: ignore
-            st.plotly_chart(fig_funnel, use_container_width=True, key='plotly_chart_funnel_revived')
-
+            fig.update_layout(height=600)
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_6')
+        
         with col2:
-            # 滞在時間セグメントを定義
-            stay_segments_for_calc = [
+            st.markdown("**滞在時間別ファネル**")
+            # 滞在時間別のセグメントを作成
+            stay_segments = [
                 ('0-10秒', 0, 10000),
                 ('10-30秒', 10000, 30000),
                 ('30-60秒', 30000, 60000),
                 ('1-3分', 60000, 180000),
-                ('3分以上', 180000, float('inf'))
+                ('3-5分', 180000, 300000),
+                ('5分以上', 300000, float('inf'))
             ]
             
-            # ページごとの滞在時間別セッション数を計算
-            page_stay_data = []
-            for page_num in range(1, actual_page_count + 1):
-                # そのページに到達したセッションIDを取得
-                reached_session_ids = set(filtered_df[filtered_df['max_page_reached'] >= page_num]['session_id'].unique())
-                total_reached = len(reached_session_ids)
-                
-                # そのページでの滞在時間イベントを持つセッションを取得
-                page_specific_stay = filtered_df[
-                    (filtered_df['page_num_dom'] == page_num) & 
-                    (filtered_df['session_id'].isin(reached_session_ids)) &
-                    (filtered_df['stay_ms'].notna()) # NaN値を除外
-                ]
-                
-                row = {'ページ': f'ページ{page_num}', 'ページ番号': page_num}
-                
-                # そのページで滞在時間イベントがあったセッションの総数
-                total_sessions_with_stay = page_specific_stay['session_id'].nunique()
-
-                for label, min_ms, max_ms in stay_segments_for_calc:
-                    segment_sessions_count = page_specific_stay[
-                        (page_specific_stay['stay_ms'] >= min_ms) & 
-                        (page_specific_stay['stay_ms'] < max_ms)
-                    ]['session_id'].nunique()
-                    
-                    # 滞在時間イベントがあったセッション内での割合を計算
-                    row[label] = (segment_sessions_count / total_sessions_with_stay * 100) if total_sessions_with_stay > 0 else 0
-                
-                page_stay_data.append(row)
-
-            page_stay_df = pd.DataFrame(page_stay_data).sort_values('ページ番号', ascending=False)
-
-            # 積み上げ棒グラフでファネルを表現
-            fig_stay_pct = go.Figure()            
-            # YlGnBuスケールから濃い青系の5色を選択
-            colors = px.colors.sequential.YlGnBu[2:7]
-            colors[-1] = '#08306b' # 一番濃い色を濃紺に設定
+            stay_funnel_data = []
+            for label, min_ms, max_ms in stay_segments:
+                count = filtered_df[(filtered_df['stay_ms'] >= min_ms) & (filtered_df['stay_ms'] < max_ms)]['session_id'].nunique()
+                stay_funnel_data.append({'滞在時間': label, 'セッション数': count})
             
-            for i, (label, _, _) in enumerate(stay_segments_for_calc):
-                fig_stay_pct.add_trace(go.Bar(
-                    y=page_stay_df['ページ'],
-                    x=page_stay_df[label],
-                    name=label,
-                    orientation='h', # type: ignore
-                    hovertemplate='ページ: %{y}<br>割合: %{x:.2f}%<extra></extra>',
-                    marker_color=colors[i]
-                ))
-
-            fig_stay_pct.update_layout(barmode='stack', height=600,
-                              xaxis_title='セッションの割合 (%)', yaxis_title='ページ', dragmode=False,
-                              xaxis_ticksuffix='%', legend=dict(traceorder='normal'))
-            st.markdown("**ページ内滞在時間の分布**")
-            st.markdown('<div class="graph-description">各ページに到達し、滞在時間が計測されたセッションの行動内訳です。横軸は割合（%）を表します。</div>', unsafe_allow_html=True) # type: ignore
-            st.plotly_chart(fig_stay_pct, use_container_width=True, key='plotly_chart_stay_percentage')
+            stay_funnel_df = pd.DataFrame(stay_funnel_data)
+            
+            fig2 = go.Figure(go.Funnel(
+                y=stay_funnel_df['滞在時間'],
+                x=stay_funnel_df['セッション数'],
+                textinfo="value+percent initial"
+            ))
+            fig2.update_layout(height=600)
+            st.plotly_chart(fig2, use_container_width=True, key='plotly_chart_stay_funnel')
     
     # 時間帯別CVR
     if show_hourly_cvr:
         st.markdown("#### 時間帯別コンバージョン率")
-        st.markdown('<div class="graph-description">1日の中で、どの時間帯にCVRが高いかを分析します。広告配信の最適な時間帯を見つけることができます。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">1日の中で、どの時間帯にCVRが高いかを分析します。広告配信の最適な時間帯を見つけることができます。</div>', unsafe_allow_html=True)
         filtered_df['hour'] = filtered_df['event_timestamp'].dt.hour
         
         hourly_sessions = filtered_df.groupby('hour')['session_id'].nunique().reset_index()
@@ -821,14 +706,13 @@ if selected_analysis == "全体サマリー":
         hourly_cvr['コンバージョン率'] = (hourly_cvr['コンバージョン数'] / hourly_cvr['セッション数'] * 100)
         
         fig = px.bar(hourly_cvr, x='時間', y='コンバージョン率')
-        fig.update_traces(hovertemplate='時間: %{x}時台<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-        fig.update_layout(height=400, xaxis_title='時間帯', dragmode=False)
+        fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_7')
     
     # 曜日別CVR
     if show_dow_cvr:
         st.markdown("#### 曜日別コンバージョン率")
-        st.markdown('<div class="graph-description">曜日ごとのCVRの違いを分析します。平日と週末でのユーザー行動の変化を把握できます。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">曜日ごとのCVRの違いを分析します。平日と週末でのユーザー行動の変化を把握できます。</div>', unsafe_allow_html=True)
         filtered_df['dow'] = filtered_df['event_timestamp'].dt.day_name()
         dow_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         dow_map = {'Monday': '月', 'Tuesday': '火', 'Wednesday': '水', 'Thursday': '木', 'Friday': '金', 'Saturday': '土', 'Sunday': '日'}
@@ -846,14 +730,13 @@ if selected_analysis == "全体サマリー":
         dow_cvr = dow_cvr.sort_values('曜日_order')
         
         fig = px.bar(dow_cvr, x='曜日_日本語', y='コンバージョン率')
-        fig.update_traces(hovertemplate='曜日: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-        fig.update_layout(height=400, xaxis_title='曜日', dragmode=False)
+        fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_8')
     
     # UTM分析
     if show_utm_analysis:
         st.markdown("#### UTM分析")
-        st.markdown('<div class="graph-description">UTMパラメータ（広告タグ）ごとのトラフィックを分析します。どのキャンペーンや媒体が効果的かを把握できます。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">UTMパラメータ（広告タグ）ごとのトラフィックを分析します。どのキャンペーンや媒体が効果的かを把握できます。</div>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
         
@@ -864,32 +747,27 @@ if selected_analysis == "全体サマリー":
             utm_source_stats = utm_source_stats.sort_values('セッション数', ascending=False)
             
             fig = px.bar(utm_source_stats, x='UTMソース', y='セッション数')
-            fig.update_layout(dragmode=False)
-            fig.update_traces(hovertemplate='UTMソース: %{x}<br>セッション数: %{y:,}<extra></extra>')
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_9') # type: ignore
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_9')
         
         with col2:
             st.markdown("**UTMメディア別**")
             utm_medium_stats = filtered_df.groupby('utm_medium')['session_id'].nunique().reset_index()
             utm_medium_stats.columns = ['UTMメディア', 'セッション数']
             utm_medium_stats = utm_medium_stats.sort_values('セッション数', ascending=False)
-
+            
             fig = px.bar(utm_medium_stats, x='UTMメディア', y='セッション数')
-            fig.update_layout(dragmode=False)
-            fig.update_traces(hovertemplate='UTMメディア: %{x}<br>セッション数: %{y:,}<extra></extra>')
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_10') # type: ignore
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_10')
     
     # 読込時間分析
     if show_load_time:
         st.markdown("#### 読込時間分析")
-        st.markdown('<div class="graph-description">デバイスごとのページ読込時間を分析します。読込が遅いと離脱率が上がるため、最適化が重要です。</div>', unsafe_allow_html=True) # type: ignore
+        st.markdown('<div class="graph-description">デバイスごとのページ読込時間を分析します。読込が遅いと離脱率が上がるため、最適化が重要です。</div>', unsafe_allow_html=True)
         
         load_time_stats = filtered_df.groupby('device_type')['load_time_ms'].mean().reset_index()
         load_time_stats.columns = ['デバイス', '平均読込時間(ms)']
         
         fig = px.bar(load_time_stats, x='デバイス', y='平均読込時間(ms)')
-        fig.update_traces(hovertemplate='デバイス: %{x}<br>平均読込時間: %{y:.0f}ms<extra></extra>')
-        fig.update_layout(height=400, yaxis_title='平均読込時間 (ms)', dragmode=False)
+        fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_11')
 
 # 続く...（次のファイルでタブ2以降を実装）
@@ -1004,7 +882,7 @@ elif selected_analysis == "ページ分析":
     if selected_lp:
         pass # 選択されたLPのURL表示は削除
     else:
-        st.warning("ページ分析を行うには、フィルターで分析したいLPを選択してください。")
+        st.error("⚠️ LPが選択されていません。")
         st.stop()
     
     # --- BigQueryデータシミュレーション ---
@@ -1085,15 +963,15 @@ elif selected_analysis == "ページ分析":
         if page_num not in page_stats['ページ番号'].values:
             # ダミーデータがないページはランダムなダミー値で追加
             # ページが進むほどビュー数が減少するパターン
-            base_views = 500
-            page_views = int(base_views * (0.8 ** (page_num - 1)) + random.randint(-20, 20))
+            base_views = 1000
+            page_views = int(base_views * (0.7 ** (page_num - 1)) + random.randint(-50, 50))
             new_row = pd.DataFrame([{
                 'ページ番号': page_num,
                 'ビュー数': max(page_views, 10),  # 最低10
-                '平均滞在時間(ms)': random.randint(5000, 200000), # 3分以上のデータも生成
+                '平均滞在時間(ms)': random.randint(3000, 8000),
                 '平均逆行率': random.uniform(5, 15),
                 '平均読込時間(ms)': random.randint(800, 1500),
-                '平均滞在時間(秒)': random.randint(5000, 200000) / 1000,
+                '平均滞在時間(秒)': random.randint(3000, 8000) / 1000,
                 '離脱率': 0  # 離脱率は別途計算
             }])
             page_stats = pd.concat([page_stats, new_row], ignore_index=True)
@@ -1240,7 +1118,7 @@ elif selected_analysis == "ページ分析":
                 use_container_width=True
             )
     else:
-        st.warning("テーブルデータが空です。")
+        st.warning("⚠️ テーブルデータが空です。")
     
     st.markdown("---")
     
@@ -1302,7 +1180,7 @@ elif selected_analysis == "ページ分析":
         )
         st.plotly_chart(fig_scatter, use_container_width=True, key='plotly_chart_scatter_exit_stay')
     else:
-        st.info("ポジショニングマップを表示するには、2ページ以上のデータが必要です。")
+        st.info("データがありません。")
     
     st.markdown("---")
     
@@ -1334,9 +1212,9 @@ elif selected_analysis == "ページ分析":
         high_exit_pages['ページ番号'] = high_exit_pages['ページ番号'].astype(int)
         st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True, height=212) # 高さを固定
     
-    # 逆行パターン（最後に移動）
+    # 逆行パターン
     st.markdown("#### 逆行パターン（戻る動作）")
-    st.markdown('<div class="graph-description">ユーザーがページを戻る動作を分析します。頻繁に戻るパターンがある場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown('<div class="graph-description">ユーザーがページを戻る動作を分析します。頻繁に戻るパターンがある場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True)
     backward_df = filtered_df[filtered_df['direction'] == 'backward']
     
     if len(backward_df) > 0:
@@ -1350,113 +1228,18 @@ elif selected_analysis == "ページ分析":
 
 
 
+
 # タブ3: セグメント分析
 elif selected_analysis == "セグメント分析":
-    st.markdown('<div class="sub-header">セグメント分析</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="segment_analysis_period")
+    st.markdown('<div class="sub-header">👥 セグメント分析</div>', unsafe_allow_html=True)
     
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="segment_analysis_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="segment_analysis_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="segment_analysis_compare_select")
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="segment_analysis_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="segment_analysis_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
     # セグメント選択
     segment_type = st.selectbox("分析するセグメントを選択", [
-        "デバイス別", "チャネル別", "UTMソース別", "A/Bテスト別"
-    ], key="segment_analysis_segment_type")
+        "デバイス別",
+        "チャネル別",
+        "UTMソース別",
+        "A/Bテスト別"
+    ])
     
     if segment_type == "デバイス別":
         segment_col = 'device_type'
@@ -1512,119 +1295,16 @@ elif selected_analysis == "セグメント分析":
     
     with col1:
         fig = px.bar(segment_stats, x=segment_name, y='コンバージョン率', title=f'{segment_type}のコンバージョン率')
-        fig.update_layout(dragmode=False)
-        fig.update_traces(hovertemplate='%{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_14')
     
     with col2:
         fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間(秒)', title=f'{segment_type}の平均滞在時間')
-        fig.update_layout(dragmode=False)
-        fig.update_traces(hovertemplate='%{x}<br>平均滞在時間: %{y:.1f}秒<extra></extra>')
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15') # type: ignore
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15')
 
 # タブ4: A/Bテスト分析
 elif selected_analysis == "A/Bテスト分析":
-    st.markdown('<div class="sub-header">A/Bテスト分析</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="ab_test_period")
+    st.markdown('<div class="sub-header">🧪 A/Bテスト分析</div>', unsafe_allow_html=True)
     
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="ab_test_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="ab_test_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ab_test_compare_select")
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="ab_test_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="ab_test_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
     # A/Bテスト種別のマッピング
     test_type_map = {
         'hero_image': 'FVテスト',
@@ -1640,7 +1320,7 @@ elif selected_analysis == "A/Bテスト分析":
         test_targets = filtered_df['ab_test_target'].dropna().unique()
         if len(test_targets) > 0:
             test_names = [test_type_map.get(t, t) for t in test_targets]
-            st.info(f"実施中のA/Bテスト: {', '.join(test_names)}")
+            st.info(f"🎯 実施中のA/Bテスト: {', '.join(test_names)}")
     
     # A/Bテスト統計（バリアントで統一）
     ab_stats = filtered_df.groupby('ab_variant').agg({
@@ -1675,7 +1355,9 @@ elif selected_analysis == "A/Bテスト分析":
     ab_stats['最終CTA到達率'] = (ab_stats['最終CTA到達数'] / ab_stats['セッション数'] * 100)
     
     # 有意差判定（カイ二乗検定）
-    if chi2_contingency and len(ab_stats) >= 2:
+    from scipy.stats import chi2_contingency
+    
+    if len(ab_stats) >= 2:
         # ベースライン（最初のバリアント）と比較
         baseline = ab_stats.iloc[0]
         ab_stats['CVR向上率'] = ((ab_stats['コンバージョン率'] - baseline['コンバージョン率']) / baseline['コンバージョン率'] * 100)
@@ -1700,7 +1382,7 @@ elif selected_analysis == "A/Bテスト分析":
         ab_stats['p値'] = p_values
         ab_stats['有意差'] = ab_stats['p値'].apply(lambda x: '★★★' if x < 0.01 else ('★★' if x < 0.05 else ('★' if x < 0.1 else '-')))
         ab_stats['有意性'] = 1 - ab_stats['p値']  # バブルチャート用
-    else: # 有意差検定が不要または実行できない場合
+    else:
         ab_stats['CVR向上率'] = 0
         ab_stats['p値'] = 1.0
         ab_stats['有意差'] = '-'
@@ -1722,9 +1404,9 @@ elif selected_analysis == "A/Bテスト分析":
     
     # CVR向上率×有意性のバブルチャート
     st.markdown("#### CVR向上率×有意性バブルチャート")
-    st.markdown('<div class="graph-description">CVR向上率（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR向上率×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True) # type: ignore
-
-    if chi2_contingency and len(ab_stats) >= 2:
+    st.markdown('<div class="graph-description">CVR向上率（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR向上率×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True)
+    
+    if len(ab_stats) >= 2:
         # ベースラインを除外
         ab_bubble = ab_stats[ab_stats.index > 0].copy()
         
@@ -1732,7 +1414,7 @@ elif selected_analysis == "A/Bテスト分析":
                         x='CVR向上率', 
                         y='有意性',
                         size='セッション数',
-                        text='バリアント', # type: ignore
+                        text='バリアント',
                         hover_data=['コンバージョン率', 'p値', '有意差'],
                         title='CVR向上率 vs 有意性')
         
@@ -1742,8 +1424,8 @@ elif selected_analysis == "A/Bテスト分析":
         fig.add_vline(x=0, line_dash="dash", line_color="gray")
         
         fig.update_traces(textposition='top center')
-        fig.update_layout(height=500,
-                         xaxis_title='CVR向上率 (%)', dragmode=False,
+        fig.update_layout(height=500, 
+                         xaxis_title='CVR向上率 (%)',
                          yaxis_title='有意性 (1 - p値)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
@@ -1753,7 +1435,7 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown("#### A/BテストCVR比較")
     fig = px.bar(ab_stats, x='バリアント', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)', dragmode=False)
+    fig.update_layout(height=400)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_16')
     
     # A/Bテスト時系列推移
@@ -1774,115 +1456,13 @@ elif selected_analysis == "A/Bテスト分析":
     ab_daily['コンバージョン率'] = (ab_daily['コンバージョン数'] / ab_daily['セッション数'] * 100)
     
     fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='バリアント', markers=True)
-    fig.update_layout(height=400, yaxis_title='コンバージョン率 (%)', dragmode=False)
+    fig.update_layout(height=400)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_17')
 
 # タブ5: インタラクション分析
 elif selected_analysis == "インタラクション分析":
-    st.markdown('<div class="sub-header">インタラクション分析</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="interaction_period")
+    st.markdown('<div class="sub-header">👆 インタラクション分析</div>', unsafe_allow_html=True)
     
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="interaction_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="interaction_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="interaction_compare_select")
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="interaction_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="interaction_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # このページで必要なKPIを計算
-    total_sessions = filtered_df['session_id'].nunique()
-
     # インタラクションダミーデータを生成
     interaction_data = {
         '要素': ['CTAボタン', 'フローティングバナー', '離脱防止ポップアップ', '会社情報リンク'],
@@ -1900,7 +1480,7 @@ elif selected_analysis == "インタラクション分析":
     
     # インタラクション要素一覧表
     st.markdown("#### インタラクション要素一覧")
-    st.markdown('<div class="graph-description">LP内の各インタラクション要素の表示回数、クリック数、クリック率を表示します。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown('<div class="graph-description">LP内の各インタラクション要素の表示回数、クリック数、クリック率を表示します。</div>', unsafe_allow_html=True)
     
     st.dataframe(interaction_df.style.format({
         '表示回数': '{:,.0f}',
@@ -1910,25 +1490,25 @@ elif selected_analysis == "インタラクション分析":
     
     # CTR比較グラフ
     st.markdown("#### 要素別クリック率 (CTR) 比較")
-    st.markdown('<div class="graph-description">各インタラクション要素のCTRを比較します。CTRが高い要素はユーザーの関心を引いています。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown('<div class="graph-description">各インタラクション要素のCTRを比較します。CTRが高い要素はユーザーの関心を引いています。</div>', unsafe_allow_html=True)
     
     fig = px.bar(interaction_df, x='要素', y='クリック率 (CTR)', text='クリック率 (CTR)')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='CTR (%)', dragmode=False)
+    fig.update_layout(height=400, xaxis_title='インタラクション要素', yaxis_title='CTR (%)')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_ctr')
     
     # クリック数比較グラフ
     st.markdown("#### 要素別クリック数 (CTs) 比較")
-    st.markdown('<div class="graph-description">各インタラクション要素の絶対クリック数を比較します。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown('<div class="graph-description">各インタラクション要素の絶対クリック数を比較します。</div>', unsafe_allow_html=True)
     
     fig = px.bar(interaction_df, x='要素', y='クリック数 (CTs)', text='クリック数 (CTs)')
     fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='クリック数', dragmode=False)
+    fig.update_layout(height=400, xaxis_title='インタラクション要素', yaxis_title='クリック数')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_cts')
     
     # デバイス別分析
     st.markdown("#### デバイス別インタラクション分析")
-    st.markdown('<div class="graph-description">デバイスごとのインタラクション率を比較します。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown('<div class="graph-description">デバイスごとのインタラクション率を比較します。</div>', unsafe_allow_html=True)
     
     device_interaction_data = {
         'デバイス': ['PC', 'スマートフォン', 'タブレット'],
@@ -1948,120 +1528,18 @@ elif selected_analysis == "インタラクション分析":
 
 # タブ6: 動画・スクロール分析
 elif selected_analysis == "動画・スクロール分析":
-    st.markdown('<div class="sub-header">動画・スクロール分析</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="video_scroll_period")
+    st.markdown('<div class="sub-header">🎬 動画・スクロール分析</div>', unsafe_allow_html=True)
     
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="video_scroll_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="video_scroll_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="video_scroll_compare_select")
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="video_scroll_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="video_scroll_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # このページで必要なKPIを計算
-    total_sessions = filtered_df['session_id'].nunique()
-
     # 逆行率分析
-    st.markdown("ページ別平均逆行率")
-    st.markdown('<div class="graph-description">各ページでユーザーがどれだけ逆方向にスクロールしたかを表示します。逆行率が高いページは、ユーザーが迷っているまたは情報を再確認している可能性があります。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown("③③ ページ別平均逆行率")
+    st.markdown('<div class="graph-description">各ページでユーザーがどれだけ逆方向にスクロールしたかを表示します。逆行率が高いページは、ユーザーが迷っているまたは情報を再確認している可能性があります。</div>', unsafe_allow_html=True)
     scroll_stats = filtered_df.groupby('page_num_dom')['scroll_pct'].mean().reset_index()
     scroll_stats.columns = ['ページ番号', '平均逆行率']
     scroll_stats['平均逆行率(%)'] = scroll_stats['平均逆行率'] * 100
     
     fig = px.bar(scroll_stats, x='ページ番号', y='平均逆行率(%)', text='平均逆行率(%)')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均逆行率 (%)', dragmode=False)
+    fig.update_layout(height=400)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_18')
     
     # 動画視聴分析（動画イベントがある場合）
@@ -2102,12 +1580,12 @@ elif selected_analysis == "動画・スクロール分析":
         
         fig = px.bar(comparison_data, x='グループ', y='コンバージョン率', text='コンバージョン率')
         fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)', dragmode=False)
+        fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_19')
     
     # 逆行率別CVR
-    st.markdown("逆行率別コンバージョン率")
-    st.markdown('<div class="graph-description">逆行率の範囲ごとにコンバージョン率を表示します。逆行率が高いほどコンバージョン率が低い傾向があるかを確認できます。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown("③③ 逆行率別コンバージョン率")
+    st.markdown('<div class="graph-description">逆行率の範囲ごとにコンバージョン率を表示します。逆行率が高いほどコンバージョン率が低い傾向があるかを確認できます。</div>', unsafe_allow_html=True)
     
     # 逆行率を区間に分ける
     filtered_df_scroll = filtered_df.copy()
@@ -2127,112 +1605,13 @@ elif selected_analysis == "動画・スクロール分析":
     
     fig = px.bar(scroll_range_stats, x='逆行率', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='逆行率', yaxis_title='コンバージョン率 (%)', dragmode=False)
+    fig.update_layout(height=400)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_20')
 
 # タブ6: 時系列分析
 elif selected_analysis == "時系列分析":
-    st.markdown('<div class="sub-header">時系列分析</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="timeseries_period")
+    st.markdown('<div class="sub-header">📈 時系列分析</div>', unsafe_allow_html=True)
     
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="timeseries_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="timeseries_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="timeseries_compare_select")
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="timeseries_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="timeseries_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
     # 日別推移
     st.markdown("#### 日別推移")
     
@@ -2272,12 +1651,17 @@ elif selected_analysis == "時系列分析":
     
     # グラフ選択
     metric_to_plot = st.selectbox("表示する指標を選択", [
-        "セッション数", "コンバージョン数", "コンバージョン率", "FV残存率",
-        "最終CTA到達率", "平均到達ページ数", "平均滞在時間(秒)"
-    ], key="timeseries_metric_select")
+        "セッション数",
+        "コンバージョン数",
+        "コンバージョン率",
+        "FV残存率",
+        "最終CTA到達率",
+        "平均到達ページ数",
+        "平均滞在時間(秒)"
+    ])
     
     fig = px.line(daily_stats, x='日付', y=metric_to_plot, markers=True)
-    fig.update_layout(height=400, yaxis_title=metric_to_plot, dragmode=False)
+    fig.update_layout(height=400)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_21')
     
     # 月間推移（データが十分にある場合）
@@ -2306,603 +1690,174 @@ elif selected_analysis == "時系列分析":
         fig.update_layout(
             yaxis=dict(title='セッション数'),
             yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right'),
-            height=400,
-            dragmode=False
+            height=400
         )
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_22')
 
-    st.markdown("---")
-
-    # 曜日・時間帯別 CVRヒートマップ
-    st.markdown("#### 曜日・時間帯別 CVRヒートマップ")
-    st.markdown('<div class="graph-description">曜日と時間帯をクロス集計し、コンバージョン率（CVR）をヒートマップで表示します。色が濃い部分がCVRの高い「ゴールデンタイム」です。</div>', unsafe_allow_html=True)
-
-    # 曜日と時間の列を追加
-    heatmap_df = filtered_df.copy()
-    heatmap_df['hour'] = heatmap_df['event_timestamp'].dt.hour
-    heatmap_df['dow_name'] = heatmap_df['event_timestamp'].dt.day_name()
-
-    # 時間と曜日でグループ化してセッション数とCV数を計算
-    heatmap_sessions = heatmap_df.groupby(['hour', 'dow_name'])['session_id'].nunique().reset_index(name='セッション数')
-    heatmap_cv = heatmap_df[heatmap_df['cv_type'].notna()].groupby(['hour', 'dow_name'])['session_id'].nunique().reset_index(name='コンバージョン数')
-
-    # データをマージしてCVRを計算
-    heatmap_stats = pd.merge(heatmap_sessions, heatmap_cv, on=['hour', 'dow_name'], how='left').fillna(0)
-    heatmap_stats['コンバージョン率'] = (heatmap_stats['コンバージョン数'] / heatmap_stats['セッション数'] * 100).fillna(0)
-
-    # 曜日の順序を定義
-    dow_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    dow_map_jp = {'Monday': '月', 'Tuesday': '火', 'Wednesday': '水', 'Thursday': '木', 'Friday': '金', 'Saturday': '土', 'Sunday': '日'}
-    heatmap_stats['dow_name'] = pd.Categorical(heatmap_stats['dow_name'], categories=dow_order, ordered=True)
-    heatmap_stats = heatmap_stats.sort_values(['dow_name', 'hour'])
-
-    # ピボットテーブルを作成
-    heatmap_pivot = heatmap_stats.pivot_table(index='dow_name', columns='hour', values='コンバージョン率')
-    heatmap_pivot = heatmap_pivot.reindex(dow_order) # 曜日の順序を保証
-    heatmap_pivot.index = heatmap_pivot.index.map(dow_map_jp) # 曜日を日本語に変換
-
-    # ヒートマップを描画
-    fig_heatmap = go.Figure(data=go.Heatmap(
-        z=heatmap_pivot.values,
-        x=[f"{h}時" for h in heatmap_pivot.columns],
-        y=heatmap_pivot.index,
-        colorscale='Blues',
-        hovertemplate='曜日: %{y}<br>時間帯: %{x}<br>CVR: %{z:.2f}%<extra></extra>'
-    ))
-    fig_heatmap.update_layout(title='曜日・時間帯別 CVR', height=500, dragmode=False)
-    st.plotly_chart(fig_heatmap, use_container_width=True, key='plotly_chart_heatmap_cvr')
-
 # タブ7: リアルタイム分析
-elif selected_analysis == "リアルタイムビュー":
-    st.markdown('<div class="sub-header">リアルタイムビュー</div>', unsafe_allow_html=True)
+elif selected_analysis == "リアルタイム分析":
+    st.markdown('<div class="sub-header">リアルタイム分析</div>', unsafe_allow_html=True)
+    st.markdown("直近1時間のデータをリアルタイムで確認できます")
     
     # 直近1時間のデータをフィルタリング
-    one_hour_ago = df['event_timestamp'].max() - timedelta(hours=1)
-    realtime_df = df[df['event_timestamp'] >= one_hour_ago]
+    one_hour_ago = filtered_df['event_timestamp'].max() - timedelta(hours=1)
+    realtime_df = filtered_df[filtered_df['event_timestamp'] >= one_hour_ago]
     
     if len(realtime_df) > 0:
-        # KPI計算
+        # リアルタイムKPI
         rt_sessions = realtime_df['session_id'].nunique()
-        rt_avg_pages = realtime_df.groupby('session_id')['max_page_reached'].max().mean()
+        rt_conversions = realtime_df[realtime_df['cv_type'].notna()]['session_id'].nunique()
+        rt_cvr = (rt_conversions / rt_sessions * 100) if rt_sessions > 0 else 0
         rt_avg_stay = realtime_df['stay_ms'].mean() / 1000
-        rt_fv_retention = (realtime_df[realtime_df['max_page_reached'] >= 2]['session_id'].nunique() / rt_sessions * 100) if rt_sessions > 0 else 0
-        rt_avg_load = realtime_df['load_time_ms'].mean()
-
-        # KPI表示
-        st.markdown("#### 直近1時間のモニタリング")
-        st.markdown("直近1時間で急な変化や異常がないかを確認します")
-        kpi_cols = st.columns(5)
-        kpi_cols[0].metric("セッション数", f"{rt_sessions:,}")
-        kpi_cols[1].metric("平均到達ページ数", f"{rt_avg_pages:.1f}")
-        kpi_cols[2].metric("平均滞在時間", f"{rt_avg_stay:.1f}秒")
-        kpi_cols[3].metric("FV残存率", f"{rt_fv_retention:.1f}%")
-        kpi_cols[4].metric("平均読込時間", f"{rt_avg_load:.0f}ms")
-
-        st.markdown("---")
-
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("セッション数", f"{rt_sessions:,}")
+        
+        with col2:
+            st.metric("コンバージョン数", f"{rt_conversions}")
+        
+        with col3:
+            st.metric("コンバージョン率", f"{rt_cvr:.2f}%")
+        
+        with col4:
+            st.metric("平均滞在時間", f"{rt_avg_stay:.1f}秒")
+        
         # 分単位の推移
-        st.markdown("#### 直近1時間のセッション数推移（10分単位）")
-        st.markdown("直近1時間のセッション数を、10分ごとに集計して表示します")
+        st.markdown("#### 直近1時間のセッション数推移（分10分単位）")
+        st.markdown("直近1時間のデータを、10分ごとに集計して表示します")
         
         realtime_df['minute_bin'] = realtime_df['event_timestamp'].dt.floor('10T')
         rt_trend = realtime_df.groupby('minute_bin')['session_id'].nunique().reset_index()
         rt_trend.columns = ['時刻', 'セッション数']
         
-        fig = px.area(rt_trend, x='時刻', y='セッション数', markers=True)
-        fig.update_layout(height=400, yaxis_title='セッション数', dragmode=False)
+        fig = px.line(rt_trend, x='時刻', y='セッション数', markers=True)
+        fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')
     else:
         st.info("直近1時間のデータがありません")
 
 # タブ8: カスタムオーディエンス
 elif selected_analysis == "デモグラフィック情報":
-    st.markdown('<div class="sub-header">デモグラフィック情報</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True) # type: ignore
-
-    # --- フィルター設定 ---
-    filter_cols = st.columns(4)
-    with filter_cols[0]:
-        period_options = {"過去7日間": 7, "過去30日間": 30, "過去90日間": 90, "カスタム期間": None}
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
-
-    with filter_cols[1]:
-        lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="demographic_lp")
-
-    with filter_cols[2]:
-        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="demographic_device")
-
-    with filter_cols[3]:
-        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="demographic_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="demographic_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="demographic_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="demographic_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="demographic_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp and selected_lp != "すべて":
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-    
-    # --- クロス分析用フィルター適用 ---
-    if selected_device != "すべて":
-        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
-
-    if selected_channel != "すべて":
-        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.to_datetime(start_date), pd.to_datetime(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp != "すべて":
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # このページで必要なKPIを計算
-    total_sessions = filtered_df['session_id'].nunique()
-
+    st.markdown('<div class="sub-header">👥 デモグラフィック情報</div>', unsafe_allow_html=True)
     st.markdown("ユーザーの属性情報（年齢、性別、地域、デバイス）を分析します。")
-
+    
     # 年齢層別分析
-    with st.expander("年齢層別分析", expanded=True):
-        st.markdown('<div class="graph-description">年齢層ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
-        # 年齢層のダミーデータを 'age_group' 列として追加（BigQueryに実データがあればこの処理は不要）
-        if 'age_group' not in filtered_df.columns:
-            age_bins = [18, 25, 35, 45, 55, 65, 100]
-            age_labels = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+']
-            # 'age' 列がない場合はダミーの年齢を生成
-            if 'age' not in filtered_df.columns:
-                filtered_df['age'] = np.random.randint(18, 80, size=len(filtered_df))
-            filtered_df['age_group'] = pd.cut(filtered_df['age'], bins=age_bins, labels=age_labels, right=False)
-
-        # 年齢層別に集計
-        age_sessions = filtered_df.groupby('age_group')['session_id'].nunique()
-        age_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('age_group')['session_id'].nunique()
-        age_stay = filtered_df.groupby('age_group')['stay_ms'].mean() / 1000
-
-        age_demo_df = pd.DataFrame({
-            'セッション数': age_sessions,
-            'CV数': age_cv,
-            '平均滞在時間 (秒)': age_stay
-        }).fillna(0).reset_index().rename(columns={'age_group': '年齢層'})
-        age_demo_df['CVR (%)'] = (age_demo_df['CV数'] / age_demo_df['セッション数'] * 100).fillna(0)
-
-        st.dataframe(age_demo_df.style.format({
-            'セッション数': '{:,.0f}',
-            'CV数': '{:,.0f}',
-            'CVR (%)': '{:.1f}%',
-            '平均滞在時間 (秒)': '{:.1f}'
-        }), use_container_width=True, hide_index=True)
-
-        fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
+    st.markdown("#### 年齢層別分析")
+    st.markdown('<div class="graph-description">年齢層ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
+    
+    age_demo_data = {
+        '年齢層': ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'],
+        'セッション数': [int(total_sessions * 0.15), int(total_sessions * 0.35), int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.07), int(total_sessions * 0.03)],
+        'CVR (%)': [2.1, 3.5, 4.2, 3.8, 3.1, 2.5],
+        '平均滞在時間 (秒)': [45.2, 58.3, 67.1, 72.5, 68.9, 55.2]
+    }
+    
+    age_demo_df = pd.DataFrame(age_demo_data)
+    st.dataframe(age_demo_df.style.format({
+        'セッション数': '{:,.0f}',
+        'CVR (%)': '{:.1f}',
+        '平均滞在時間 (秒)': '{:.1f}'
+    }), use_container_width=True, hide_index=True)
+    
+    # 年齢層別CVRグラフ
+    fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
+    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+    fig.update_layout(height=400, xaxis_title='年齢層', yaxis_title='CVR (%)')
+    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
+    
+    # 性別分析
+    st.markdown("#### 性別分析")
+    st.markdown('<div class="graph-description">性別ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
+    
+    gender_demo_data = {
+        '性別': ['男性', '女性', 'その他/未回答'],
+        'セッション数': [int(total_sessions * 0.52), int(total_sessions * 0.45), int(total_sessions * 0.03)],
+        'CVR (%)': [3.2, 3.8, 2.5],
+        '平均滞在時間 (秒)': [62.1, 68.5, 55.2]
+    }
+    
+    gender_demo_df = pd.DataFrame(gender_demo_data)
+    st.dataframe(gender_demo_df.style.format({
+        'セッション数': '{:,.0f}',
+        'CVR (%)': '{:.1f}',
+        '平均滞在時間 (秒)': '{:.1f}'
+    }), use_container_width=True, hide_index=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # 性別割合円グラフ
+        fig = px.pie(gender_demo_df, values='セッション数', names='性別', title='性別割合')
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_pie')
+    
+    with col2:
+        # 性別CVR比較
+        fig = px.bar(gender_demo_df, x='性別', y='CVR (%)', text='CVR (%)')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
-
-    with st.expander("性別分析", expanded=True):
-        st.markdown('<div class="graph-description">性別ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
-        # 性別のダミーデータを 'gender' 列として追加（BigQueryに実データがあればこの処理は不要）
-        if 'gender' not in filtered_df.columns:
-            filtered_df['gender'] = np.random.choice(['男性', '女性', 'その他/未回答'], size=len(filtered_df), p=[0.52, 0.45, 0.03])
-
-        # 性別で集計
-        gender_sessions = filtered_df.groupby('gender')['session_id'].nunique()
-        gender_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('gender')['session_id'].nunique()
-        gender_stay = filtered_df.groupby('gender')['stay_ms'].mean() / 1000
-
-        gender_demo_df = pd.DataFrame({
-            'セッション数': gender_sessions,
-            'CV数': gender_cv,
-            '平均滞在時間 (秒)': gender_stay
-        }).fillna(0).reset_index().rename(columns={'gender': '性別'})
-        gender_demo_df['CVR (%)'] = (gender_demo_df['CV数'] / gender_demo_df['セッション数'] * 100).fillna(0)
-
-        st.dataframe(gender_demo_df.style.format({
-            'セッション数': '{:,.0f}',
-            'CV数': '{:,.0f}',
-            'CVR (%)': '{:.1f}%',
-            '平均滞在時間 (秒)': '{:.1f}'
-        }), use_container_width=True, hide_index=True)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            fig = px.pie(gender_demo_df, values='セッション数', names='性別', title='性別割合')
-            fig.update_layout(height=400, dragmode=False)
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_pie')
-        with col2:
-            fig = px.bar(gender_demo_df, x='性別', y='CVR (%)', text='CVR (%)')
-            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-            fig.update_layout(height=400, showlegend=False, xaxis_title='性別', yaxis_title='CVR (%)', dragmode=False)
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
+        fig.update_layout(height=400, xaxis_title='性別', yaxis_title='CVR (%)')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
     
     # 地域別分析
-    with st.expander("地域別分析", expanded=True):
-        st.markdown('<div class="graph-description">都道府県ごとのセッション数、コンバージョン率を表示します。</div>', unsafe_allow_html=True)
-        
-        # 地域別ダミーデータ（サマリー表用） - これはBigQueryに地域データがない場合の代替として残します
-        # BigQueryに地域データがある場合は、以下も動的生成に切り替えます
-        region_demo_data = {
-            '地域': ['東京都', '大阪府', '神奈川県', '愛知県', '福岡県', '北海道', 'その他'],
-            'セッション数': [int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.10), int(total_sessions * 0.08), int(total_sessions * 0.07), int(total_sessions * 0.06), int(total_sessions * 0.29)],
-            'CVR (%)': [3.8, 3.5, 3.2, 3.1, 3.4, 2.9, 3.0]
-        }
-        region_demo_df = pd.DataFrame(region_demo_data)
-        st.dataframe(region_demo_df.style.format({
-            'セッション数': '{:,.0f}',
-            'CVR (%)': '{:.1f}'
-        }), use_container_width=True, hide_index=True)
-
-        st.markdown("---")
-        st.markdown("##### 都道府県別 CVRマップ")
-
-        # GeoJSONデータを読み込む
-        try:
-            geojson_url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
-            import json
-            import requests
-            
-            @st.cache_data
-            def get_geojson():
-                res = requests.get(geojson_url)
-                return res.json()
-
-            japan_geojson = get_geojson()
-
-            # GeoJSONの各featureに、キーとして使える都道府県名（'東京', '大阪'など）を追加
-            for feature in japan_geojson["features"]:
-                pref_name_full = feature["properties"]["nam_ja"]
-                # '北海道'はそのまま、他は'都','府','県'を削除
-                feature["properties"]["pref_key"] = pref_name_full if pref_name_full == '北海道' else pref_name_full[:-1]
-
-            # 表示用データフレームにもキー列を追加
-            region_demo_df_for_map = region_demo_df.copy()
-            region_demo_df_for_map['pref_key'] = region_demo_df_for_map['地域'].apply(
-                lambda x: x if x == '北海道' else x[:-1] if x not in ['その他'] else 'その他'
-            )
-
-            # 地図用のデータフレームを作成
-            map_df = pd.DataFrame({
-                'pref_key': [f["properties"]["pref_key"] for f in japan_geojson["features"]]
-            })
-
-            # CVRデータをマージ
-            map_df = map_df.merge(region_demo_df_for_map[['pref_key', 'CVR (%)']].rename(columns={'CVR (%)': 'コンバージョン率'}), on='pref_key', how='left')
-
-            # 表にない都道府県は 'その他' のCVRで埋める
-            other_cvr = region_demo_df[region_demo_df['地域'] == 'その他']['CVR (%)'].iloc[0]
-            map_df['コンバージョン率'] = map_df['コンバージョン率'].fillna(other_cvr)
-
-            # 地図を作成
-            fig_map = px.choropleth_mapbox(
-                map_df,
-                geojson=japan_geojson,
-                locations='pref_key', # locationsをキー列に変更
-                featureidkey="properties.pref_key", # featureidkeyをキー列に変更
-                color='コンバージョン率',
-                color_continuous_scale="Blues",
-                range_color=(map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()),
-                mapbox_style="carto-positron",
-                zoom=4.5,
-                center={"lat": 36.2048, "lon": 138.2529},
-                opacity=0.7,
-                labels={'コンバージョン率': 'CVR (%)'},
-                hover_name='pref_key' # ホバー時に都道府県名を表示
-            )
-            fig_map.update_layout(
-                margin={"r":0,"t":0,"l":0,"b":0},
-                height=600,
-                coloraxis_colorbar=dict(
-                    title="CVR (%)",
-                    tickvals=[map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()],
-                    ticktext=[f"{map_df['コンバージョン率'].min():.1f}%", f"{map_df['コンバージョン率'].max():.1f}%"]
-                )
-            )
-            
-            st.plotly_chart(fig_map, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"地図の描画に失敗しました: {e}")
+    st.markdown("#### 地域別分析")
+    st.markdown('<div class="graph-description">都道府県ごとのセッション数、コンバージョン率を表示します。</div>', unsafe_allow_html=True)
+    
+    region_demo_data = {
+        '地域': ['東京都', '大阪府', '神奈川県', '愛知県', '福岡県', '北海道', 'その他'],
+        'セッション数': [int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.10), int(total_sessions * 0.08), int(total_sessions * 0.07), int(total_sessions * 0.06), int(total_sessions * 0.29)],
+        'CVR (%)': [3.8, 3.5, 3.2, 3.1, 3.4, 2.9, 3.0]
+    }
+    
+    region_demo_df = pd.DataFrame(region_demo_data)
+    st.dataframe(region_demo_df.style.format({
+        'セッション数': '{:,.0f}',
+        'CVR (%)': '{:.1f}'
+    }), use_container_width=True, hide_index=True)
+    
+    # 地域別セッション数グラフ
+    fig = px.bar(region_demo_df, x='地域', y='セッション数', text='セッション数')
+    fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+    fig.update_layout(height=400, xaxis_title='地域', yaxis_title='セッション数')
+    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_region_sessions')
     
     # デバイス別分析
-    with st.expander("デバイス別分析", expanded=True):
-        st.markdown('<div class="graph-description">デバイスごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
-        # デバイス別に集計
-        device_sessions = filtered_df.groupby('device_type')['session_id'].nunique()
-        device_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('device_type')['session_id'].nunique()
-        device_stay = filtered_df.groupby('device_type')['stay_ms'].mean() / 1000
-
-        device_demo_df = pd.DataFrame({
-            'セッション数': device_sessions,
-            'CV数': device_cv,
-            '平均滞在時間 (秒)': device_stay
-        }).fillna(0).reset_index().rename(columns={'device_type': 'デバイス'})
-        device_demo_df['CVR (%)'] = (device_demo_df['CV数'] / device_demo_df['セッション数'] * 100).fillna(0)
-
-        st.dataframe(device_demo_df.style.format({
-            'セッション数': '{:,.0f}',
-            'CV数': '{:,.0f}',
-            'CVR (%)': '{:.1f}%',
-            '平均滞在時間 (秒)': '{:.1f}'
-        }), use_container_width=True, hide_index=True)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            fig = px.pie(device_demo_df, values='セッション数', names='デバイス', title='デバイス別セッション数')
-            fig.update_layout(height=400, dragmode=False)
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_pie')
-        with col2:
-            fig = px.bar(device_demo_df, x='デバイス', y='CVR (%)', text='CVR (%)')
-            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-            fig.update_layout(height=400, showlegend=False, xaxis_title='デバイス', yaxis_title='CVR (%)', dragmode=False)
-            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_cvr')
+    st.markdown("#### デバイス別分析")
+    st.markdown('<div class="graph-description">デバイスごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
+    
+    device_demo_data = {
+        'デバイス': ['PC', 'スマートフォン', 'タブレット'],
+        'セッション数': [int(total_sessions * 0.35), int(total_sessions * 0.60), int(total_sessions * 0.05)],
+        'CVR (%)': [4.2, 2.8, 3.5],
+        '平均滞在時間 (秒)': [78.5, 52.3, 65.1]
+    }
+    
+    device_demo_df = pd.DataFrame(device_demo_data)
+    st.dataframe(device_demo_df.style.format({
+        'セッション数': '{:,.0f}',
+        'CVR (%)': '{:.1f}',
+        '平均滞在時間 (秒)': '{:.1f}'
+    }), use_container_width=True, hide_index=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # デバイス別セッション数
+        fig = px.pie(device_demo_df, values='セッション数', names='デバイス', title='デバイス別セッション数')
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_pie')
+    
+    with col2:
+        # デバイス別CVR比較
+        fig = px.bar(device_demo_df, x='デバイス', y='CVR (%)', text='CVR (%)')
+        fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+        fig.update_layout(height=400, xaxis_title='デバイス', yaxis_title='CVR (%)')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_cvr')
 
 # タブ9: AI提案
-elif selected_analysis == "AIによる分析・考察":
-    st.markdown('<div class="sub-header">AIによる分析・改善案</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="ai_analysis_period")
-    
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="ai_analysis_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="ai_analysis_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ai_analysis_compare_select")
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="ai_analysis_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="ai_analysis_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
+elif selected_analysis == "AI分析":
+    st.markdown('<div class="sub-header">🤖 AI分析（プロトタイプ）</div>', unsafe_allow_html=True)
     
     # よくある質問用のデータを事前に計算
     # ページ別統計
@@ -2944,11 +1899,13 @@ elif selected_analysis == "AIによる分析・考察":
     
     st.markdown("""
     AIがデータを多角的に分析し、客観的な現状評価、今後の考察、具体的な改善提案を提供します。
+    
+    **💡 注意**: これはプロトタイプ版です。本番環境ではGemini 2.5 Proを使用して、さらに詳細な分析を提供します。
     """)
     
     # 分析ボタン
-    if st.button("AI分析を実行", type="primary", use_container_width=True):
-        with st.spinner("AIがデータを分析中..."):
+    if st.button("🚀 包括的なAI分析を実行", type="primary", use_container_width=True):
+        with st.spinner("🤖 AIがデータを分析中..."):
             # AI分析用のデータを準備
             avg_pages = avg_pages_reached
             
@@ -3007,25 +1964,25 @@ elif selected_analysis == "AIによる分析・考察":
             
             # セクション1: 客観的かつ詳細な現状分析
             st.markdown("---")
-            st.markdown("### 1. 客観的かつ詳細な現状分析")
+            st.markdown("### 📊 1. 客観的かつ詳細な現状分析")
             
-            with st.expander("全体パフォーマンス評価", expanded=True):
+            with st.expander("📈 全体パフォーマンス評価", expanded=True):
                 st.markdown(f"""
                 **基本指標の評価**
                 
                 | 指標 | 現在値 | 業界平均 | 評価 |
                 |------|---------|------------|------|
-                | コンバージョン率 | {conversion_rate:.2f}% | 2-5% | {'優秀' if conversion_rate >= 5 else '改善余地あり' if conversion_rate >= 2 else '早急な改善が必要'} |
-                | FV残存率 | {fv_retention_rate:.1f}% | 60-80% | {'優秀' if fv_retention_rate >= 70 else '改善余地あり' if fv_retention_rate >= 50 else '早急な改善が必要'} |
-                | 最終CTA到達率 | {final_cta_rate:.1f}% | 30-50% | {'優秀' if final_cta_rate >= 40 else '改善余地あり' if final_cta_rate >= 25 else '早急な改善が必要'} |
-                | 平均滞在時間 | {avg_stay_time:.1f}秒 | 60-120秒 | {'優秀' if avg_stay_time >= 90 else '改善余地あり' if avg_stay_time >= 50 else '早急な改善が必要'} |
+                | コンバージョン率 | {conversion_rate:.2f}% | 2-5% | {'✅ 優秀' if conversion_rate >= 5 else '⚠️ 改善余地あり' if conversion_rate >= 2 else '❌ 早急な改善が必要'} |
+                | FV残存率 | {fv_retention_rate:.1f}% | 60-80% | {'✅ 優秀' if fv_retention_rate >= 70 else '⚠️ 改善余地あり' if fv_retention_rate >= 50 else '❌ 早急な改善が必要'} |
+                | 最終CTA到達率 | {final_cta_rate:.1f}% | 30-50% | {'✅ 優秀' if final_cta_rate >= 40 else '⚠️ 改善余地あり' if final_cta_rate >= 25 else '❌ 早急な改善が必要'} |
+                | 平均滞在時間 | {avg_stay_time:.1f}秒 | 60-120秒 | {'✅ 優秀' if avg_stay_time >= 90 else '⚠️ 改善余地あり' if avg_stay_time >= 50 else '❌ 早急な改善が必要'} |
                 
                 **総合評価:**  
                 現在のLPパフォーマンスは、コンバージョン率{conversion_rate:.2f}%、FV残存率{fv_retention_rate:.1f}%、最終CTA到達率{final_cta_rate:.1f}%となっています。
                 全{total_sessions:,}セッションのデータを分析した結果、以下の特徴が見られます。
                 """)
             
-            with st.expander("デバイス別パフォーマンス分析"):
+            with st.expander("📱 デバイス別パフォーマンス分析"):
                 best_device = device_stats.loc[device_stats['コンバージョン率'].idxmax()]
                 worst_device = device_stats.loc[device_stats['コンバージョン率'].idxmin()]
                 
@@ -3041,7 +1998,7 @@ elif selected_analysis == "AIによる分析・考察":
                 {best_device['コンバージョン率'] - worst_device['コンバージョン率']:.2f}%ポイントの差があります。これは、デバイス最適化の余地があることを示唆しています。
                 """)
             
-            with st.expander("チャネル別パフォーマンス分析"):
+            with st.expander("📍 チャネル別パフォーマンス分析"):
                 best_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmax()]
                 worst_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmin()]
                 
@@ -3057,7 +2014,7 @@ elif selected_analysis == "AIによる分析・考察":
                 一方、{worst_channel['チャネル']}はパフォーマンスが低く、ターゲティングやメッセージの見直しが必要です。
                 """)
             
-            with st.expander("ボトルネック分析"):
+            with st.expander("🚧 ボトルネック分析"):
                 max_exit_page = page_stats.loc[page_stats['離脱率'].idxmax()]
                 
                 st.markdown(f"""
@@ -3073,9 +2030,9 @@ elif selected_analysis == "AIによる分析・考察":
             
             # セクション2: 現状分析からの今後の考察
             st.markdown("---")
-            st.markdown("### 2. 現状分析からの今後の考察")
+            st.markdown("### 🔮 2. 現状分析からの今後の考察")
             
-            with st.expander("トレンド予測と潜在的リスク", expanded=True):
+            with st.expander("📈 トレンド予測と潜在的リスク", expanded=True):
                 st.markdown(f"""
                 **トレンド予測:**
                 
@@ -3097,7 +2054,7 @@ elif selected_analysis == "AIによる分析・考察":
                 - **広告費の上昇**: CVRが低いままでは、CPAが上昇し続けるRisk
                 """)
             
-            with st.expander("成長機会の特定"):
+            with st.expander("🎯 成長機会の特定"):
                 st.markdown(f"""
                 **短期的な成長機会:**
                 
@@ -3125,9 +2082,9 @@ elif selected_analysis == "AIによる分析・考察":
             
             # セクション3: 改善提案
             st.markdown("---")
-            st.markdown("### 3. 具体的な改善提案")
+            st.markdown("### 🚀 3. 具体的な改善提案")
             
-            with st.expander("優先度高: 即実施すべき施策", expanded=True):
+            with st.expander("🎯 優先度高: 即実施すべき施策", expanded=True):
                 st.markdown(f"""
                 **1. ボトルネックページの改善（ページ{int(max_exit_page['ページ番号'])}）**
                 
@@ -3166,7 +2123,7 @@ elif selected_analysis == "AIによる分析・考察":
                 - **必要リソース**: コピーライター1名、デザイナー1名
                 """)
             
-            with st.expander("優先度中: A/Bテストで検証すべき施策"):
+            with st.expander("🔬 優先度中: A/Bテストで検証すべき施策"):
                 st.markdown("""
                 **1. ファーストビューA/Bテスト**
                 
@@ -3200,7 +2157,7 @@ elif selected_analysis == "AIによる分析・考察":
                 - **テスト期間**: 2-3週間
                 """)
             
-            with st.expander("優先度低: 中長期的な施策"):
+            with st.expander("💼 優先度低: 中長期的な施策"):
                 st.markdown(f"""
                 **1. パーソナライゼーションの導入**
                 
@@ -3247,7 +2204,7 @@ elif selected_analysis == "AIによる分析・考察":
                 - **必要リソース**: マーケティングマネージャー1名
                 """)
             
-            with st.expander("実施ロードマップ（3ヶ月間）"):
+            with st.expander("📊 実施ロードマップ（3ヶ月間）"):
                 st.markdown("""
                 | 時期 | 施策 | 目標KPI | 担当 |
                 |------|------|----------|------|
@@ -3264,7 +2221,16 @@ elif selected_analysis == "AIによる分析・考察":
                 - ROI: 20-30%向上
                 """)
             
-            st.success("AI分析が完了しました！上記の提案を参考に、LPの改善を進めてください。")
+            st.success("✅ AI分析が完了しました！上記の提案を参考に、LPの改善を進めてください。")
+    
+    st.markdown("---")
+    st.markdown("""
+    **💡 本番環境での機能:**
+    - Gemini 2.5 Proによるさらに詳細な分析
+    - リアルタイムデータとの連携
+    - 自動レポート生成機能
+    - カスタム質問への回答
+    """)
     
     # 既存の質問ボタンは保持
     
@@ -3284,7 +2250,7 @@ elif selected_analysis == "AIによる分析・考察":
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("このLPの最大のボトルネックは？"):
+        if st.button("❓ このLPの最大のボトルネックは？"):
             st.session_state.faq_bottleneck = not st.session_state.faq_bottleneck
         
         if st.session_state.faq_bottleneck:
@@ -3305,7 +2271,7 @@ elif selected_analysis == "AIによる分析・考察":
             3. 読込時間が長い場合は、画像の最適化を検討
             """)
         
-        if st.button("コンバージョン率を改善するには？"):
+        if st.button("❓ コンバージョン率を改善するには？"):
             st.session_state.faq_cvr = not st.session_state.faq_cvr
         
         if st.session_state.faq_cvr:
@@ -3322,7 +2288,7 @@ elif selected_analysis == "AIによる分析・考察":
             """)
     
     with col2:
-        if st.button("A/Bテストの結果、どちらが優れている？"):
+        if st.button("❓ A/Bテストの結果、どちらが優れている？"):
             st.session_state.faq_abtest = not st.session_state.faq_abtest
         
         if st.session_state.faq_abtest:
@@ -3341,7 +2307,7 @@ elif selected_analysis == "AIによる分析・考察":
             2. さらなる改善のため、次のA/Bテストを計画
             """)
         
-        if st.button("デバイス別のパフォーマンス差は？"):
+        if st.button("❓ デバイス別のパフォーマンス差は？"):
             st.session_state.faq_device = not st.session_state.faq_device
         
         if st.session_state.faq_device:
@@ -3363,26 +2329,26 @@ elif selected_analysis == "AIによる分析・考察":
     st.markdown("---")
     
     # フリーチャット（プロトタイプ）
-    st.markdown("#### チャットで質問する")
+    st.markdown("#### フリーチャット")
     
-    user_question = st.text_input("チャットで質問する", placeholder="質問を入力してください", label_visibility="collapsed")
+    user_question = st.text_input("質問を入力してください（プロトタイプ版では固定回答が表示されます）")
     
-    if st.button("送信", key="free_chat_submit"):
-        # ボタンにカスタムクラスを適用するためにst.markdownを使用
-        st.markdown("""
-            <style>
-            .stButton>button[data-testid="st.button-free_chat_submit"] {
-                background-color: #d9534f; color: white;
-            }
-            </style>
-        """, unsafe_allow_html=True)
+    if st.button("送信"):
         if user_question:
             st.info(f"""
             **質問:** {user_question}
             
-            **回答:**
+            **回答（プロトタイプ）:**
             
-            ご質問ありがとうございます。AIがデータに基づいて回答を生成します。
+            ご質問ありがとうございます。本番環境では、Gemini 2.5 Proが実際のデータに基づいて詳細な分析と提案を行います。
+            
+            現在のプロトタイプでは、以下のような分析が可能です:
+            - データの傾向分析
+            - ボトルネックの特定
+            - 改善提案の生成
+            - SQL クエリの提案
+            
+            本格実装後は、より高度な分析と具体的なアクションプランを提供します。
             """)
         else:
             st.warning("質問を入力してください")
@@ -3390,117 +2356,7 @@ elif selected_analysis == "AIによる分析・考察":
 # タブ10: 使用ガイド
 elif selected_analysis == "使用ガイド":
     st.markdown('<div class="sub-header">使用ガイド</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="guide_period")
     
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="guide_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="guide_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="guide_compare_select")
-            comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="guide_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="guide_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # --- クロス分析用フィルター適用 ---
-    if selected_lp != "すべて":
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-    
-    if selected_device != "すべて":
-        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
-
-    if selected_channel != "すべて":
-        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp != "すべて":
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
     st.markdown("""
     ### 瞬ジェネ AIアナリストの使い方
     
@@ -3567,126 +2423,15 @@ elif selected_analysis == "使用ガイド":
 # タブ11: 専門用語解説
 elif selected_analysis == "専門用語解説":
     st.markdown('<div class="sub-header">専門用語解説</div>', unsafe_allow_html=True)
-    # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
     
-    # --- フィルター設定 ---
-    filter_cols = st.columns(4)
-    with filter_cols[0]:
-        period_options = {"過去7日間": 7, "過去30日間": 30, "過去90日間": 90, "カスタム期間": None}
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
-
-    with filter_cols[1]:
-        lp_options = ["すべて"] + sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox("LP選択", lp_options, index=0, key="demographic_lp")
-
-    with filter_cols[2]:
-        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="demographic_device")
-
-    with filter_cols[3]:
-        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="demographic_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="demographic_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="demographic_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="glossary_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="glossary_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
-
-    st.markdown("---")
-
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # --- クロス分析用フィルター適用 ---
-    if selected_lp != "すべて":
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-    
-    if selected_device != "すべて":
-        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
-
-    if selected_channel != "すべて":
-        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
-
-    # 比較データの取得
-    comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp != "すべて":
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # このページで必要なKPIを計算
-    total_sessions = filtered_df['session_id'].nunique()
-
-
-    st.markdown(""" # type: ignore
-    ### マーケティング・分析用語集
+    st.markdown("""
+    ### 📚 マーケティング・分析用語集
     
     LP分析で使用される主要な用語を詳しく解説します。
     """)
     
     # カテゴリー別に表示
-    with st.expander("基本指標（KPI）", expanded=True):
+    with st.expander("📊 基本指標（KPI）", expanded=True):
         st.markdown("""
         **セッション（Session）**
         ユーザーがウェブサイトを訪れた1回の訪問。同じユーザーが複数回訪れた場合、それぞれ別のセッションとしてカウントされます。通常、30分間操作がないとセッションが終了します。
@@ -3707,7 +2452,7 @@ elif selected_analysis == "専門用語解説":
         ユーザーがサイトに滞在した時間。長いほどエンゲージメントが高いと考えられますが、コンテンツがわかりにくい可能性もあります。
         """)
     
-    with st.expander("コンバージョン関連"):
+    with st.expander("🎯 コンバージョン関連"):
         st.markdown("""
         **コンバージョン（Conversion / CV）**
         ユーザーが目標とする行動（購入、問い合わせ、会員登録など）を完了したこと。LPの最終目標です。
@@ -3731,7 +2476,7 @@ elif selected_analysis == "専門用語解説":
         例: 広告費10万円で売上50万円ならROAS = 500%
         """)
     
-    with st.expander("LP特有の指標"):
+    with st.expander("📱 LP特有の指標"):
         st.markdown("""
         **ファーストビュー（First View / FV）**
         ページを開いたときに最初に表示される画面範囲。スクロールしないで見える部分。LPで最も重要な要素で、ファーストビューで興味を引けないと即離脱されます。
@@ -3752,7 +2497,7 @@ elif selected_analysis == "専門用語解説":
         ユーザーがLPを進む過程を段階的に表した図。各ステップでどれだけのユーザーが離脱したかを可視化し、ボトルネック（問題箇所）を特定します。
         """)
     
-    with st.expander("A/Bテスト・最適化"):
+    with st.expander("🧪 A/Bテスト・最適化"):
         st.markdown("""
         **A/Bテスト（A/B Testing）**
         2つ以上の異なるバージョン（バリアント）を同時に公開し、どちらが優れているかをデータで検証する手法。例: ヘッダー画像をAパターンとBパターンで比較。
@@ -3770,7 +2515,7 @@ elif selected_analysis == "専門用語解説":
         LPのコンバージョン率を高めるための最適化施策。A/Bテスト、ヒートマップ分析、ユーザーテストなどを組み合わせて実施します。
         """)
     
-    with st.expander("トラフィック・チャネル"):
+    with st.expander("📍 トラフィック・チャネル"):
         st.markdown("""
         **UTMパラメータ（UTM Parameters）**
         URLに付加するタグで、どの広告やキャンペーンからユーザーが来たかを追跡するためのもの。
@@ -3797,7 +2542,7 @@ elif selected_analysis == "専門用語解説":
         ユーザーが最初に着地したページ。広告や検索結果から誘導するために特別に設計されたページ。
         """)
     
-    with st.expander("セグメント・オーディエンス"):
+    with st.expander("👥 セグメント・オーディエンス"):
         st.markdown("""
         **セグメント（Segment）**
         特定の条件で絞り込んだユーザーグループ。例:
@@ -3815,7 +2560,7 @@ elif selected_analysis == "専門用語解説":
         一度サイトを訪れたユーザーに対して、再度広告を表示する手法。コンバージョンしなかったユーザーを再誘導します。
         """)
     
-    with st.expander("パフォーマンス指標"):
+    with st.expander("⏱️ パフォーマンス指標"):
         st.markdown("""
         **読込時間（Page Load Time）**
         ページが完全に表示されるまでの時間。短いほどユーザー体験が良く、CVRも向上します。目標は3秒以内。
@@ -3835,7 +2580,7 @@ elif selected_analysis == "専門用語解説":
         ユーザーがサイトでアクティブに行動した割合。クリック、スクロール、動画視聴などを含みます。
         """)
     
-    with st.expander("分析ツール・手法"):
+    with st.expander("📊 分析ツール・手法"):
         st.markdown("""
         **ヒートマップ（Heatmap）**
         ユーザーのクリックやスクロール、マウスの動きを色で可視化したもの。赤い部分が最も注目されているエリア。
@@ -3853,81 +2598,10 @@ elif selected_analysis == "専門用語解説":
         - **線形**: 全ての接触に均等に貢献を割り当て
         """)
     
-    # --- 地域別分析の地図可視化 ---
     st.markdown("---")
-    st.markdown("#### 地域別分析（地図）")
-    st.markdown('<div class="graph-description">都道府県別のコンバージョン率を日本地図で可視化します。色が濃い地域ほどパフォーマンスが高いことを示します。</div>', unsafe_allow_html=True)
-
-    # ダミーの地域データを生成
-    prefectures_jp = [
-        '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
-        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
-        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
-        '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
-        '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
-        '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
-        '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
-    ]
-    
-    # フィルターされたデータから地域ごとのCVRを計算（ダミー）
-    # 実際のデータでは、user_properties.geo.regionなどを利用します
-    np.random.seed(0)
-    region_cvr_data = {
-        '都道府県': prefectures_jp,
-        'コンバージョン率': np.random.uniform(1.0, 8.0, size=len(prefectures_jp))
-    }
-    region_cvr_df = pd.DataFrame(region_cvr_data)
-
-    # GeoJSONデータを読み込む
-    try:
-        # ローカルにGeoJSONファイルを配置することを推奨
-        # ここではURLから直接読み込み
-        geojson_url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
-        import json
-        import requests
-        
-        @st.cache_data
-        def get_geojson():
-            res = requests.get(geojson_url)
-            return res.json()
-
-        japan_geojson = get_geojson()
-
-        # 地図を作成
-        fig_map = px.choropleth_mapbox(
-            region_cvr_df,
-            geojson=japan_geojson,
-            locations='都道府県',
-            featureidkey="properties.name",
-            color='コンバージョン率',
-            color_continuous_scale="Blues",
-            range_color=(region_cvr_df['コンバージョン率'].min(), region_cvr_df['コンバージョン率'].max()),
-            mapbox_style="carto-positron",
-            zoom=4,
-            center={"lat": 36.2048, "lon": 138.2529},
-            opacity=0.7,
-            labels={'コンバージョン率': 'CVR (%)'}
-        )
-        fig_map.update_layout(
-            margin={"r":0,"t":0,"l":0,"b":0},
-            height=600,
-            coloraxis_colorbar=dict(
-                title="CVR (%)",
-                tickvals=[region_cvr_df['コンバージョン率'].min(), region_cvr_df['コンバージョン率'].max()],
-                ticktext=[f"{region_cvr_df['コンバージョン率'].min():.1f}%", f"{region_cvr_df['コンバージョン率'].max():.1f}%"]
-            )
-        )
-        
-        st.plotly_chart(fig_map, use_container_width=True)
-    
-    except Exception as e:
-        st.error(f"地図の描画に失敗しました: {e}")
-        st.info("コロプレス図を表示するには、`requests`ライブラリが必要です。`pip install requests` を実行してください。")
-
-
-    st.markdown("---")
-    st.markdown("**ヒント**: 各用語をクリックして詳細を確認できます。")
+    st.markdown("💡 **ヒント**: 各用語をクリックして詳細を確認できます。")
 
 # フッター
 st.markdown("---")
 st.markdown("**瞬ジェネ AIアナリスト** - Powered by Streamlit & Gemini 2.5 Pro")
+
