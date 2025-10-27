@@ -10,6 +10,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
+
+# scipyをインポート（A/Bテストの有意差検定で使用）
+try:
+    from scipy.stats import chi2_contingency
+except ImportError:
+    chi2_contingency = None
 from capture_lp import capture_lp_screenshot, extract_swipe_lp_images
 
 # ページ設定
@@ -53,24 +59,6 @@ st.markdown("""
         background-color: #f8f9fa;
         border-radius: 0.3rem;
         border-left: 3px solid #002060;
-    }
-    /* 赤いボタン用のカスタムCSS */
-    .stButton>button.red-button {
-        background-color: #d9534f;
-        color: white;
-        border-color: #d43f3a;
-    }
-    .stButton>button.red-button:hover {
-        background-color: #c9302c;
-        color: white;
-        border-color: #ac2925;
-    }
-    /* サイドバーの選択中ボタンスタイル */
-    .stButton>button.selected-button {
-        background-color: #e6f0ff;
-        color: #002060;
-        border: 1px solid #002060;
-        font-weight: bold;
     }
     /* サイドバーの開閉ボタンのSVGアイコンを非表示にする */
     button[data-testid="stSidebarCollapseButton"] > svg {
@@ -166,6 +154,8 @@ for group_name, items in menu_groups.items():
         is_selected = st.session_state.selected_analysis == item
         button_key = f"menu_{item}"
         if st.sidebar.button(item, key=button_key, use_container_width=True):
+            # ページ遷移時にトップにスクロールするJavaScriptを実行
+            st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
             st.session_state.selected_analysis = item
             st.rerun() # 状態を即時反映させるためにrerunを追加
         if is_selected:
@@ -193,7 +183,7 @@ if selected_analysis == "全体サマリー":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択（キーを一意にするためにプレフィックスを追加）
@@ -207,7 +197,7 @@ if selected_analysis == "全体サマリー":
             "期間を選択", 
             list(period_options.keys()), 
             index=1, 
-            key="period_selector_overall"
+            key="summary_period_selector"
         )
 
     with col2:
@@ -220,7 +210,7 @@ if selected_analysis == "全体サマリー":
         enable_comparison = st.checkbox(
             "比較機能", 
             value=False, 
-            key="comparison_checkbox_overall"
+            key="summary_comparison_checkbox"
         )
 
     with col4:
@@ -234,7 +224,7 @@ if selected_analysis == "全体サマリー":
                 "前年": "previous_year"
             }
             selected_comparison = st.selectbox(
-                "比較対象", list(comparison_options.keys()), key="comparison_selector_overall"
+                "比較対象", list(comparison_options.keys()), key="summary_comparison_selector"
             )
             comparison_type = comparison_options[selected_comparison]
 
@@ -503,20 +493,20 @@ if selected_analysis == "全体サマリー":
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        show_session_trend = st.checkbox("セッション数の推移", value=True)
-        show_cvr_trend = st.checkbox("コンバージョン率の推移", value=True)
-        show_device_breakdown = st.checkbox("デバイス別分析", value=True)
+        show_session_trend = st.checkbox("セッション数の推移", value=True, key="summary_show_session_trend")
+        show_cvr_trend = st.checkbox("コンバージョン率の推移", value=True, key="summary_show_cvr_trend")
+        show_device_breakdown = st.checkbox("デバイス別分析", value=True, key="summary_show_device_breakdown")
     
     with col2:
-        show_channel_breakdown = st.checkbox("チャネル別分析", value=True)
-        show_funnel = st.checkbox("LP進行ファネル", value=False)
+        show_channel_breakdown = st.checkbox("チャネル別分析", value=True, key="summary_show_channel_breakdown")
+        show_funnel = st.checkbox("LP進行ファネル", value=False, key="summary_show_funnel")
         # show_sankey_flow = st.checkbox("ユーザーフロー分析（サンキー）", value=True) # サンキーダイアグラムを削除
     
     with col3:
-        show_hourly_cvr = st.checkbox("時間帯別CVR", value=False)
-        show_dow_cvr = st.checkbox("曜日別CVR", value=False) # type: ignore
-        show_utm_analysis = st.checkbox("UTM分析", value=False)
-        show_load_time = st.checkbox("読込時間分析", value=False)
+        show_hourly_cvr = st.checkbox("時間帯別CVR", value=False, key="summary_show_hourly_cvr")
+        show_dow_cvr = st.checkbox("曜日別CVR", value=False, key="summary_show_dow_cvr") # type: ignore
+        show_utm_analysis = st.checkbox("UTM分析", value=False, key="summary_show_utm_analysis")
+        show_load_time = st.checkbox("読込時間分析", value=False, key="summary_show_load_time")
     
     # セッション数の推移
     if show_session_trend:
@@ -846,7 +836,7 @@ elif selected_analysis == "ページ分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -856,37 +846,35 @@ elif selected_analysis == "ページ分析":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="page_analysis_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="page_analysis_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="page_analysis_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="page_analysis_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="page_analysis_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="page_analysis_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -945,86 +933,6 @@ elif selected_analysis == "ページ分析":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-    with col2:
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-        
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-    with col3:
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-        
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-        
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col5:
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-        
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     # ページ分析は単一のLP選択時のみ実行
     if selected_lp:
         current_lp_url = selected_lp
@@ -1286,7 +1194,7 @@ elif selected_analysis == "セグメント分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -1296,37 +1204,35 @@ elif selected_analysis == "セグメント分析":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="segment_analysis_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="segment_analysis_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="segment_analysis_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="segment_analysis_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="segment_analysis_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="segment_analysis_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -1385,103 +1291,10 @@ elif selected_analysis == "セグメント分析":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     # セグメント選択
     segment_type = st.selectbox("分析するセグメントを選択", [
-        "デバイス別",
-        "チャネル別",
-        "UTMソース別",
-        "A/Bテスト別"
-    ])
+        "デバイス別", "チャネル別", "UTMソース別", "A/Bテスト別"
+    ], key="segment_analysis_segment_type")
     
     if segment_type == "デバイス別":
         segment_col = 'device_type'
@@ -1553,7 +1366,7 @@ elif selected_analysis == "A/Bテスト分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -1563,37 +1376,35 @@ elif selected_analysis == "A/Bテスト分析":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="ab_test_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="ab_test_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="ab_test_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ab_test_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="ab_test_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="ab_test_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -1652,96 +1463,6 @@ elif selected_analysis == "A/Bテスト分析":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     # A/Bテスト種別のマッピング
     test_type_map = {
         'hero_image': 'FVテスト',
@@ -1792,9 +1513,7 @@ elif selected_analysis == "A/Bテスト分析":
     ab_stats['最終CTA到達率'] = (ab_stats['最終CTA到達数'] / ab_stats['セッション数'] * 100)
     
     # 有意差判定（カイ二乗検定）
-    from scipy.stats import chi2_contingency
-    
-    if len(ab_stats) >= 2:
+    if chi2_contingency and len(ab_stats) >= 2:
         # ベースライン（最初のバリアント）と比較
         baseline = ab_stats.iloc[0]
         ab_stats['CVR向上率'] = ((ab_stats['コンバージョン率'] - baseline['コンバージョン率']) / baseline['コンバージョン率'] * 100)
@@ -1819,7 +1538,7 @@ elif selected_analysis == "A/Bテスト分析":
         ab_stats['p値'] = p_values
         ab_stats['有意差'] = ab_stats['p値'].apply(lambda x: '★★★' if x < 0.01 else ('★★' if x < 0.05 else ('★' if x < 0.1 else '-')))
         ab_stats['有意性'] = 1 - ab_stats['p値']  # バブルチャート用
-    else:
+    else: # 有意差検定が不要または実行できない場合
         ab_stats['CVR向上率'] = 0
         ab_stats['p値'] = 1.0
         ab_stats['有意差'] = '-'
@@ -1843,7 +1562,7 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown("#### CVR向上率×有意性バブルチャート")
     st.markdown('<div class="graph-description">CVR向上率（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR向上率×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True) # type: ignore
 
-    if len(ab_stats) >= 2:
+    if chi2_contingency and len(ab_stats) >= 2:
         # ベースラインを除外
         ab_bubble = ab_stats[ab_stats.index > 0].copy()
         
@@ -1902,7 +1621,7 @@ elif selected_analysis == "インタラクション分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -1912,37 +1631,35 @@ elif selected_analysis == "インタラクション分析":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="interaction_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="interaction_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="interaction_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="interaction_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="interaction_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="interaction_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -2001,96 +1718,9 @@ elif selected_analysis == "インタラクション分析":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
+    # このページで必要なKPIを計算
     total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
 
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     # インタラクションダミーデータを生成
     interaction_data = {
         '要素': ['CTAボタン', 'フローティングバナー', '離脱防止ポップアップ', '会社情報リンク'],
@@ -2160,7 +1790,7 @@ elif selected_analysis == "動画・スクロール分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -2170,37 +1800,35 @@ elif selected_analysis == "動画・スクロール分析":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="video_scroll_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="video_scroll_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="video_scroll_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="video_scroll_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="video_scroll_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="video_scroll_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -2259,96 +1887,9 @@ elif selected_analysis == "動画・スクロール分析":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
+    # このページで必要なKPIを計算
     total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
 
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     # 逆行率分析
     st.markdown("ページ別平均逆行率")
     st.markdown('<div class="graph-description">各ページでユーザーがどれだけ逆方向にスクロールしたかを表示します。逆行率が高いページは、ユーザーが迷っているまたは情報を再確認している可能性があります。</div>', unsafe_allow_html=True) # type: ignore
@@ -2433,7 +1974,7 @@ elif selected_analysis == "時系列分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -2443,37 +1984,35 @@ elif selected_analysis == "時系列分析":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="timeseries_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="timeseries_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="timeseries_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="timeseries_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="timeseries_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="timeseries_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -2532,96 +2071,6 @@ elif selected_analysis == "時系列分析":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     # 日別推移
     st.markdown("#### 日別推移")
     
@@ -2661,14 +2110,9 @@ elif selected_analysis == "時系列分析":
     
     # グラフ選択
     metric_to_plot = st.selectbox("表示する指標を選択", [
-        "セッション数",
-        "コンバージョン数",
-        "コンバージョン率",
-        "FV残存率",
-        "最終CTA到達率",
-        "平均到達ページ数",
-        "平均滞在時間(秒)"
-    ])
+        "セッション数", "コンバージョン数", "コンバージョン率", "FV残存率",
+        "最終CTA到達率", "平均到達ページ数", "平均滞在時間(秒)"
+    ], key="timeseries_metric_select")
     
     fig = px.line(daily_stats, x='日付', y=metric_to_plot, markers=True)
     fig.update_layout(height=400, yaxis_title=metric_to_plot, dragmode=False)
@@ -2794,7 +2238,7 @@ elif selected_analysis == "デモグラフィック情報":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -2804,37 +2248,35 @@ elif selected_analysis == "デモグラフィック情報":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="demographic_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="demographic_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="demographic_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="demographic_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="demographic_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -2893,95 +2335,9 @@ elif selected_analysis == "デモグラフィック情報":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
+    # このページで必要なKPIを計算
     total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
 
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
     st.markdown("ユーザーの属性情報（年齢、性別、地域、デバイス）を分析します。")
     
     # 年齢層別分析
@@ -3102,7 +2458,7 @@ elif selected_analysis == "AIによる分析・考察":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -3112,37 +2468,35 @@ elif selected_analysis == "AIによる分析・考察":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="ai_analysis_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="ai_analysis_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="ai_analysis_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ai_analysis_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="ai_analysis_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="ai_analysis_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -3780,7 +3134,7 @@ elif selected_analysis == "使用ガイド":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
     with col1:
         # 期間選択
@@ -3790,37 +3144,35 @@ elif selected_analysis == "使用ガイド":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
-
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="guide_period")
+    
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
-
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="guide_lp")
+    
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
-
+        enable_comparison = st.checkbox("比較機能", value=False, key="guide_compare_check")
+    
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="guide_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="guide_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="guide_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -3879,96 +3231,6 @@ elif selected_analysis == "使用ガイド":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     st.markdown("""
     ### 瞬ジェネ AIアナリストの使い方
     
@@ -4048,37 +3310,35 @@ elif selected_analysis == "専門用語解説":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1)
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="glossary_period")
 
     with col2:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="glossary_lp")
 
     with col3:
         # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False)
+        enable_comparison = st.checkbox("比較機能", value=False, key="glossary_compare_check")
 
     with col4:
         # 比較対象
         comparison_type = None
         if enable_comparison:
             comparison_options = {
-                "前期間": "previous_period",
-                "前週": "previous_week",
-                "前月": "previous_month",
-                "前年": "previous_year"
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
             }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()))
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="glossary_compare_select")
             comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
         with col1:
-            start_date = st.date_input("開始日", df['event_date'].min())
+            start_date = st.date_input("開始日", df['event_date'].min(), key="glossary_start_date")
         with col2:
-            end_date = st.date_input("終了日", df['event_date'].max())
+            end_date = st.date_input("終了日", df['event_date'].max(), key="glossary_end_date")
     else:
         days = period_options[selected_period]
         end_date = df['event_date'].max()
@@ -4137,96 +3397,6 @@ elif selected_analysis == "専門用語解説":
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
-
-    # 比較データのKPI計算
-    comp_kpis = {}
-    if comparison_df is not None and len(comparison_df) > 0:
-        comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
-        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
-        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_avg_load_time = comparison_df['load_time_ms'].mean()
-        
-        comp_kpis = {
-            'sessions': comp_total_sessions,
-            'conversions': comp_total_conversions,
-            'conversion_rate': comp_conversion_rate,
-            'clicks': comp_total_clicks,
-            'click_rate': comp_click_rate,
-            'avg_stay_time': comp_avg_stay_time,
-            'avg_pages_reached': comp_avg_pages_reached,
-            'fv_retention_rate': comp_fv_retention_rate,
-            'final_cta_rate': comp_final_cta_rate,
-            'avg_load_time': comp_avg_load_time
-        }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
-
-    # KPIカード表示
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        # セッション数
-        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
-        
-        # FV残存率
-        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
-        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
-
-    with col2:
-        # コンバージョン数
-        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
-
-        # 最終CTA到達率
-        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
-        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
-
-    with col3:
-        # コンバージョン率
-        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
-
-        # 平均到達ページ数
-        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
-        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
-
-    with col4:
-        # クリック数
-        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
-
-        # 平均滞在時間
-        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
-        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f}秒" if delta_stay is not None else None)
-
-    with col5:
-        # クリック率
-        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
-
-        # 平均読込時間
-        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
-        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
-    
     st.markdown(""" # type: ignore
     ### マーケティング・分析用語集
     
