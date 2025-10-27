@@ -1228,6 +1228,68 @@ elif selected_analysis == "ページ分析":
     else:
         st.info("逆行パターンのデータがありません")
 
+    st.markdown("---")
+
+    # 離脱率と滞在時間の散布図
+    st.markdown('### 離脱率 vs 滞在時間 ポジショニングマップ')
+    st.markdown('<div class="graph-description">各ページの離脱率（横軸）と平均滞在時間（縦軸）をプロットします。右下の「要注意ゾーン」（高離脱率・低滞在時間）にあるページは、最優先で改善すべきボトルネックです。</div>', unsafe_allow_html=True)
+
+    if len(page_stats) > 1:
+        # 平均値を計算
+        avg_exit_rate = page_stats['離脱率'].mean()
+        avg_stay_time = page_stats['平均滞在時間(秒)'].mean()
+
+        # 散布図を作成
+        fig_scatter = px.scatter(
+            page_stats,
+            x='離脱率',
+            y='平均滞在時間(秒)',
+            text='ページ番号',
+            size='ビュー数',
+            color_discrete_sequence=px.colors.qualitative.Plotly,
+            hover_name='ページ番号',
+            hover_data={'ページ番号': False, 'ビュー数': ':,', '離脱率': ':.1f', '平均滞在時間(秒)': ':.1f'}
+        )
+
+        # 平均線を追加
+        fig_scatter.add_vline(x=avg_exit_rate, line_dash="dash", line_color="gray", annotation_text=f"平均離脱率: {avg_exit_rate:.1f}%")
+        fig_scatter.add_hline(y=avg_stay_time, line_dash="dash", line_color="gray", annotation_text=f"平均滞在時間: {avg_stay_time:.1f}秒")
+
+        # ゾーンの背景色と注釈を追加
+        fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0, x1=1, y1=0.5, fillcolor="rgba(255, 0, 0, 0.1)", layer="below", line_width=0)
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="要注意ゾーン<br>(高離脱・低滞在)", showarrow=False, font=dict(color="red", size=14))
+
+        fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(255, 165, 0, 0.1)", layer="below", line_width=0)
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="改善候補<br>(高離脱・高滞在)", showarrow=False, font=dict(color="orange", size=14))
+
+        fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=0.5, y1=0.5, fillcolor="rgba(255, 255, 0, 0.1)", layer="below", line_width=0)
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="機会損失<br>(低離脱・低滞在)", showarrow=False, font=dict(color="goldenrod", size=14))
+
+        fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0.5, x1=0.5, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="良好<br>(低離脱・高滞在)", showarrow=False, font=dict(color="green", size=14))
+
+        fig_scatter.update_traces(
+            textposition='top center',
+            marker=dict(sizemin=5),
+            textfont_size=12
+        )
+        fig_scatter.update_layout(
+            height=600,
+            xaxis_title='離脱率 (%)',
+            yaxis_title='平均滞在時間 (秒)',
+            showlegend=False,
+            dragmode=False,
+            xaxis=dict(
+                range=[0, max(50, page_stats['離脱率'].max() * 1.1)]
+            ),
+            yaxis=dict(
+                range=[0, page_stats['平均滞在時間(秒)'].max() * 1.1]
+            )
+        )
+        st.plotly_chart(fig_scatter, use_container_width=True, key='plotly_chart_scatter_exit_stay')
+    else:
+        st.info("ポジショニングマップを表示するには、2ページ以上のデータが必要です。")
+
 
 
 
