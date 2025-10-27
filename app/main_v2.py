@@ -1102,21 +1102,23 @@ elif selected_analysis == "ページ分析":
     page_stats = page_stats.sort_values('ページ番号').reset_index(drop=True)
     
     # 包括的なページメトリクステーブル
-    header_col1, header_col2 = st.columns([3, 1])
-    with header_col1:
+    # ヘッダーとプルダウンを同じ行に配置
+    header_col, pulldown_col = st.columns([2, 1]) # ヘッダーが2/3、プルダウンが1/3
+
+    with header_col:
         st.markdown("#### ページごとのパフォーマンス詳細")
         st.markdown('<div class="graph-description">項目名をクリックすると並べ替えができます。表示個数は右のプルダウンから選択してください</div>', unsafe_allow_html=True)
-    
-    with header_col2:
+
+    with pulldown_col:
         # 表示件数選択プルダウン
         display_options = ["すべて"] + list(range(5, 51, 5))
         num_to_display_str = st.selectbox(
-            "表示件数", 
-            display_options, 
-            index=0, 
-            label_visibility="collapsed"
+            "表示件数",
+            display_options,
+            index=0,
+            label_visibility="collapsed",
+            key="page_analysis_display_count"
         )
-    
     # 各ページのインタラクション要素のメトリクスを計算
     comprehensive_metrics = []
     
@@ -1225,15 +1227,18 @@ elif selected_analysis == "ページ分析":
         else:
             display_df = comprehensive_df
 
-        st.dataframe(
-            display_df,
-            column_config={
-                "ページ画像": st.column_config.ImageColumn("プレビュー", help="ページのコンテンツプレビュー"), # ラベルを変更
-                "ページ": None, # ページ列を非表示にする
-            },
-            hide_index=True,
-            use_container_width=True
-        )
+        # st.containerでラップして再描画時のバグを回避
+        df_container = st.container()
+        with df_container:
+            st.dataframe(
+                display_df,
+                column_config={
+                    "ページ画像": st.column_config.ImageColumn("プレビュー", help="ページのコンテンツプレビュー"), # ラベルを変更
+                    "ページ": None, # ページ列を非表示にする
+                },
+                hide_index=True,
+                use_container_width=True
+            )
     else:
         st.warning("テーブルデータが空です。")
     
@@ -1318,7 +1323,7 @@ elif selected_analysis == "ページ分析":
         if len(short_stay_pages) > 0:
             display_df = short_stay_pages[['ページ番号', '平均滞在時間(秒)']].copy()
             display_df['ページ番号'] = display_df['ページ番号'].astype(int)
-            st.dataframe(display_df.style.format({'平均滞在時間(秒)': '{:.1f}秒'}), use_container_width=True, hide_index=True)
+            st.dataframe(display_df.style.format({'平均滞在時間(秒)': '{:.1f}秒'}), use_container_width=True, hide_index=True, height=212) # 高さを固定
         else:
             st.info("データがありません。")
 
@@ -1327,7 +1332,7 @@ elif selected_analysis == "ページ分析":
         st.markdown('<div class="graph-description">ユーザーが最も離脱しやすいボトルネックとなっている可能性が高いページです。</div>', unsafe_allow_html=True)
         high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率']]
         high_exit_pages['ページ番号'] = high_exit_pages['ページ番号'].astype(int)
-        st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True)
+        st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True, height=212) # 高さを固定
     
     # 逆行パターン（最後に移動）
     st.markdown("#### 逆行パターン（戻る動作）")
