@@ -456,10 +456,6 @@ if selected_analysis == "全体サマリー":
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f}ms" if delta_load is not None else None, delta_color="inverse")
 
-    # KPIスコアカードと日別KPIテーブルの間にスペースを設ける
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-
     # 日別KPIテーブル
     st.markdown("##### 日別KPI詳細")
     st.markdown('<div class="graph-description">選択した期間内の日ごとの主要指標です。</div>', unsafe_allow_html=True)
@@ -507,6 +503,7 @@ if selected_analysis == "全体サマリー":
         'CVR': '{:.2f}%', 'CTR': '{:.2f}%', 'FV残存率': '{:.1f}%', '最終CTA到達率': '{:.1f}%',
         '平均到達ページ': '{:.1f}', '平均滞在時間': '{:.1f}秒'
     }), use_container_width=True, height=282, hide_index=True)
+
     # page_pathごとのKPIを計算（期間フィルターのみ適用したデータを使用）
     path_sessions = period_filtered_df.groupby('page_path')['session_id'].nunique()
     path_users = period_filtered_df.groupby('page_path')['user_pseudo_id'].nunique()
