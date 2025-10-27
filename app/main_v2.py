@@ -996,7 +996,7 @@ elif selected_analysis == "ページ分析":
     
     # スワイプLPの各ページ画像を取得（ページ数を先に取得）
     with st.spinner("スワイプLPの画像を取得中..."):
-        swipe_images = extract_swipe_lp_images(current_lp_url)
+        swipe_images = extract_swipe_lp_images(current_lp_url) # type: ignore
     
     # LPの実際のページ数を取得（画像取得が成功した場合はそれを使用、失敗した場合は推測値）
     actual_page_count = len(swipe_images) if swipe_images else (int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 10)
@@ -1035,13 +1035,18 @@ elif selected_analysis == "ページ分析":
     page_stats = page_stats.sort_values('ページ番号').reset_index(drop=True)
     
     # 包括的なページメトリクステーブル
-    st.markdown("▼▼ 全ページメトリクス一覧表")
-    st.markdown('<div class="graph-description">全ページの主要メトリクスを一覧表示します。スクロールして全ページを確認できます。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown("#### 全ページの主要指標一覧")
+    st.markdown('<div class="graph-description">全ページの主要指標を一覧表示します。スクロールして全ページを確認できます。</div>', unsafe_allow_html=True) # type: ignore
     
     # 各ページのインタラクション要素のメトリクスを計算
     comprehensive_metrics = []
     
     for page_num in range(1, actual_page_count + 1):
+        # 画像URLを取得
+        # ユーザーの要望に応じてダミー画像URLを生成します。
+        # 本番で実際の画像を表示する場合は、この行をコメントアウトし、元のロジックを有効化してください。
+        image_url = f"https://via.placeholder.com/150x250.png?text=ダミー{page_num}"
+
         # 基本メトリクス
         page_data = page_stats[page_stats['ページ番号'] == page_num]
         
@@ -1099,6 +1104,7 @@ elif selected_analysis == "ページ分析":
         
         comprehensive_metrics.append({
             'ページ': f"ページ{page_num}",
+            'ページ画像': image_url,
             'セッション数': format_metric(sessions),
             'PV': format_metric(pv),
             '離脱率': format_metric(bounce_rate, is_percentage=True),
@@ -1112,22 +1118,37 @@ elif selected_analysis == "ページ分析":
     
     comprehensive_df = pd.DataFrame(comprehensive_metrics)
     
-    # テーブルとして表示
+    
+    # 列名を短縮
+    comprehensive_df.rename(columns={
+        'フローティングバナーCTR': 'FB CTR',
+        '離脱防止ポップアップCTR': '離脱POP CTR'
+    }, inplace=True)
+
+    # データフレームで表示（画像列付き）
     if len(comprehensive_df) > 0:
-        st.table(comprehensive_df)
+        st.dataframe(
+            comprehensive_df,
+            column_config={
+                "ページ画像": st.column_config.ImageColumn("ページ画像", help="ページのキャプチャ画像"),
+                "ページ": None, # ページ列を非表示にする
+            },
+            hide_index=True,
+            use_container_width=True
+        )
     else:
         st.warning("テーブルデータが空です。")
     
     st.markdown("---")
     
     # ページ別パフォーマンス一覧
-    st.markdown("▼▼▼ ページ別パフォーマンス一覧")
+    st.markdown("#### ページごとのパフォーマンス詳細")
     st.markdown('<div class="graph-description">各ページのビュー数、滞在時間、離脱率、逆行率、読込時間を詳細に分析します。各ページのキャプチャと照らし合わせて、問題のあるコンテンツを特定しやすくなります。</div>', unsafe_allow_html=True) # type: ignore
     
     # ページ一覧表示
     for idx, row in page_stats.iterrows():
         page_num = int(row['ページ番号'])
-        with st.expander(f"ページ {page_num} - ビュー数: {int(row['ビュー数'])}"):
+        with st.expander(f"ページ {page_num} - ビュー数: {int(row['ビュー数']):,}"):
             # ページ畠像とメトリクスを横並びに表示（キャプチャを小さく）
             img_col, metric_col = st.columns([1, 6])
             
@@ -1136,13 +1157,13 @@ elif selected_analysis == "ページ分析":
                     page_data = swipe_images[page_num - 1]
                     if isinstance(page_data, dict):
                         # 新形式: {'type': 'image'|'video'|'company_info', 'url': '...'}
-                        if page_data['type'] == 'video':
+                        if page_data.get('type') == 'video':
                             # 動画の場合はビデオタグで表示
-                            st.video(page_data['url'])
+                            st.video(page_data.get('url', ''))
                             st.caption(f"ページ {page_num} (動画)")
-                        elif page_data['type'] == 'company_info':
+                        elif page_data.get('type') == 'company_info':
                             # 会社情報ページの場合
-                            st.markdown("**会社情報ページ**")
+                            st.markdown("🏢 **会社情報ページ**")
                             st.markdown("このページをクリックするとモーダルが出現し、以下のリンクが表示されます:")
                             urls = page_data.get('urls', {})
                             if urls.get('company'):
@@ -1151,19 +1172,19 @@ elif selected_analysis == "ページ分析":
                                 st.markdown(f"- [プライバシーポリシー]({urls['privacy']})")
                             if urls.get('sct_law'):
                                 st.markdown(f"- [特定商取引法]({urls['sct_law']})")
-                        elif page_data['type'] == 'html':
+                        elif page_data.get('type') == 'html':
                             # カスタムHTMLページの場合
-                            st.markdown("**カスタムHTMLページ**")
+                            st.markdown("📄 **カスタムHTMLページ**")
                             st.markdown("このページにはカスタムHTMLコンテンツが表示されます")
                             # HTMLコンテンツのプレビュー（最初の100文字）
                             content = page_data.get('content', '')
                             if len(content) > 100:
-                                st.code(content[:100] + '...', language='html')
+                                st.code(content[:100] + '...', language='html') # type: ignore
                             else:
-                                st.code(content, language='html')
+                                st.code(content, language='html') # type: ignore
                         else:
                             # 画像の場合
-                            st.image(page_data['url'], caption=f"ページ {page_num}", use_container_width=True)
+                            st.image(page_data.get('url', ''), caption=f"ページ {page_num}", use_container_width=True)
                     else:
                         # 旧形式: URL文字列
                         st.image(page_data, caption=f"ページ {page_num}", use_container_width=True)
@@ -1172,60 +1193,16 @@ elif selected_analysis == "ページ分析":
                 metric_col1, metric_col2, metric_col3 = st.columns(3)
                 
                 with metric_col1:
-                    st.metric("ビュー数", f"{int(row['ビュー数'])}")
+                    st.metric("ビュー数", f"{int(row['ビュー数']):,}")
                     st.metric("平均滞在時間", f"{row['平均滞在時間(秒)']:.1f}秒")
                 
                 with metric_col2:
-                    st.metric("離脱率", f"{row['離脱率']:.1f}%")
+                    st.metric("離脱率", f"{row['離脱率']:.1f}%", delta_color="inverse")
                     st.metric("平均逆行率", f"{row['平均逆行率']*100:.1f}%")
                 
                 with metric_col3:
                     st.metric("平均読込時間", f"{row['平均読込時間(ms)']:.0f}ms")
     
-    st.markdown("---")
-    
-    # 滞在時間が短いページと離脱率が高いページを並べて表示
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown('##### 滞在時間が短いページ TOP5')
-        st.markdown('<div class="graph-description">コンテンツが魅力的でない、または読みづらい可能性があります。</div>', unsafe_allow_html=True)
-        
-        # データがあるページのみを対象（0値を除外）
-        valid_pages = page_stats[page_stats['平均滞在時間(秒)'] > 0]
-        if len(valid_pages) >= 5:
-            short_stay_pages = valid_pages.nsmallest(5, '平均滞在時間(秒)')
-        else:
-            short_stay_pages = valid_pages
-        
-        if len(short_stay_pages) > 0:
-            display_df = short_stay_pages[['ページ番号', '平均滞在時間(秒)']].copy()
-            display_df['ページ番号'] = display_df['ページ番号'].astype(int)
-            st.dataframe(display_df.style.format({'平均滞在時間(秒)': '{:.1f}秒'}), use_container_width=True, hide_index=True)
-        else:
-            st.info("データがありません。")
-
-    with col2:
-        st.markdown('##### 離脱率が高いページ TOP5')
-        st.markdown('<div class="graph-description">ユーザーが最も離脱しやすいボトルネックとなっている可能性が高いページです。</div>', unsafe_allow_html=True)
-        high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率']]
-        high_exit_pages['ページ番号'] = high_exit_pages['ページ番号'].astype(int)
-        st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True)
-    
-    # 逆行パターン
-    st.markdown("#### 逆行パターン（戻る動作）")
-    st.markdown('<div class="graph-description">ユーザーがページを戻る動作を分析します。頻繁に戻るパターンがある場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True) # type: ignore
-    backward_df = filtered_df[filtered_df['direction'] == 'backward']
-    
-    if len(backward_df) > 0:
-        backward_pattern = backward_df.groupby(['page_num_dom', 'prev_page_path']).size().reset_index(name='回数')
-        backward_pattern = backward_pattern.sort_values('回数', ascending=False).head(10)
-        backward_pattern.columns = ['遷移先ページ', '遷移元ページ', '回数']
-        
-        st.dataframe(backward_pattern, use_container_width=True)
-    else:
-        st.info("逆行パターンのデータがありません")
-
     st.markdown("---")
 
     # 離脱率と滞在時間の散布図
@@ -1287,7 +1264,50 @@ elif selected_analysis == "ページ分析":
         st.plotly_chart(fig_scatter, use_container_width=True, key='plotly_chart_scatter_exit_stay')
     else:
         st.info("ポジショニングマップを表示するには、2ページ以上のデータが必要です。")
+    
+    st.markdown("---")
+    
+    # 滞在時間が短いページと離脱率が高いページを並べて表示
+    col1, col2 = st.columns(2)
 
+    with col1:
+        st.markdown('##### 滞在時間が短いページ TOP5')
+        st.markdown('<div class="graph-description">コンテンツが魅力的でない、または読みづらい可能性があります。</div>', unsafe_allow_html=True)
+        
+        # データがあるページのみを対象（0値を除外）
+        valid_pages = page_stats[page_stats['平均滞在時間(秒)'] > 0]
+        if len(valid_pages) >= 5:
+            short_stay_pages = valid_pages.nsmallest(5, '平均滞在時間(秒)')
+        else:
+            short_stay_pages = valid_pages
+        
+        if len(short_stay_pages) > 0:
+            display_df = short_stay_pages[['ページ番号', '平均滞在時間(秒)']].copy()
+            display_df['ページ番号'] = display_df['ページ番号'].astype(int)
+            st.dataframe(display_df.style.format({'平均滞在時間(秒)': '{:.1f}秒'}), use_container_width=True, hide_index=True)
+        else:
+            st.info("データがありません。")
+
+    with col2:
+        st.markdown('##### 離脱率が高いページ TOP5')
+        st.markdown('<div class="graph-description">ユーザーが最も離脱しやすいボトルネックとなっている可能性が高いページです。</div>', unsafe_allow_html=True)
+        high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率']]
+        high_exit_pages['ページ番号'] = high_exit_pages['ページ番号'].astype(int)
+        st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True)
+    
+    # 逆行パターン（最後に移動）
+    st.markdown("#### 逆行パターン（戻る動作）")
+    st.markdown('<div class="graph-description">ユーザーがページを戻る動作を分析します。頻繁に戻るパターンがある場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True) # type: ignore
+    backward_df = filtered_df[filtered_df['direction'] == 'backward']
+    
+    if len(backward_df) > 0:
+        backward_pattern = backward_df.groupby(['page_num_dom', 'prev_page_path']).size().reset_index(name='回数')
+        backward_pattern = backward_pattern.sort_values('回数', ascending=False).head(10)
+        backward_pattern.columns = ['遷移先ページ', '遷移元ページ', '回数']
+        
+        st.dataframe(backward_pattern, use_container_width=True)
+    else:
+        st.info("逆行パターンのデータがありません")
 
 
 

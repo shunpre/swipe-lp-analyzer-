@@ -29,11 +29,8 @@ def generate_dummy_data(num_events=5000, num_days=30):
     user_ids = [f"user_{i:06d}" for i in range(num_users)]
     
     # LP URL
-    lp_urls = [
-        "https://example.com/lp/product-a",
-        "https://example.com/lp/product-b",
-        "https://example.com/lp/service-x",
-    ]
+    # ユーザーから指定されたURLに固定
+    lp_url = "https://shungene.lm-c.jp/tst08/tst08.html"
     
     # イベント名
     event_names = [
@@ -87,7 +84,7 @@ def generate_dummy_data(num_events=5000, num_days=30):
         event_name = random.choice(event_names)
         
         # ページ情報
-        page_location = random.choice(lp_urls)
+        page_location = lp_url
         page_path = page_location.split(".com")[1] if ".com" in page_location else "/"
         page_num_dom = random.randint(1, 10)
         original_page_num = page_num_dom
@@ -234,4 +231,3 @@ if __name__ == "__main__":
     print(f"📅 期間: {df['event_date'].min()} ～ {df['event_date'].max()}")
     print(f"👥 ユーザー数: {df['user_pseudo_id'].nunique()}")
     print(f"📊 セッション数: {df['session_id'].nunique()}")
-

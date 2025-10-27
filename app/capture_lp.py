@@ -194,6 +194,9 @@ def generate_image_urls_from_settings(base_url: str, lp_settings: dict) -> list:
         if 0 in video_pages:
             # ページ1は動画
             pages.append({'type': 'video', 'url': video_pages[0]})
+        elif 0 in html_pages:
+            # ページ1はカスタムHTML
+            pages.append({'type': 'html', 'content': html_pages[0]})
         elif first_image_url:
             # ページ1は画像
             pages.append({'type': 'image', 'url': first_image_url})
@@ -201,66 +204,55 @@ def generate_image_urls_from_settings(base_url: str, lp_settings: dict) -> list:
         # ページ数を取得
         last_page_num = lp_settings.get('lastPageNum', 0)
         
-        if last_page_num > 1:
+        if last_page_num > 0 and first_image_url:
             # 画像URLのパターンを推測
-            # ページ1が動画の場合、画像は02.jpgから始まる
-            # ページ1が画像の場合、画像は01.jpgから始まる
-            
-            if first_image_url:
-                # URLのベース部分とファイル名を分離
-                url_parts = first_image_url.rsplit('/', 1)
-                if len(url_parts) == 2:
-                    base_path = url_parts[0]
-                    first_filename = url_parts[1]
+            # URLのベース部分とファイル名を分離
+            url_parts = first_image_url.rsplit('/', 1)
+            if len(url_parts) == 2:
+                base_path = url_parts[0]
+                first_filename = url_parts[1]
+                
+                # ファイル名から拡張子を取得
+                name_parts = first_filename.rsplit('.', 1)
+                if len(name_parts) == 2:
+                    extension = name_parts[1]
                     
-                    # ファイル名から拡張子を取得
-                    name_parts = first_filename.rsplit('.', 1)
-                    if len(name_parts) == 2:
-                        extension = name_parts[1]
-                        
-                        # 画像番号のカウンター（動画ページを除く）
-                        # firstImageUrlが01.jpgの場合、次は02.jpgになる
-                        image_counter = int(name_parts[0]) if name_parts[0].isdigit() else 1
-                        
-                        # 2ページ目以降のページを生成
-                        # lastPageNumは画像の最後の番号を意味するため、image_counterがlastPageNumに達するまでループ
-                        page_index = 1
-                        while image_counter <= last_page_num:
-                            if page_index in video_pages:
-                                # 動画ページ（画像カウンターはインクリメントしない）
-                                pages.append({'type': 'video', 'url': video_pages[page_index]})
-                                page_index += 1
-                            elif page_index in html_pages:
-                                # カスタムHTMLページ（画像カウンターはインクリメントしない）
-                                pages.append({'type': 'html', 'content': html_pages[page_index]})
-                                page_index += 1
+                    # 画像番号のカウンター（動画ページを除く）
+                    # firstImageUrlが01.jpgの場合、カウンターは1から始まる
+                    image_counter = int(name_parts[0]) if name_parts[0].isdigit() else 1
+                    
+                    # ページ1が画像の場合、カウンターは次の画像番号から始める
+                    if 0 not in video_pages and 0 not in html_pages:
+                        image_counter += 1
+
+                    # 2ページ目以降のページを生成
+                    # lastPageNumは画像の最後の番号を意味するため、image_counterがlastPageNumに達するまでループ
+                    page_index = 1
+                    while image_counter <= last_page_num:
+                        if page_index in video_pages:
+                            # 動画ページ（画像カウンターはインクリメントしない）
+                            pages.append({'type': 'video', 'url': video_pages[page_index]})
+                            page_index += 1
+                        elif page_index in html_pages:
+                            # カスタムHTMLページ（画像カウンターはインクリメントしない）
+                            pages.append({'type': 'html', 'content': html_pages[page_index]})
+                            page_index += 1
+                        else:
+                            # 画像ページ
+                            # 01, 02, ... または 1, 2, ... の形式に対応
+                            if first_filename.startswith('0'):
+                                # ゼロパディングあり
+                                filename = f"{image_counter:02d}.{extension}"
                             else:
-                                # 画像ページ
-                                # 01, 02, ... または 1, 2, ... の形式に対応
-                                if first_filename.startswith('0'):
-                                    # ゼロパディングあり
-                                    filename = f"{image_counter:02d}.{extension}"
-                                else:
-                                    # ゼロパディングなし
-                                    filename = f"{image_counter}.{extension}"
-                                
-                                image_url = f"{base_path}/{filename}"
-                                pages.append({'type': 'image', 'url': image_url})
-                                
-                                # 画像ページの場合のみカウンターをインクリメント
-                                image_counter += 1
-                                page_index += 1
-        
-        # 実際に存在する画像/動画のみをフィルタリング
-        verified_pages = []
-        for page in pages:
-            if page['type'] == 'video':
-                # 動画は存在確認せずに追加
-                verified_pages.append(page)
-            else:
-                # 画像は存在確認
-                if verify_image_exists(page['url']):
-                    verified_pages.append(page)
+                                # ゼロパディングなし
+                                filename = f"{image_counter}.{extension}"
+                            
+                            image_url = f"{base_path}/{filename}"
+                            pages.append({'type': 'image', 'url': image_url})
+                            
+                            # 画像ページの場合のみカウンターをインクリメント
+                            image_counter += 1
+                            page_index += 1
         
         # 会社情報ページを最後に追加（このシステムでは必ず最後に1ページの会社情報ページが入る）
         company_info_url = lp_settings.get('companyInfoUrl', '')
@@ -268,7 +260,7 @@ def generate_image_urls_from_settings(base_url: str, lp_settings: dict) -> list:
         sct_law_url = lp_settings.get('sctLawUrl', '')
         
         # 会社情報ページを追加（type='company_info'で識別）
-        verified_pages.append({
+        pages.append({
             'type': 'company_info',
             'urls': {
                 'company': company_info_url,
@@ -277,7 +269,7 @@ def generate_image_urls_from_settings(base_url: str, lp_settings: dict) -> list:
             }
         })
         
-        return verified_pages
+        return pages
     
     except Exception as e:
         print(f"画像/動画URL生成エラー: {e}")
@@ -325,4 +317,3 @@ def convert_to_absolute_url(base_url: str, relative_url: str) -> str:
         # 現在のディレクトリからの相対パス
         base_parts = base_url.rsplit('/', 1)
         return f"{base_parts[0]}/{relative_url}"
-
