@@ -1184,35 +1184,33 @@ elif selected_analysis == "ページ分析":
     
     st.markdown("---")
     
-    # 滞在時間が短いページ
-    st.markdown('### 滞在時間が短いページ TOP5')
-    st.markdown('<div class="graph-description">滞在時間が特に短いページを識別します。コンテンツが魅力的でない、または読みづらい可能性があります。</div>', unsafe_allow_html=True) # type: ignore
-    # データがあるページのみを対象（0値を除外）
-    valid_pages = page_stats[page_stats['平均滞在時間(秒)'] > 0]
-    if len(valid_pages) >= 5:
-        short_stay_pages = valid_pages.nsmallest(5, '平均滞在時間(秒)')
-    else:
-        short_stay_pages = valid_pages
-    
-    if len(short_stay_pages) > 0:
-        # シンプルにTOP5のみ表示
-        fig = px.bar(short_stay_pages, x='ページ番号', y='平均滞在時間(秒)', text='平均滞在時間(秒)')
-        fig.update_traces(texttemplate='%{text:.1f}秒', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均滞在時間(秒)', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_short_stay')
-    else:
-        st.info("データがありません。")
-    
-    st.markdown("---")
-    
-    # 離脱率が高いページ
-    st.markdown('### 離脱率が高いページ TOP5')
-    st.markdown('<div class="graph-description">ユーザーが最も離脱しやすいページを特定します。これらのページがボトルネックとなっている可能性が高いです。</div>', unsafe_allow_html=True) # type: ignore
-    high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率', 'ビュー数']]    
-    fig = px.bar(high_exit_pages, x='ページ番号', y='離脱率', text='離脱率')
-    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='離脱率 (%)', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_13')
+    # 滞在時間が短いページと離脱率が高いページを並べて表示
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown('##### 滞在時間が短いページ TOP5')
+        st.markdown('<div class="graph-description">コンテンツが魅力的でない、または読みづらい可能性があります。</div>', unsafe_allow_html=True)
+        
+        # データがあるページのみを対象（0値を除外）
+        valid_pages = page_stats[page_stats['平均滞在時間(秒)'] > 0]
+        if len(valid_pages) >= 5:
+            short_stay_pages = valid_pages.nsmallest(5, '平均滞在時間(秒)')
+        else:
+            short_stay_pages = valid_pages
+        
+        if len(short_stay_pages) > 0:
+            display_df = short_stay_pages[['ページ番号', '平均滞在時間(秒)']].copy()
+            display_df['ページ番号'] = display_df['ページ番号'].astype(int)
+            st.dataframe(display_df.style.format({'平均滞在時間(秒)': '{:.1f}秒'}), use_container_width=True, hide_index=True)
+        else:
+            st.info("データがありません。")
+
+    with col2:
+        st.markdown('##### 離脱率が高いページ TOP5')
+        st.markdown('<div class="graph-description">ユーザーが最も離脱しやすいボトルネックとなっている可能性が高いページです。</div>', unsafe_allow_html=True)
+        high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率']]
+        high_exit_pages['ページ番号'] = high_exit_pages['ページ番号'].astype(int)
+        st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True)
     
     # 逆行パターン
     st.markdown("#### 逆行パターン（戻る動作）")
@@ -1232,7 +1230,7 @@ elif selected_analysis == "ページ分析":
 
     # 離脱率と滞在時間の散布図
     st.markdown('### 離脱率 vs 滞在時間 ポジショニングマップ')
-    st.markdown('<div class="graph-description">各ページの離脱率（横軸）と平均滞在時間（縦軸）をプロットします。右下の「要注意ゾーン」（高離脱率・低滞在時間）にあるページは、最優先で改善すべきボトルネックです。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">各ページの離脱率（横軸）と平均滞在時間（縦軸）を散布図に表示します。右下の「要注意ゾーン」（高離脱率・低滞在時間）にあるページは、最優先で改善が必要なボトルネックです。</div>', unsafe_allow_html=True)
 
     if len(page_stats) > 1:
         # 平均値を計算
@@ -1252,21 +1250,21 @@ elif selected_analysis == "ページ分析":
         )
 
         # 平均線を追加
-        fig_scatter.add_vline(x=avg_exit_rate, line_dash="dash", line_color="gray", annotation_text=f"平均離脱率: {avg_exit_rate:.1f}%")
-        fig_scatter.add_hline(y=avg_stay_time, line_dash="dash", line_color="gray", annotation_text=f"平均滞在時間: {avg_stay_time:.1f}秒")
+        fig_scatter.add_vline(x=avg_exit_rate, line_dash="dash", line_color="gray", annotation_text=f"全ページ平均離脱率: {avg_exit_rate:.1f}%")
+        fig_scatter.add_hline(y=avg_stay_time, line_dash="dash", line_color="gray", annotation_text=f"全ページ平均滞在時間: {avg_stay_time:.1f}秒")
 
         # ゾーンの背景色と注釈を追加
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0, x1=1, y1=0.5, fillcolor="rgba(255, 0, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="要注意ゾーン<br>(高離脱・低滞在)", showarrow=False, font=dict(color="red", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="要注意ゾーン<br>(離脱率が高く滞在時間が短い)", showarrow=False, font=dict(color="red", size=14))
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(255, 165, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="改善候補<br>(高離脱・高滞在)", showarrow=False, font=dict(color="orange", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="改善候補<br>(離脱率が高く滞在時間が長い)", showarrow=False, font=dict(color="orange", size=14))
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=0.5, y1=0.5, fillcolor="rgba(255, 255, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="機会損失<br>(低離脱・低滞在)", showarrow=False, font=dict(color="goldenrod", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="機会損失<br>(離脱率が低く滞在時間が短い)", showarrow=False, font=dict(color="goldenrod", size=14))
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0.5, x1=0.5, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="良好<br>(低離脱・高滞在)", showarrow=False, font=dict(color="green", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="良好<br>(離脱率が低く滞在時間が長い)", showarrow=False, font=dict(color="green", size=14))
 
         fig_scatter.update_traces(
             textposition='top center',
