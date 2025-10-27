@@ -47,6 +47,10 @@ st.markdown("""
         border-radius: 0.5rem;
         border-left: 4px solid #002060;
     }
+    /* メインコンテンツの上部余白を調整してサイドバーと高さを合わせる */
+    .main > div:first-child {
+        padding-top: 1.8rem !important;
+    }
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
     }
@@ -81,6 +85,11 @@ st.markdown("""
         background-color: #002060 !important;
         color: white !important;
         font-weight: bold;
+    }
+    /* 選択中のボタンに赤い枠線を追加 */
+    .selected-button {
+        border: 2px solid #ff4b4b !important;
+        background-color: #e6f0ff !important;
     }
     /* ラジオボタンの丸を非表示にする */
     div[data-testid="stRadio"] input[type="radio"] {
@@ -205,9 +214,9 @@ for group_name, items in menu_groups.items():
         is_selected = st.session_state.selected_analysis == item
         button_key = f"menu_{item}"
         if st.sidebar.button(item, key=button_key, use_container_width=True, type="secondary"):
-            # ページ遷移時にトップにスクロールするJavaScriptを実行
-            st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
             st.session_state.selected_analysis = item
+            # ページ遷移時にトップにスクロールするJavaScriptを実行
+            st.rerun()
 
     st.sidebar.markdown("---")
 
@@ -217,15 +226,23 @@ if st.session_state.selected_analysis:
     js_code = f"""
     <script>
         setTimeout(function() {{
-            const allButtons = window.parent.document.querySelectorAll('.stButton>button');
-            allButtons.forEach(btn => {{
-                btn.classList.remove('selected-button');
-            }});
-            const selectedButton = window.parent.document.querySelector('[data-testid="st.button-{selected_button_key}"]');
-            if (selectedButton) {{
-                selectedButton.classList.add('selected-button');
+            try {{
+                // スクロールをトップに移動
+                window.parent.document.querySelector('section.main').scrollTo(0, 0);
+
+                // ボタンのスタイルを更新
+                const allButtons = window.parent.document.querySelectorAll('.stButton>button');
+                allButtons.forEach(btn => {{
+                    btn.classList.remove('selected-button');
+                }});
+                const selectedButton = window.parent.document.querySelector('button[data-testid="st.button-{selected_button_key}"]');
+                if (selectedButton) {{
+                    selectedButton.classList.add('selected-button');
+                }}
+            }} catch (e) {{
+                console.error("Error applying styles or scrolling: ", e);
             }}
-        }}, 100); // 100ミリ秒待ってから実行
+        }}, 150); // DOMの描画を待つために少し遅延させる
     </script>
     """
     st.components.v1.html(js_code, height=0)
