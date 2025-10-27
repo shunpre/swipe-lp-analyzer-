@@ -16,16 +16,6 @@ try:
     from scipy.stats import chi2_contingency
 except ImportError:
     chi2_contingency = None
-from capture_lp import capture_lp_screenshot, extract_swipe_lp_images
-try:
-    import requests
-    from bs4 import BeautifulSoup
-except ImportError:
-    requests = None
-    BeautifulSoup = None
-
-SCRAPING_LIBRARIES_AVAILABLE = all([requests, BeautifulSoup])
-
 
 # ページ設定
 st.set_page_config(
@@ -122,6 +112,31 @@ st.markdown("""
         visibility: hidden;
         display: none !important;
     }
+    /* マウスオーバーで画像を拡大するCSS */
+    .image-container-zoom {
+        position: relative;
+        width: 56px; /* サムネイルの幅 */
+        height: 100px; /* サムネイルの高さ */
+        overflow: hidden; /* 拡大時にコンテナからはみ出す部分を隠す */
+        display: inline-block; /* インラインブロック要素として配置 */
+        vertical-align: top; /* 上揃え */
+    }
+    .zoomable-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* アスペクト比を維持しつつコンテナを埋める */
+        transition: transform 0.2s ease-in-out, z-index 0s 0.2s;
+        cursor: zoom-in;
+    }
+    .image-container-zoom:hover .zoomable-image {
+        transform: scale(3.5); /* 拡大率 */
+        position: absolute; /* 拡大時に他の要素に影響を与えないように */
+        top: 50%; /* 中央に配置 */
+        left: 50%; /* 中央に配置 */
+        transform: translate(-50%, -50%) scale(3.5); /* 中央を基準に拡大 */
+        z-index: 10; /* 他の要素の上に表示 */
+        box-shadow: 0 0 10px rgba(0,0,0,0.5); /* 影を追加して見やすく */
+    }
 </style>
 <script>
     window.parent.document.querySelector('section.main').scrollTo(0, 0);
@@ -194,12 +209,6 @@ for group_name, items in menu_groups.items():
             st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
             st.session_state.selected_analysis = item
 
-    st.sidebar.markdown("---")
-
-# ライブラリのインストール状況をサイドバーに表示
-if not SCRAPING_LIBRARIES_AVAILABLE:
-    st.sidebar.warning("一部機能（ページ情報取得）が利用できません。有効にするには、`requests`と`beautifulsoup4`をインストールしてください。")
-    st.sidebar.code("pip install requests beautifulsoup4")
     st.sidebar.markdown("---")
 
 # 選択されたボタンにCSSクラスを適用するJavaScriptを実行
@@ -993,50 +1002,58 @@ elif selected_analysis == "ページ分析":
 
     # ページ分析は単一のLP選択時のみ実行
     if selected_lp:
-        current_lp_url = selected_lp
-        st.info(f"分析対象LP: `{current_lp_url}`")
+        pass # 選択されたLPのURL表示は削除
     else:
         st.warning("ページ分析を行うには、フィルターで分析したいLPを選択してください。")
         st.stop()
     
-    # --- Webページから情報を自動取得 ---
-    st.markdown("---")
-    st.markdown("### Webページ コンテンツ分析")
-    st.markdown('<div class="graph-description">指定されたURLのLPコンテンツを分析し、タイトルや見出しなどのSEO・コピーライティング上の要素を抽出します。</div>', unsafe_allow_html=True)
+    # --- BigQueryデータシミュレーション ---
+    # 実際のBigQueryデータから取得されるコンテンツ情報（LPのURL、ページ番号、コンテンツタイプ、コンテンツソース）
+    # ここではダミーデータとして定義します。
+    # 実際には、selected_lpに基づいてBigQueryからデータをクエリするロジックに置き換わります。
+    dummy_lp_content_data_store = {
+        "https://example.com/lp/product-a": [
+            {'page_number': 1, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page1_Image'},
+            {'page_number': 2, 'content_type': 'video', 'content_source': 'https://www.w3schools.com/html/mov_bbb.mp4'}, # 例: 動画URL
+            {'page_number': 3, 'content_type': 'html', 'content_source': '<h1>Page 3 Custom HTML</h1><p>これはカスタムHTMLコンテンツです。</p><p>BigQueryから取得したHTMLを直接表示します。</p>'},
+            {'page_number': 4, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page4_Image'},
+            {'page_number': 5, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page5_Image'},
+            {'page_number': 6, 'content_type': 'video', 'content_source': 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4'}, # 例: 別の動画URL
+            {'page_number': 7, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page7_Image'},
+            {'page_number': 8, 'content_type': 'html', 'content_source': '<h2>Page 8 Info</h2><p>詳細情報がここに表示されます。</p><ul><li>項目1</li><li>項目2</li></ul>'},
+            {'page_number': 9, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page9_Image'},
+            {'page_number': 10, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page10_Image'},
+        ],
+        "https://example.com/lp/product-b": [ # 別のLPのダミーデータ
+            {'page_number': 1, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=B_Page1_Image'},
+            {'page_number': 2, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=B_Page2_Image'},
+            {'page_number': 3, 'content_type': 'video', 'content_source': 'https://www.w3schools.com/html/mov_bbb.mp4'},
+            {'page_number': 4, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=B_Page4_Image'},
+        ]
+    }
 
-    # ユーザーが分析したいURLを入力するテキストボックス
-    # デフォルトで選択中のLPのURLをセット
-    target_url = st.text_input("分析したいLPのURLを入力してください", current_lp_url)
+    # BigQueryからコンテンツ情報を取得する関数をシミュレート
+    def get_lp_content_info(lp_url, page_num):
+        """
+        指定されたLPのURLとページ番号に基づいて、コンテンツのタイプとソースを返します。
+        実際にはBigQueryからデータを取得するロジックに置き換わります。
+        """
+        if lp_url in dummy_lp_content_data_store:
+            for item in dummy_lp_content_data_store[lp_url]:
+                if item['page_number'] == page_num:
+                    return item
+        # データが見つからない場合や、ダミーデータを超えるページの場合のデフォルト
+        # 拡張子で判別するロジックをここに組み込むことも可能
+        # 例: if content_source.endswith(('.mp4', '.webm')): return 'video'
+        # 今回はcontent_typeがデータに含まれる前提で進めます。
+        return {'page_number': page_num, 'content_type': 'image', 'content_source': f"https://via.placeholder.com/300x500.png?text=ダミー{page_num}"}
 
-    if st.button("ページ情報を取得"):
-        if not SCRAPING_LIBRARIES_AVAILABLE:
-            st.error("スクレイピングに必要なライブラリ（requests, beautifulsoup4）がインストールされていません。")
-        elif target_url:
-            try:
-                with st.spinner("ページ情報を取得中..."):
-                    # requestsを使ってURLのHTMLコンテンツを取得
-                    response = requests.get(target_url)
-                    response.raise_for_status() # エラーがあればここで例外を発生させる
+    # テーブル表示用のプレースホルダー画像
+    VIDEO_PLACEHOLDER_IMAGE = "https://via.placeholder.com/150x250.png?text=動画コンテンツ"
+    HTML_PLACEHOLDER_IMAGE = "https://via.placeholder.com/150x250.png?text=HTMLコンテンツ"
 
-                    # BeautifulSoupを使ってHTMLを解析
-                    soup = BeautifulSoup(response.content, 'html.parser')
+    # --- BigQueryデータシミュレーションここまで ---
 
-                    # 例1：ページのタイトルを取得して表示
-                    page_title = soup.title.string if soup.title else "タイトルが見つかりません"
-                    st.write(f"**ページのタイトル:** {page_title}")
-
-                    # 例2：ページ内の全てのH1見出しを取得して表示
-                    st.write("**H1見出しの一覧:**")
-                    h1_tags = soup.find_all('h1')
-                    if h1_tags:
-                        for tag in h1_tags:
-                            st.markdown(f"- {tag.get_text(strip=True)}")
-                    else:
-                        st.write("H1見出しは見つかりませんでした。")
-            except requests.exceptions.RequestException as e:
-                st.error(f"URLの取得に失敗しました: {e}")
-        else:
-            st.warning("URLを入力してください。")
 
     # ページ別メトリクス計算
     page_stats = filtered_df.groupby('page_num_dom').agg({
@@ -1048,12 +1065,8 @@ elif selected_analysis == "ページ分析":
     page_stats.columns = ['ページ番号', 'ビュー数', '平均滞在時間(ms)', '平均逆行率', '平均読込時間(ms)']
     page_stats['平均滞在時間(秒)'] = page_stats['平均滞在時間(ms)'] / 1000
     
-    # スワイプLPの各ページ画像を取得（ページ数を先に取得）
-    with st.spinner("スワイプLPの画像を取得中..."):
-        swipe_images = extract_swipe_lp_images(current_lp_url) # type: ignore
-    
     # LPの実際のページ数を取得（画像取得が成功した場合はそれを使用、失敗した場合は推測値）
-    actual_page_count = len(swipe_images) if swipe_images else (int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 10)
+    actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 10
     
     # 離脱率計算（LPの実際のページ数を使用）
     page_exit = []
@@ -1089,17 +1102,40 @@ elif selected_analysis == "ページ分析":
     page_stats = page_stats.sort_values('ページ番号').reset_index(drop=True)
     
     # 包括的なページメトリクステーブル
-    st.markdown("#### 全ページの主要指標一覧")
-    st.markdown('<div class="graph-description">全ページの主要指標を一覧表示します。スクロールして全ページを確認できます。</div>', unsafe_allow_html=True) # type: ignore
+    header_col1, header_col2 = st.columns([3, 1])
+    with header_col1:
+        st.markdown("#### ページごとのパフォーマンス詳細")
+        st.markdown('<div class="graph-description">項目名をクリックすると並べ替えができます。表示個数は右のプルダウンから選択してください</div>', unsafe_allow_html=True)
+    
+    with header_col2:
+        # 表示件数選択プルダウン
+        display_options = ["すべて"] + list(range(5, 51, 5))
+        num_to_display_str = st.selectbox(
+            "表示件数", 
+            display_options, 
+            index=0, 
+            label_visibility="collapsed"
+        )
     
     # 各ページのインタラクション要素のメトリクスを計算
     comprehensive_metrics = []
     
     for page_num in range(1, actual_page_count + 1):
         # 画像URLを取得
-        # ユーザーの要望に応じてダミー画像URLを生成します。
-        # 本番で実際の画像を表示する場合は、この行をコメントアウトし、元のロジックを有効化してください。
-        image_url = f"https://via.placeholder.com/150x250.png?text=ダミー{page_num}"
+        # BigQueryからコンテンツ情報を取得（シミュレーション）
+        content_info = get_lp_content_info(selected_lp, page_num)
+        content_type = content_info['content_type']
+        content_source = content_info['content_source']
+
+        # テーブル表示用の画像URLを決定
+        display_image_for_table = ""
+        if content_type == 'image':
+            display_image_for_table = content_source
+        elif content_type == 'video':
+            display_image_for_table = VIDEO_PLACEHOLDER_IMAGE
+        elif content_type == 'html':
+            display_image_for_table = HTML_PLACEHOLDER_IMAGE
+        # その他のタイプがあればここに追加
 
         # 基本メトリクス
         page_data = page_stats[page_stats['ページ番号'] == page_num]
@@ -1158,7 +1194,8 @@ elif selected_analysis == "ページ分析":
         
         comprehensive_metrics.append({
             'ページ': f"ページ{page_num}",
-            'ページ画像': image_url,
+            'コンテンツタイプ': content_type, # 新しい列
+            'ページ画像': display_image_for_table, # テーブル表示用の画像URL
             'セッション数': format_metric(sessions),
             'PV': format_metric(pv),
             '離脱率': format_metric(bounce_rate, is_percentage=True),
@@ -1180,11 +1217,18 @@ elif selected_analysis == "ページ分析":
     }, inplace=True)
 
     # データフレームで表示（画像列付き）
-    if len(comprehensive_df) > 0:
+    if not comprehensive_df.empty:
+        # 表示件数に応じてデータをスライス
+        if num_to_display_str != "すべて":
+            num_to_display = int(num_to_display_str)
+            display_df = comprehensive_df.head(num_to_display)
+        else:
+            display_df = comprehensive_df
+
         st.dataframe(
-            comprehensive_df,
+            display_df,
             column_config={
-                "ページ画像": st.column_config.ImageColumn("ページ画像", help="ページのキャプチャ画像"),
+                "ページ画像": st.column_config.ImageColumn("プレビュー", help="ページのコンテンツプレビュー"), # ラベルを変更
                 "ページ": None, # ページ列を非表示にする
             },
             hide_index=True,
@@ -1195,70 +1239,6 @@ elif selected_analysis == "ページ分析":
     
     st.markdown("---")
     
-    # ページ別パフォーマンス一覧
-    st.markdown("#### ページごとのパフォーマンス詳細")
-    st.markdown('<div class="graph-description">各ページのビュー数、滞在時間、離脱率、逆行率、読込時間を詳細に分析します。各ページのキャプチャと照らし合わせて、問題のあるコンテンツを特定しやすくなります。</div>', unsafe_allow_html=True) # type: ignore
-    
-    # ページ一覧表示
-    for idx, row in page_stats.iterrows():
-        page_num = int(row['ページ番号'])
-        with st.expander(f"ページ {page_num} - ビュー数: {int(row['ビュー数']):,}"):
-            # ページ畠像とメトリクスを横並びに表示（キャプチャを小さく）
-            img_col, metric_col = st.columns([1, 6])
-            
-            with img_col:
-                if swipe_images and page_num <= len(swipe_images):
-                    page_data = swipe_images[page_num - 1]
-                    if isinstance(page_data, dict):
-                        # 新形式: {'type': 'image'|'video'|'company_info', 'url': '...'}
-                        if page_data.get('type') == 'video':
-                            # 動画の場合はビデオタグで表示
-                            st.video(page_data.get('url', ''))
-                            st.caption(f"ページ {page_num} (動画)")
-                        elif page_data.get('type') == 'company_info':
-                            # 会社情報ページの場合
-                            st.markdown("🏢 **会社情報ページ**")
-                            st.markdown("このページをクリックするとモーダルが出現し、以下のリンクが表示されます:")
-                            urls = page_data.get('urls', {})
-                            if urls.get('company'):
-                                st.markdown(f"- [運営会社情報]({urls['company']})")
-                            if urls.get('privacy'):
-                                st.markdown(f"- [プライバシーポリシー]({urls['privacy']})")
-                            if urls.get('sct_law'):
-                                st.markdown(f"- [特定商取引法]({urls['sct_law']})")
-                        elif page_data.get('type') == 'html':
-                            # カスタムHTMLページの場合
-                            st.markdown("📄 **カスタムHTMLページ**")
-                            st.markdown("このページにはカスタムHTMLコンテンツが表示されます")
-                            # HTMLコンテンツのプレビュー（最初の100文字）
-                            content = page_data.get('content', '')
-                            if len(content) > 100:
-                                st.code(content[:100] + '...', language='html') # type: ignore
-                            else:
-                                st.code(content, language='html') # type: ignore
-                        else:
-                            # 画像の場合
-                            st.image(page_data.get('url', ''), caption=f"ページ {page_num}", use_container_width=True)
-                    else:
-                        # 旧形式: URL文字列
-                        st.image(page_data, caption=f"ページ {page_num}", use_container_width=True)
-            
-            with metric_col:
-                metric_col1, metric_col2, metric_col3 = st.columns(3)
-                
-                with metric_col1:
-                    st.metric("ビュー数", f"{int(row['ビュー数']):,}")
-                    st.metric("平均滞在時間", f"{row['平均滞在時間(秒)']:.1f}秒")
-                
-                with metric_col2:
-                    st.metric("離脱率", f"{row['離脱率']:.1f}%", delta_color="inverse")
-                    st.metric("平均逆行率", f"{row['平均逆行率']*100:.1f}%")
-                
-                with metric_col3:
-                    st.metric("平均読込時間", f"{row['平均読込時間(ms)']:.0f}ms")
-    
-    st.markdown("---")
-
     # 離脱率と滞在時間の散布図
     st.markdown('### 離脱率 vs 滞在時間 ポジショニングマップ')
     st.markdown('<div class="graph-description">各ページの離脱率（横軸）と平均滞在時間（縦軸）を散布図に表示します。右下の「要注意ゾーン」（高離脱率・低滞在時間）にあるページは、最優先で改善が必要なボトルネックです。</div>', unsafe_allow_html=True)
