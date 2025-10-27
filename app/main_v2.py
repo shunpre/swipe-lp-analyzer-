@@ -17,6 +17,15 @@ try:
 except ImportError:
     chi2_contingency = None
 from capture_lp import capture_lp_screenshot, extract_swipe_lp_images
+try:
+    import requests
+    from bs4 import BeautifulSoup
+except ImportError:
+    requests = None
+    BeautifulSoup = None
+
+SCRAPING_LIBRARIES_AVAILABLE = all([requests, BeautifulSoup])
+
 
 # ページ設定
 st.set_page_config(
@@ -185,6 +194,12 @@ for group_name, items in menu_groups.items():
             st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
             st.session_state.selected_analysis = item
 
+    st.sidebar.markdown("---")
+
+# ライブラリのインストール状況をサイドバーに表示
+if not SCRAPING_LIBRARIES_AVAILABLE:
+    st.sidebar.warning("一部機能（ページ情報取得）が利用できません。有効にするには、`requests`と`beautifulsoup4`をインストールしてください。")
+    st.sidebar.code("pip install requests beautifulsoup4")
     st.sidebar.markdown("---")
 
 # 選択されたボタンにCSSクラスを適用するJavaScriptを実行
@@ -983,6 +998,45 @@ elif selected_analysis == "ページ分析":
     else:
         st.warning("ページ分析を行うには、フィルターで分析したいLPを選択してください。")
         st.stop()
+    
+    # --- Webページから情報を自動取得 ---
+    st.markdown("---")
+    st.markdown("### Webページ コンテンツ分析")
+    st.markdown('<div class="graph-description">指定されたURLのLPコンテンツを分析し、タイトルや見出しなどのSEO・コピーライティング上の要素を抽出します。</div>', unsafe_allow_html=True)
+
+    # ユーザーが分析したいURLを入力するテキストボックス
+    # デフォルトで選択中のLPのURLをセット
+    target_url = st.text_input("分析したいLPのURLを入力してください", current_lp_url)
+
+    if st.button("ページ情報を取得"):
+        if not SCRAPING_LIBRARIES_AVAILABLE:
+            st.error("スクレイピングに必要なライブラリ（requests, beautifulsoup4）がインストールされていません。")
+        elif target_url:
+            try:
+                with st.spinner("ページ情報を取得中..."):
+                    # requestsを使ってURLのHTMLコンテンツを取得
+                    response = requests.get(target_url)
+                    response.raise_for_status() # エラーがあればここで例外を発生させる
+
+                    # BeautifulSoupを使ってHTMLを解析
+                    soup = BeautifulSoup(response.content, 'html.parser')
+
+                    # 例1：ページのタイトルを取得して表示
+                    page_title = soup.title.string if soup.title else "タイトルが見つかりません"
+                    st.write(f"**ページのタイトル:** {page_title}")
+
+                    # 例2：ページ内の全てのH1見出しを取得して表示
+                    st.write("**H1見出しの一覧:**")
+                    h1_tags = soup.find_all('h1')
+                    if h1_tags:
+                        for tag in h1_tags:
+                            st.markdown(f"- {tag.get_text(strip=True)}")
+                    else:
+                        st.write("H1見出しは見つかりませんでした。")
+            except requests.exceptions.RequestException as e:
+                st.error(f"URLの取得に失敗しました: {e}")
+        else:
+            st.warning("URLを入力してください。")
 
     # ページ別メトリクス計算
     page_stats = filtered_df.groupby('page_num_dom').agg({
