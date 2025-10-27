@@ -60,6 +60,33 @@ st.markdown("""
         border-radius: 0.3rem;
         border-left: 3px solid #002060;
     }
+    /* サイドバーのラジオボタンをボタン風にカスタム */
+    div[data-testid="stRadio"] > label {
+        display: block;
+        padding: 8px 12px;
+        margin: 4px 0;
+        border-radius: 0.3rem;
+        background-color: #f0f2f6;
+        color: #333;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: 1px solid transparent;
+    }
+    /* ホバー時のスタイル */
+    div[data-testid="stRadio"] > label:hover {
+        background-color: #e6f0ff;
+        border-color: #002060;
+    }
+    /* 選択中のスタイル */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child[aria-checked="true"] + div {
+        background-color: #002060 !important;
+        color: white !important;
+        font-weight: bold;
+    }
+    /* ラジオボタンの丸を非表示にする */
+    div[data-testid="stRadio"] input[type="radio"] {
+        display: none;
+    }
     /* サイドバーの開閉ボタンのSVGアイコンを非表示にする */
     button[data-testid="stSidebarCollapseButton"] > svg {
         display: none;
@@ -153,15 +180,31 @@ for group_name, items in menu_groups.items():
     for item in items: # type: ignore
         is_selected = st.session_state.selected_analysis == item
         button_key = f"menu_{item}"
-        if st.sidebar.button(item, key=button_key, use_container_width=True):
+        if st.sidebar.button(item, key=button_key, use_container_width=True, type="secondary"):
             # ページ遷移時にトップにスクロールするJavaScriptを実行
             st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
             st.session_state.selected_analysis = item
-            st.rerun() # 状態を即時反映させるためにrerunを追加
-        if is_selected:
-            # 選択されているボタンにカスタムCSSを適用
-            st.markdown(f'<style>.stButton>button[data-testid="st.button-{button_key}"] {{ background-color: #e6f0ff; color: #002060; border: 1px solid #002060; font-weight: bold; }}</style>', unsafe_allow_html=True)
+
     st.sidebar.markdown("---")
+
+# 選択されたボタンにCSSクラスを適用するJavaScriptを実行
+if st.session_state.selected_analysis:
+    selected_button_key = f"menu_{st.session_state.selected_analysis}"
+    js_code = f"""
+    <script>
+        setTimeout(function() {{
+            const allButtons = window.parent.document.querySelectorAll('.stButton>button');
+            allButtons.forEach(btn => {{
+                btn.classList.remove('selected-button');
+            }});
+            const selectedButton = window.parent.document.querySelector('[data-testid="st.button-{selected_button_key}"]');
+            if (selectedButton) {{
+                selectedButton.classList.add('selected-button');
+            }}
+        }}, 100); // 100ミリ秒待ってから実行
+    </script>
+    """
+    st.components.v1.html(js_code, height=0)
 
 selected_analysis = st.session_state.selected_analysis
 
@@ -2236,11 +2279,30 @@ elif selected_analysis == "リアルタイムビュー":
 elif selected_analysis == "デモグラフィック情報":
     st.markdown('<div class="sub-header">デモグラフィック情報</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True) # type: ignore
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+    # --- フィルター設定 ---
+    filter_cols = st.columns(4)
+    with filter_cols[0]:
+        period_options = {"過去7日間": 7, "過去30日間": 30, "過去90日間": 90, "カスタム期間": None}
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
 
-    with col1:
+    with filter_cols[1]:
+        lp_options = ["すべて"] + sorted(df['page_location'].dropna().unique().tolist())
+        selected_lp = st.selectbox("LP選択", lp_options, index=0, key="demographic_lp")
+
+    with filter_cols[2]:
+        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="demographic_device")
+
+    with filter_cols[3]:
+        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="demographic_channel")
+
+    # 比較機能はチェックボックスでシンプルに
+    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="demographic_compare_check")
+    comparison_type = None
+    if enable_comparison:
         # 期間選択
         period_options = {
             "過去7日間": 7,
@@ -2248,27 +2310,12 @@ elif selected_analysis == "デモグラフィック情報":
             "過去90日間": 90,
             "カスタム期間": None
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
-    
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="demographic_lp")
-    
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="demographic_compare_check")
-    
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="demographic_compare_select")
-            comparison_type = comparison_options[selected_comparison]
+        comparison_options = {
+            "前期間": "previous_period", "前週": "previous_week",
+            "前月": "previous_month", "前年": "previous_year"
+        }
+        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="demographic_compare_select")
+        comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
@@ -2294,8 +2341,16 @@ elif selected_analysis == "デモグラフィック情報":
     ]
 
     # LPフィルター
-    if selected_lp:
+    if selected_lp != "すべて":
         filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+    
+    # --- クロス分析用フィルター適用 ---
+    if selected_device != "すべて":
+        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
+
+    if selected_channel != "すべて":
+        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
 
     # ==============================================================================
     #  デバッグ用: 3分以上の滞在時間データを強制的に生成
@@ -2323,8 +2378,12 @@ elif selected_analysis == "デモグラフィック情報":
         if result is not None:
             comparison_df, comp_start, comp_end = result
             # 比較データにも同じフィルターを適用
-            if selected_lp:
+            if selected_lp != "すべて":
                 comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
+            if selected_device != "すべて":
+                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
+            if selected_channel != "すべて":
+                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
             # 比較データが空の場合は無効化
             if len(comparison_df) == 0:
                 comparison_df = None
@@ -2341,116 +2400,144 @@ elif selected_analysis == "デモグラフィック情報":
     st.markdown("ユーザーの属性情報（年齢、性別、地域、デバイス）を分析します。")
     
     # 年齢層別分析
-    st.markdown("#### 年齢層別分析")
-    st.markdown('<div class="graph-description">年齢層ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True) # type: ignore
-    
-    age_demo_data = {
-        '年齢層': ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'],
-        'セッション数': [int(total_sessions * 0.15), int(total_sessions * 0.35), int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.07), int(total_sessions * 0.03)],
-        'CVR (%)': [2.1, 3.5, 4.2, 3.8, 3.1, 2.5],
-        '平均滞在時間 (秒)': [45.2, 58.3, 67.1, 72.5, 68.9, 55.2]
-    }
-    
-    age_demo_df = pd.DataFrame(age_demo_data)
-    st.dataframe(age_demo_df.style.format({
-        'セッション数': '{:,.0f}',
-        'CVR (%)': '{:.1f}',
-        '平均滞在時間 (秒)': '{:.1f}'
-    }), use_container_width=True, hide_index=True)
-    
-    # 年齢層別CVRグラフ
-    fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
-    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
-    
-    # 性別分析
-    st.markdown("#### 性別分析")
-    st.markdown('<div class="graph-description">性別ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True) # type: ignore
-    
-    gender_demo_data = {
-        '性別': ['男性', '女性', 'その他/未回答'],
-        'セッション数': [int(total_sessions * 0.52), int(total_sessions * 0.45), int(total_sessions * 0.03)],
-        'CVR (%)': [3.2, 3.8, 2.5],
-        '平均滞在時間 (秒)': [62.1, 68.5, 55.2]
-    }
-    
-    gender_demo_df = pd.DataFrame(gender_demo_data)
-    st.dataframe(gender_demo_df.style.format({
-        'セッション数': '{:,.0f}',
-        'CVR (%)': '{:.1f}',
-        '平均滞在時間 (秒)': '{:.1f}'
-    }), use_container_width=True, hide_index=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # 性別割合円グラフ
-        fig = px.pie(gender_demo_df, values='セッション数', names='性別', title='性別割合')
-        fig.update_layout(height=400, dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_pie')
-    
-    with col2:
-        # 性別CVR比較
-        fig = px.bar(gender_demo_df, x='性別', y='CVR (%)', text='CVR (%)')
+    with st.expander("年齢層別分析", expanded=True):
+        st.markdown('<div class="graph-description">年齢層ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
+        age_demo_data = {
+            '年齢層': ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'],
+            'セッション数': [int(total_sessions * 0.15), int(total_sessions * 0.35), int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.07), int(total_sessions * 0.03)],
+            'CVR (%)': [2.1, 3.5, 4.2, 3.8, 3.1, 2.5],
+            '平均滞在時間 (秒)': [45.2, 58.3, 67.1, 72.5, 68.9, 55.2]
+        }
+        age_demo_df = pd.DataFrame(age_demo_data)
+        st.dataframe(age_demo_df.style.format({
+            'セッション数': '{:,.0f}', 'CVR (%)': '{:.1f}', '平均滞在時間 (秒)': '{:.1f}'
+        }), use_container_width=True, hide_index=True)
+        fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, xaxis_title='性別', yaxis_title='CVR (%)', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
+        fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)', dragmode=False)
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
+
+    with st.expander("性別分析", expanded=True):
+        st.markdown('<div class="graph-description">性別ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
+        gender_demo_data = {
+            '性別': ['男性', '女性', 'その他/未回答'],
+            'セッション数': [int(total_sessions * 0.52), int(total_sessions * 0.45), int(total_sessions * 0.03)],
+            'CVR (%)': [3.2, 3.8, 2.5],
+            '平均滞在時間 (秒)': [62.1, 68.5, 55.2]
+        }
+        gender_demo_df = pd.DataFrame(gender_demo_data)
+        st.dataframe(gender_demo_df.style.format({
+            'セッション数': '{:,.0f}', 'CVR (%)': '{:.1f}', '平均滞在時間 (秒)': '{:.1f}'
+        }), use_container_width=True, hide_index=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.pie(gender_demo_df, values='セッション数', names='性別', title='性別割合')
+            fig.update_layout(height=400, dragmode=False)
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_pie')
+        with col2:
+            fig = px.bar(gender_demo_df, x='性別', y='CVR (%)', text='CVR (%)')
+            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig.update_layout(height=400, showlegend=False, xaxis_title='性別', yaxis_title='CVR (%)', dragmode=False)
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
     
     # 地域別分析
     st.markdown("#### 地域別分析")
     st.markdown('<div class="graph-description">都道府県ごとのセッション数、コンバージョン率を表示します。</div>', unsafe_allow_html=True) # type: ignore
-    
-    region_demo_data = {
-        '地域': ['東京都', '大阪府', '神奈川県', '愛知県', '福岡県', '北海道', 'その他'],
-        'セッション数': [int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.10), int(total_sessions * 0.08), int(total_sessions * 0.07), int(total_sessions * 0.06), int(total_sessions * 0.29)],
-        'CVR (%)': [3.8, 3.5, 3.2, 3.1, 3.4, 2.9, 3.0]
-    }
-    
-    region_demo_df = pd.DataFrame(region_demo_data)
-    st.dataframe(region_demo_df.style.format({
-        'セッション数': '{:,.0f}',
-        'CVR (%)': '{:.1f}'
-    }), use_container_width=True, hide_index=True)
-    
-    # 地域別セッション数グラフ
-    fig = px.bar(region_demo_df, x='地域', y='セッション数', text='セッション数')
-    fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='地域', yaxis_title='セッション数', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_region_sessions')
+
+    # 都道府県リスト
+    prefectures_jp = [ # type: ignore
+        '北海道', '青森', '岩手', '宮城', '秋田', '山形', '福島', '茨城', '栃木', '群馬', '埼玉', '千葉', '東京', '神奈川',
+        '新潟', '富山', '石川', '福井', '山梨', '長野', '岐阜', '静岡', '愛知', '三重', '滋賀', '京都', '大阪', '兵庫',
+        '奈良', '和歌山', '鳥取', '島根', '岡山', '広島', '山口', '徳島', '香川', '愛媛', '高知', '福岡', '佐賀', '長崎',
+        '熊本', '大分', '宮崎', '鹿児島', '沖縄'
+    ]
+
+    # 地域別ダミーデータ生成
+
+    # GeoJSONデータを読み込む
+    try:
+        geojson_url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
+        import json
+        import requests
+        
+        @st.cache_data
+        def get_geojson():
+            res = requests.get(geojson_url)
+            return res.json()
+
+        japan_geojson = get_geojson()
+
+        # GeoJSONから都道府県名リストを取得
+        prefectures_from_geojson = [feature['properties']['nam_ja'] for feature in japan_geojson['features']]
+
+        # ダミーの地域別CVRデータを生成
+        # 主要都市のCVRを高く設定
+        major_cities = ['東京', '大阪', '神奈川', '愛知', '福岡', '北海道']
+        cvr_values = []
+        for pref in prefectures_from_geojson:
+            if pref in major_cities:
+                cvr_values.append(np.random.uniform(3.0, 5.0)) # 主要都市は高め
+            else:
+                cvr_values.append(np.random.uniform(1.5, 3.5)) # その他は普通
+
+        map_df = pd.DataFrame({
+            '都道府県': prefectures_from_geojson,
+            'コンバージョン率': cvr_values
+        })
+
+        # 地図を作成
+        fig_map = px.choropleth_mapbox(
+            map_df,
+            geojson=japan_geojson,
+            locations='都道府県',
+            featureidkey="properties.nam_ja", # 日本語名にキーを変更
+            color='コンバージョン率',
+            color_continuous_scale="Blues",
+            range_color=(map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()),
+            mapbox_style="carto-positron",
+            zoom=4.5,
+            center={"lat": 36.2048, "lon": 138.2529},
+            opacity=0.7,
+            labels={'コンバージョン率': 'CVR (%)'}
+        )
+        fig_map.update_layout(
+            margin={"r":0,"t":0,"l":0,"b":0},
+            height=600,
+            coloraxis_colorbar=dict(
+                title="CVR (%)",
+                tickvals=[map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()],
+                ticktext=[f"{map_df['コンバージョン率'].min():.1f}%", f"{map_df['コンバージョン率'].max():.1f}%"]
+            )
+        )
+        
+        st.plotly_chart(fig_map, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"地図の描画に失敗しました: {e}")
     
     # デバイス別分析
-    st.markdown("#### デバイス別分析")
-    st.markdown('<div class="graph-description">デバイスごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True) # type: ignore
-    
-    device_demo_data = {
-        'デバイス': ['PC', 'スマートフォン', 'タブレット'],
-        'セッション数': [int(total_sessions * 0.35), int(total_sessions * 0.60), int(total_sessions * 0.05)],
-        'CVR (%)': [4.2, 2.8, 3.5],
-        '平均滞在時間 (秒)': [78.5, 52.3, 65.1]
-    }
-    
-    device_demo_df = pd.DataFrame(device_demo_data)
-    st.dataframe(device_demo_df.style.format({
-        'セッション数': '{:,.0f}',
-        'CVR (%)': '{:.1f}',
-        '平均滞在時間 (秒)': '{:.1f}'
-    }), use_container_width=True, hide_index=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # デバイス別セッション数
-        fig = px.pie(device_demo_df, values='セッション数', names='デバイス', title='デバイス別セッション数')
-        fig.update_layout(height=400, dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_pie')
-    
-    with col2:
-        # デバイス別CVR比較
-        fig = px.bar(device_demo_df, x='デバイス', y='CVR (%)', text='CVR (%)')
-        fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False, xaxis_title='デバイス', yaxis_title='CVR (%)', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_cvr')
+    with st.expander("デバイス別分析", expanded=True):
+        st.markdown('<div class="graph-description">デバイスごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
+        device_demo_data = {
+            'デバイス': ['PC', 'スマートフォン', 'タブレット'],
+            'セッション数': [int(total_sessions * 0.35), int(total_sessions * 0.60), int(total_sessions * 0.05)],
+            'CVR (%)': [4.2, 2.8, 3.5],
+            '平均滞在時間 (秒)': [78.5, 52.3, 65.1]
+        }
+        device_demo_df = pd.DataFrame(device_demo_data)
+        st.dataframe(device_demo_df.style.format({
+            'セッション数': '{:,.0f}', 'CVR (%)': '{:.1f}', '平均滞在時間 (秒)': '{:.1f}'
+        }), use_container_width=True, hide_index=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.pie(device_demo_df, values='セッション数', names='デバイス', title='デバイス別セッション数')
+            fig.update_layout(height=400, dragmode=False)
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_pie')
+        with col2:
+            fig = px.bar(device_demo_df, x='デバイス', y='CVR (%)', text='CVR (%)')
+            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig.update_layout(height=400, showlegend=False, xaxis_title='デバイス', yaxis_title='CVR (%)', dragmode=False)
+            st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_cvr')
 
 # タブ9: AI提案
 elif selected_analysis == "AIによる分析・考察":
@@ -3189,9 +3276,16 @@ elif selected_analysis == "使用ガイド":
         (filtered_df['event_date'] <= pd.to_datetime(end_date))
     ]
 
-    # LPフィルター
-    if selected_lp:
+    # --- クロス分析用フィルター適用 ---
+    if selected_lp != "すべて":
         filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+    
+    if selected_device != "すべて":
+        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
+
+    if selected_channel != "すべて":
+        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
 
     # ==============================================================================
     #  デバッグ用: 3分以上の滞在時間データを強制的に生成
@@ -3219,8 +3313,12 @@ elif selected_analysis == "使用ガイド":
         if result is not None:
             comparison_df, comp_start, comp_end = result
             # 比較データにも同じフィルターを適用
-            if selected_lp:
+            if selected_lp != "すべて":
                 comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
+            if selected_device != "すべて":
+                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
+            if selected_channel != "すべて":
+                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
             # 比較データが空の場合は無効化
             if len(comparison_df) == 0:
                 comparison_df = None
@@ -3299,38 +3397,35 @@ elif selected_analysis == "専門用語解説":
     st.markdown('<div class="sub-header">専門用語解説</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
+    
+    # --- フィルター設定 ---
+    filter_cols = st.columns(4)
+    with filter_cols[0]:
+        period_options = {"過去7日間": 7, "過去30日間": 30, "過去90日間": 90, "カスタム期間": None}
+        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
 
-    col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1.5])
+    with filter_cols[1]:
+        lp_options = ["すべて"] + sorted(df['page_location'].dropna().unique().tolist())
+        selected_lp = st.selectbox("LP選択", lp_options, index=0, key="demographic_lp")
 
-    with col1:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
+    with filter_cols[2]:
+        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="demographic_device")
+
+    with filter_cols[3]:
+        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="demographic_channel")
+
+    # 比較機能はチェックボックスでシンプルに
+    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="demographic_compare_check")
+    comparison_type = None
+    if enable_comparison:
+        comparison_options = {
+            "前期間": "previous_period", "前週": "previous_week",
+            "前月": "previous_month", "前年": "previous_year"
         }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="glossary_period")
-
-    with col2:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="glossary_lp")
-
-    with col3:
-        # 比較機能
-        enable_comparison = st.checkbox("比較機能", value=False, key="glossary_compare_check")
-
-    with col4:
-        # 比較対象
-        comparison_type = None
-        if enable_comparison:
-            comparison_options = {
-                "前期間": "previous_period", "前週": "previous_week",
-                "前月": "previous_month", "前年": "previous_year"
-            }
-            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="glossary_compare_select")
-            comparison_type = comparison_options[selected_comparison]
+        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="demographic_compare_select")
+        comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
@@ -3355,9 +3450,16 @@ elif selected_analysis == "専門用語解説":
         (filtered_df['event_date'] <= pd.to_datetime(end_date))
     ]
 
-    # LPフィルター
-    if selected_lp:
+    # --- クロス分析用フィルター適用 ---
+    if selected_lp != "すべて":
         filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+    
+    if selected_device != "すべて":
+        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
+
+    if selected_channel != "すべて":
+        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
 
     # ==============================================================================
     #  デバッグ用: 3分以上の滞在時間データを強制的に生成
@@ -3385,8 +3487,12 @@ elif selected_analysis == "専門用語解説":
         if result is not None:
             comparison_df, comp_start, comp_end = result
             # 比較データにも同じフィルターを適用
-            if selected_lp:
+            if selected_lp != "すべて":
                 comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
+            if selected_device != "すべて":
+                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
+            if selected_channel != "すべて":
+                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
             # 比較データが空の場合は無効化
             if len(comparison_df) == 0:
                 comparison_df = None
@@ -3396,6 +3502,10 @@ elif selected_analysis == "専門用語解説":
     if len(filtered_df) == 0:
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
+
+    # このページで必要なKPIを計算
+    total_sessions = filtered_df['session_id'].nunique()
+
 
     st.markdown(""" # type: ignore
     ### マーケティング・分析用語集
@@ -3571,6 +3681,78 @@ elif selected_analysis == "専門用語解説":
         - **線形**: 全ての接触に均等に貢献を割り当て
         """)
     
+    # --- 地域別分析の地図可視化 ---
+    st.markdown("---")
+    st.markdown("#### 地域別分析（地図）")
+    st.markdown('<div class="graph-description">都道府県別のコンバージョン率を日本地図で可視化します。色が濃い地域ほどパフォーマンスが高いことを示します。</div>', unsafe_allow_html=True)
+
+    # ダミーの地域データを生成
+    prefectures_jp = [
+        '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+        '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+        '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+        '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+        '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+    ]
+    
+    # フィルターされたデータから地域ごとのCVRを計算（ダミー）
+    # 実際のデータでは、user_properties.geo.regionなどを利用します
+    np.random.seed(0)
+    region_cvr_data = {
+        '都道府県': prefectures_jp,
+        'コンバージョン率': np.random.uniform(1.0, 8.0, size=len(prefectures_jp))
+    }
+    region_cvr_df = pd.DataFrame(region_cvr_data)
+
+    # GeoJSONデータを読み込む
+    try:
+        # ローカルにGeoJSONファイルを配置することを推奨
+        # ここではURLから直接読み込み
+        geojson_url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
+        import json
+        import requests
+        
+        @st.cache_data
+        def get_geojson():
+            res = requests.get(geojson_url)
+            return res.json()
+
+        japan_geojson = get_geojson()
+
+        # 地図を作成
+        fig_map = px.choropleth_mapbox(
+            region_cvr_df,
+            geojson=japan_geojson,
+            locations='都道府県',
+            featureidkey="properties.name",
+            color='コンバージョン率',
+            color_continuous_scale="Blues",
+            range_color=(region_cvr_df['コンバージョン率'].min(), region_cvr_df['コンバージョン率'].max()),
+            mapbox_style="carto-positron",
+            zoom=4,
+            center={"lat": 36.2048, "lon": 138.2529},
+            opacity=0.7,
+            labels={'コンバージョン率': 'CVR (%)'}
+        )
+        fig_map.update_layout(
+            margin={"r":0,"t":0,"l":0,"b":0},
+            height=600,
+            coloraxis_colorbar=dict(
+                title="CVR (%)",
+                tickvals=[region_cvr_df['コンバージョン率'].min(), region_cvr_df['コンバージョン率'].max()],
+                ticktext=[f"{region_cvr_df['コンバージョン率'].min():.1f}%", f"{region_cvr_df['コンバージョン率'].max():.1f}%"]
+            )
+        )
+        
+        st.plotly_chart(fig_map, use_container_width=True)
+    
+    except Exception as e:
+        st.error(f"地図の描画に失敗しました: {e}")
+        st.info("コロプレス図を表示するには、`requests`ライブラリが必要です。`pip install requests` を実行してください。")
+
+
     st.markdown("---")
     st.markdown("**ヒント**: 各用語をクリックして詳細を確認できます。")
 
