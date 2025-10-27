@@ -1102,21 +1102,18 @@ elif selected_analysis == "ページ分析":
     page_stats = page_stats.sort_values('ページ番号').reset_index(drop=True)
     
     # 包括的なページメトリクステーブル
-    # ヘッダーとプルダウンを同じ行に配置
-    header_col, pulldown_col = st.columns([2, 1]) # ヘッダーが2/3、プルダウンが1/3
+    st.markdown("#### ページごとのパフォーマンス詳細")
+    st.markdown('<div class="graph-description">項目名をクリックすると並べ替えができます。表示個数は右のプルダウンから選択してください</div>', unsafe_allow_html=True)
 
-    with header_col:
-        st.markdown("#### ページごとのパフォーマンス詳細")
-        st.markdown('<div class="graph-description">項目名をクリックすると並べ替えができます。表示個数は右のプルダウンから選択してください</div>', unsafe_allow_html=True)
+    # プルダウンメニューを独立した狭いカラムに配置し、右端に寄せる
+    _, pulldown_col_right = st.columns([0.85, 0.15]) # 左に広い空のカラム、右に狭いプルダウン用のカラム
 
-    with pulldown_col:
-        # 表示件数選択プルダウン
-        display_options = ["すべて"] + list(range(5, 51, 5))
+    with pulldown_col_right:
         num_to_display_str = st.selectbox(
             "表示件数",
-            display_options,
+            ["すべて"] + list(range(5, 51, 5)),
             index=0,
-            label_visibility="collapsed",
+            label_visibility="collapsed", # ラベルを非表示にしてコンパクトに
             key="page_analysis_display_count"
         )
     # 各ページのインタラクション要素のメトリクスを計算
@@ -1306,8 +1303,8 @@ elif selected_analysis == "ページ分析":
     
     st.markdown("---")
     
-    # 滞在時間が短いページと離脱率が高いページを並べて表示
-    col1, col2 = st.columns(2)
+    # 滞在時間が短いページ、離脱率が高いページ、逆行パターンを並べて表示
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.markdown('##### 滞在時間が短いページ TOP5')
@@ -1333,22 +1330,29 @@ elif selected_analysis == "ページ分析":
         high_exit_pages = page_stats.nlargest(5, '離脱率')[['ページ番号', '離脱率']]
         high_exit_pages['ページ番号'] = high_exit_pages['ページ番号'].astype(int)
         st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True, height=212) # 高さを固定
-    
-    # 逆行パターン（最後に移動）
-    st.markdown("#### 逆行パターン（戻る動作）")
-    st.markdown('<div class="graph-description">ユーザーがページを戻る動作を分析します。頻繁に戻るパターンがある場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True) # type: ignore
-    backward_df = filtered_df[filtered_df['direction'] == 'backward']
-    
-    if len(backward_df) > 0:
-        backward_pattern = backward_df.groupby(['page_num_dom', 'prev_page_path']).size().reset_index(name='回数')
-        backward_pattern = backward_pattern.sort_values('回数', ascending=False).head(10)
-        backward_pattern.columns = ['遷移先ページ', '遷移元ページ', '回数']
+
+    with col3:
+        st.markdown('##### 逆行が多いページ TOP5')
+        st.markdown('<div class="graph-description">逆行の回数が多い場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True)
+        backward_df = filtered_df[filtered_df['direction'] == 'backward']
         
-        st.dataframe(backward_pattern, use_container_width=True)
-    else:
-        st.info("逆行パターンのデータがありません")
+        if len(backward_df) > 0:
+            # prev_page_pathからページ番号を抽出する
+            backward_df_copy = backward_df.copy()
+            backward_df_copy['prev_page_num'] = backward_df_copy['prev_page_path'].str.extract(r'page-(\d+)').fillna(0).astype(int)
 
-
+            # page_num_dom と prev_page_num でグループ化
+            backward_pattern = backward_df_copy.groupby(['page_num_dom', 'prev_page_num']).size().reset_index(name='回数')
+            backward_pattern = backward_pattern.sort_values('回数', ascending=False).head(5)
+            backward_pattern.columns = ['遷移先ページ番号', '遷移元ページ番号', '回数']
+            # 遷移元が0（不明）のものは除外
+            backward_pattern = backward_pattern[backward_pattern['遷移元ページ番号'] > 0]
+            
+            st.dataframe(backward_pattern[['遷移元ページ番号', '遷移先ページ番号', '回数']], use_container_width=True, hide_index=True, height=212) # 高さを固定
+        else:
+            st.info("逆行パターンのデータがありません")
+    
+    st.markdown("---")
 
 # タブ3: セグメント分析
 elif selected_analysis == "セグメント分析":
