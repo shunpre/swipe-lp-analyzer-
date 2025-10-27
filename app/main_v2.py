@@ -2288,8 +2288,8 @@ elif selected_analysis == "デモグラフィック情報":
         selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
 
     with filter_cols[1]:
-        lp_options = ["すべて"] + sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox("LP選択", lp_options, index=0, key="demographic_lp")
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="demographic_lp")
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -2341,7 +2341,7 @@ elif selected_analysis == "デモグラフィック情報":
     ]
 
     # LPフィルター
-    if selected_lp != "すべて":
+    if selected_lp and selected_lp != "すべて":
         filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
     
     # --- クロス分析用フィルター適用 ---
@@ -2374,7 +2374,7 @@ elif selected_analysis == "デモグラフィック情報":
     comp_start = None
     comp_end = None
     if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
+        result = get_comparison_data(df, pd.to_datetime(start_date), pd.to_datetime(end_date), comparison_type)
         if result is not None:
             comparison_df, comp_start, comp_end = result
             # 比較データにも同じフィルターを適用
@@ -2398,20 +2398,38 @@ elif selected_analysis == "デモグラフィック情報":
     total_sessions = filtered_df['session_id'].nunique()
 
     st.markdown("ユーザーの属性情報（年齢、性別、地域、デバイス）を分析します。")
-    
+
     # 年齢層別分析
     with st.expander("年齢層別分析", expanded=True):
         st.markdown('<div class="graph-description">年齢層ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
-        age_demo_data = {
-            '年齢層': ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'],
-            'セッション数': [int(total_sessions * 0.15), int(total_sessions * 0.35), int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.07), int(total_sessions * 0.03)],
-            'CVR (%)': [2.1, 3.5, 4.2, 3.8, 3.1, 2.5],
-            '平均滞在時間 (秒)': [45.2, 58.3, 67.1, 72.5, 68.9, 55.2]
-        }
-        age_demo_df = pd.DataFrame(age_demo_data)
+        # 年齢層のダミーデータを 'age_group' 列として追加（BigQueryに実データがあればこの処理は不要）
+        if 'age_group' not in filtered_df.columns:
+            age_bins = [18, 25, 35, 45, 55, 65, 100]
+            age_labels = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+']
+            # 'age' 列がない場合はダミーの年齢を生成
+            if 'age' not in filtered_df.columns:
+                filtered_df['age'] = np.random.randint(18, 80, size=len(filtered_df))
+            filtered_df['age_group'] = pd.cut(filtered_df['age'], bins=age_bins, labels=age_labels, right=False)
+
+        # 年齢層別に集計
+        age_sessions = filtered_df.groupby('age_group')['session_id'].nunique()
+        age_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('age_group')['session_id'].nunique()
+        age_stay = filtered_df.groupby('age_group')['stay_ms'].mean() / 1000
+
+        age_demo_df = pd.DataFrame({
+            'セッション数': age_sessions,
+            'CV数': age_cv,
+            '平均滞在時間 (秒)': age_stay
+        }).fillna(0).reset_index().rename(columns={'age_group': '年齢層'})
+        age_demo_df['CVR (%)'] = (age_demo_df['CV数'] / age_demo_df['セッション数'] * 100).fillna(0)
+
         st.dataframe(age_demo_df.style.format({
-            'セッション数': '{:,.0f}', 'CVR (%)': '{:.1f}', '平均滞在時間 (秒)': '{:.1f}'
+            'セッション数': '{:,.0f}',
+            'CV数': '{:,.0f}',
+            'CVR (%)': '{:.1f}%',
+            '平均滞在時間 (秒)': '{:.1f}'
         }), use_container_width=True, hide_index=True)
+
         fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
         fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)', dragmode=False)
@@ -2419,16 +2437,29 @@ elif selected_analysis == "デモグラフィック情報":
 
     with st.expander("性別分析", expanded=True):
         st.markdown('<div class="graph-description">性別ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
-        gender_demo_data = {
-            '性別': ['男性', '女性', 'その他/未回答'],
-            'セッション数': [int(total_sessions * 0.52), int(total_sessions * 0.45), int(total_sessions * 0.03)],
-            'CVR (%)': [3.2, 3.8, 2.5],
-            '平均滞在時間 (秒)': [62.1, 68.5, 55.2]
-        }
-        gender_demo_df = pd.DataFrame(gender_demo_data)
+        # 性別のダミーデータを 'gender' 列として追加（BigQueryに実データがあればこの処理は不要）
+        if 'gender' not in filtered_df.columns:
+            filtered_df['gender'] = np.random.choice(['男性', '女性', 'その他/未回答'], size=len(filtered_df), p=[0.52, 0.45, 0.03])
+
+        # 性別で集計
+        gender_sessions = filtered_df.groupby('gender')['session_id'].nunique()
+        gender_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('gender')['session_id'].nunique()
+        gender_stay = filtered_df.groupby('gender')['stay_ms'].mean() / 1000
+
+        gender_demo_df = pd.DataFrame({
+            'セッション数': gender_sessions,
+            'CV数': gender_cv,
+            '平均滞在時間 (秒)': gender_stay
+        }).fillna(0).reset_index().rename(columns={'gender': '性別'})
+        gender_demo_df['CVR (%)'] = (gender_demo_df['CV数'] / gender_demo_df['セッション数'] * 100).fillna(0)
+
         st.dataframe(gender_demo_df.style.format({
-            'セッション数': '{:,.0f}', 'CVR (%)': '{:.1f}', '平均滞在時間 (秒)': '{:.1f}'
+            'セッション数': '{:,.0f}',
+            'CV数': '{:,.0f}',
+            'CVR (%)': '{:.1f}%',
+            '平均滞在時間 (秒)': '{:.1f}'
         }), use_container_width=True, hide_index=True)
+
         col1, col2 = st.columns(2)
         with col1:
             fig = px.pie(gender_demo_df, values='セッション数', names='性別', title='性別割合')
@@ -2441,93 +2472,115 @@ elif selected_analysis == "デモグラフィック情報":
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
     
     # 地域別分析
-    st.markdown("#### 地域別分析")
-    st.markdown('<div class="graph-description">都道府県ごとのセッション数、コンバージョン率を表示します。</div>', unsafe_allow_html=True) # type: ignore
-
-    # 都道府県リスト
-    prefectures_jp = [ # type: ignore
-        '北海道', '青森', '岩手', '宮城', '秋田', '山形', '福島', '茨城', '栃木', '群馬', '埼玉', '千葉', '東京', '神奈川',
-        '新潟', '富山', '石川', '福井', '山梨', '長野', '岐阜', '静岡', '愛知', '三重', '滋賀', '京都', '大阪', '兵庫',
-        '奈良', '和歌山', '鳥取', '島根', '岡山', '広島', '山口', '徳島', '香川', '愛媛', '高知', '福岡', '佐賀', '長崎',
-        '熊本', '大分', '宮崎', '鹿児島', '沖縄'
-    ]
-
-    # 地域別ダミーデータ生成
-
-    # GeoJSONデータを読み込む
-    try:
-        geojson_url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
-        import json
-        import requests
+    with st.expander("地域別分析", expanded=True):
+        st.markdown('<div class="graph-description">都道府県ごとのセッション数、コンバージョン率を表示します。</div>', unsafe_allow_html=True)
         
-        @st.cache_data
-        def get_geojson():
-            res = requests.get(geojson_url)
-            return res.json()
+        # 地域別ダミーデータ（サマリー表用） - これはBigQueryに地域データがない場合の代替として残します
+        # BigQueryに地域データがある場合は、以下も動的生成に切り替えます
+        region_demo_data = {
+            '地域': ['東京都', '大阪府', '神奈川県', '愛知県', '福岡県', '北海道', 'その他'],
+            'セッション数': [int(total_sessions * 0.25), int(total_sessions * 0.15), int(total_sessions * 0.10), int(total_sessions * 0.08), int(total_sessions * 0.07), int(total_sessions * 0.06), int(total_sessions * 0.29)],
+            'CVR (%)': [3.8, 3.5, 3.2, 3.1, 3.4, 2.9, 3.0]
+        }
+        region_demo_df = pd.DataFrame(region_demo_data)
+        st.dataframe(region_demo_df.style.format({
+            'セッション数': '{:,.0f}',
+            'CVR (%)': '{:.1f}'
+        }), use_container_width=True, hide_index=True)
 
-        japan_geojson = get_geojson()
+        st.markdown("---")
+        st.markdown("##### 都道府県別 CVRマップ")
 
-        # GeoJSONから都道府県名リストを取得
-        prefectures_from_geojson = [feature['properties']['nam_ja'] for feature in japan_geojson['features']]
+        # GeoJSONデータを読み込む
+        try:
+            geojson_url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
+            import json
+            import requests
+            
+            @st.cache_data
+            def get_geojson():
+                res = requests.get(geojson_url)
+                return res.json()
 
-        # ダミーの地域別CVRデータを生成
-        # 主要都市のCVRを高く設定
-        major_cities = ['東京', '大阪', '神奈川', '愛知', '福岡', '北海道']
-        cvr_values = []
-        for pref in prefectures_from_geojson:
-            if pref in major_cities:
-                cvr_values.append(np.random.uniform(3.0, 5.0)) # 主要都市は高め
-            else:
-                cvr_values.append(np.random.uniform(1.5, 3.5)) # その他は普通
+            japan_geojson = get_geojson()
 
-        map_df = pd.DataFrame({
-            '都道府県': prefectures_from_geojson,
-            'コンバージョン率': cvr_values
-        })
+            # GeoJSONの各featureに、キーとして使える都道府県名（'東京', '大阪'など）を追加
+            for feature in japan_geojson["features"]:
+                pref_name_full = feature["properties"]["nam_ja"]
+                # '北海道'はそのまま、他は'都','府','県'を削除
+                feature["properties"]["pref_key"] = pref_name_full if pref_name_full == '北海道' else pref_name_full[:-1]
 
-        # 地図を作成
-        fig_map = px.choropleth_mapbox(
-            map_df,
-            geojson=japan_geojson,
-            locations='都道府県',
-            featureidkey="properties.nam_ja", # 日本語名にキーを変更
-            color='コンバージョン率',
-            color_continuous_scale="Blues",
-            range_color=(map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()),
-            mapbox_style="carto-positron",
-            zoom=4.5,
-            center={"lat": 36.2048, "lon": 138.2529},
-            opacity=0.7,
-            labels={'コンバージョン率': 'CVR (%)'}
-        )
-        fig_map.update_layout(
-            margin={"r":0,"t":0,"l":0,"b":0},
-            height=600,
-            coloraxis_colorbar=dict(
-                title="CVR (%)",
-                tickvals=[map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()],
-                ticktext=[f"{map_df['コンバージョン率'].min():.1f}%", f"{map_df['コンバージョン率'].max():.1f}%"]
+            # 表示用データフレームにもキー列を追加
+            region_demo_df_for_map = region_demo_df.copy()
+            region_demo_df_for_map['pref_key'] = region_demo_df_for_map['地域'].apply(
+                lambda x: x if x == '北海道' else x[:-1] if x not in ['その他'] else 'その他'
             )
-        )
-        
-        st.plotly_chart(fig_map, use_container_width=True)
 
-    except Exception as e:
-        st.error(f"地図の描画に失敗しました: {e}")
+            # 地図用のデータフレームを作成
+            map_df = pd.DataFrame({
+                'pref_key': [f["properties"]["pref_key"] for f in japan_geojson["features"]]
+            })
+
+            # CVRデータをマージ
+            map_df = map_df.merge(region_demo_df_for_map[['pref_key', 'CVR (%)']].rename(columns={'CVR (%)': 'コンバージョン率'}), on='pref_key', how='left')
+
+            # 表にない都道府県は 'その他' のCVRで埋める
+            other_cvr = region_demo_df[region_demo_df['地域'] == 'その他']['CVR (%)'].iloc[0]
+            map_df['コンバージョン率'] = map_df['コンバージョン率'].fillna(other_cvr)
+
+            # 地図を作成
+            fig_map = px.choropleth_mapbox(
+                map_df,
+                geojson=japan_geojson,
+                locations='pref_key', # locationsをキー列に変更
+                featureidkey="properties.pref_key", # featureidkeyをキー列に変更
+                color='コンバージョン率',
+                color_continuous_scale="Blues",
+                range_color=(map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()),
+                mapbox_style="carto-positron",
+                zoom=4.5,
+                center={"lat": 36.2048, "lon": 138.2529},
+                opacity=0.7,
+                labels={'コンバージョン率': 'CVR (%)'},
+                hover_name='pref_key' # ホバー時に都道府県名を表示
+            )
+            fig_map.update_layout(
+                margin={"r":0,"t":0,"l":0,"b":0},
+                height=600,
+                coloraxis_colorbar=dict(
+                    title="CVR (%)",
+                    tickvals=[map_df['コンバージョン率'].min(), map_df['コンバージョン率'].max()],
+                    ticktext=[f"{map_df['コンバージョン率'].min():.1f}%", f"{map_df['コンバージョン率'].max():.1f}%"]
+                )
+            )
+            
+            st.plotly_chart(fig_map, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"地図の描画に失敗しました: {e}")
     
     # デバイス別分析
     with st.expander("デバイス別分析", expanded=True):
         st.markdown('<div class="graph-description">デバイスごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
-        device_demo_data = {
-            'デバイス': ['PC', 'スマートフォン', 'タブレット'],
-            'セッション数': [int(total_sessions * 0.35), int(total_sessions * 0.60), int(total_sessions * 0.05)],
-            'CVR (%)': [4.2, 2.8, 3.5],
-            '平均滞在時間 (秒)': [78.5, 52.3, 65.1]
-        }
-        device_demo_df = pd.DataFrame(device_demo_data)
+        # デバイス別に集計
+        device_sessions = filtered_df.groupby('device_type')['session_id'].nunique()
+        device_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('device_type')['session_id'].nunique()
+        device_stay = filtered_df.groupby('device_type')['stay_ms'].mean() / 1000
+
+        device_demo_df = pd.DataFrame({
+            'セッション数': device_sessions,
+            'CV数': device_cv,
+            '平均滞在時間 (秒)': device_stay
+        }).fillna(0).reset_index().rename(columns={'device_type': 'デバイス'})
+        device_demo_df['CVR (%)'] = (device_demo_df['CV数'] / device_demo_df['セッション数'] * 100).fillna(0)
+
         st.dataframe(device_demo_df.style.format({
-            'セッション数': '{:,.0f}', 'CVR (%)': '{:.1f}', '平均滞在時間 (秒)': '{:.1f}'
+            'セッション数': '{:,.0f}',
+            'CV数': '{:,.0f}',
+            'CVR (%)': '{:.1f}%',
+            '平均滞在時間 (秒)': '{:.1f}'
         }), use_container_width=True, hide_index=True)
+
         col1, col2 = st.columns(2)
         with col1:
             fig = px.pie(device_demo_df, values='セッション数', names='デバイス', title='デバイス別セッション数')
