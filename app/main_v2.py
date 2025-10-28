@@ -3396,8 +3396,8 @@ elif selected_analysis == "AIによる分析・考察":
 
     # --- ユーザー入力フォーム ---
     st.markdown("---")
-    st.markdown("### 🎯 目標値・現状値の入力")
-    st.markdown('<div class="graph-description">分析の精度向上のため、目標値と現状値を入力してください。空欄があってもAIが推測して分析します。</div>', unsafe_allow_html=True)
+    st.markdown("### 目標値・現状値の入力")
+    st.markdown('<div class="graph-description">AIがデータを多角的に分析し、現状評価や改善案を提案します。分析精度向上のため、目標値と現状値を入力してください。月間目標は<br>選択期間に応じて日割り計算され、空欄でもAIが推測します。</div>', unsafe_allow_html=True)
 
     form_cols = st.columns(2)
     with form_cols[0]:
@@ -3413,15 +3413,11 @@ elif selected_analysis == "AIによる分析・考察":
         current_cpa = st.number_input("現状CPA", min_value=0, step=100)
 
     st.markdown("---")
-    st.markdown("### 👤 ターゲット顧客・その他の情報")
+    st.markdown("### ターゲット顧客・その他の情報")
     target_customer = st.text_area("ターゲット顧客について教えてください", placeholder="例：30代女性、都内在住、美容への関心が高い、オーガニック製品を好む")
     other_info = st.text_area("その他、分析で特に重視してほしい点などがあればご記入ください", placeholder="例：競合の〇〇と比較してほしい、特定の部分のコピーを重点的に見てほしい")
 
-    st.markdown("""
-    AIがデータを多角的に分析し、現状評価や改善案を提案します。分析精度向上のため、目標値と現状値を入力してください。月間目標は選択期間に応じて日割り計算され、空欄でもAIが推測します。
-    """)
-
-    if st.button("AI分析を実行", key="ai_analysis_main_btn", type="primary", use_container_width=True):
+    if st.button("AI分析を実行", key="ai_analysis_main_btn", type="primary", use_container_width=True): # type: ignore
         with st.spinner("AIがデータを分析中..."):
             # LPのURLからテキストコンテンツを抽出
             lp_text_content = extract_lp_text_content(selected_lp)
