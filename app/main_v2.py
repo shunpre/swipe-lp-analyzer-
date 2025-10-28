@@ -3346,10 +3346,53 @@ elif selected_analysis == "AIによる分析・考察":
     # KPI表示
     st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
 
-    # KPIカード表示
+    # KPIカード表示 (他のページからコピー)
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    # ... (KPIカードの表示部分は変更なしのため省略) ...
+    with col1:
+        # セッション数
+        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
+        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
+        
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
+        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
+        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
+
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
+
+    with col3:
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+
+        # 平均到達ページ数
+        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
+        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
+
+    with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+
+        # 平均滞在時間
+        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
+        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f} 秒" if delta_stay is not None else None)
+
+    with col5:
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+
+        # 平均読込時間
+        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
+        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f} ms" if delta_load is not None else None, delta_color="inverse")
 
     # --- ユーザー入力フォーム ---
     st.markdown("---")
