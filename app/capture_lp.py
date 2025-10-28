@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-LP URLからスクリーンショットを取得する関数
+LP URLからスクリーンショットやコンテンツ情報を取得する関数
 """
 import requests
 from PIL import Image
 from io import BytesIO
+from bs4 import BeautifulSoup
 import streamlit as st
 import re
 import json
@@ -83,9 +84,7 @@ def extract_swipe_lp_images(url: str):
         画像/動画URLのリスト（辞書形式: {'type': 'image'|'video', 'url': '...'})
     """
     try:
-        from bs4 import BeautifulSoup
-        
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, timeout=30, headers={'User-Agent': 'Mozilla/5.0'})
         html_content = response.text
         soup = BeautifulSoup(html_content, 'html.parser')
         
@@ -317,3 +316,52 @@ def convert_to_absolute_url(base_url: str, relative_url: str) -> str:
         # 現在のディレクトリからの相対パス
         base_parts = base_url.rsplit('/', 1)
         return f"{base_parts[0]}/{relative_url}"
+
+
+@st.cache_data(ttl=3600)
+def extract_lp_text_content(url: str) -> dict:
+    """
+    LPのURLからテキストコンテンツ（ヘッドライン、ボディコピー、CTA）を抽出する
+
+    Args:
+        url: LPのURL
+
+    Returns:
+        テキストコンテンツを含む辞書
+    """
+    try:
+        response = requests.get(url, timeout=30, headers={'User-Agent': 'Mozilla/5.0'})
+        response.raise_for_status()  # HTTPエラーチェック
+        html_content = response.text
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # ヘッドラインの抽出 (h1, h2タグを優先)
+        headlines = [h.get_text(strip=True) for h in soup.find_all(['h1', 'h2'])]
+        if not headlines:
+            # h1, h2がなければ最初のpタグなどを代替として使うことも可能
+            first_p = soup.find('p')
+            if first_p:
+                headlines.append(first_p.get_text(strip=True))
+
+        # ボディコピーの抽出 (pタグ)
+        body_copy = [p.get_text(strip=True) for p in soup.find_all('p') if p.get_text(strip=True)]
+
+        # CTAの抽出 (buttonタグと、'cta'や'btn'クラスを持つaタグ)
+        cta_elements = soup.find_all('button')
+        cta_elements += soup.find_all('a', class_=re.compile(r'\b(cta|btn|button)\b', re.I))
+        
+        ctas = [cta.get_text(strip=True) for cta in cta_elements if cta.get_text(strip=True)]
+        ctas = list(dict.fromkeys(ctas)) # 重複を削除
+
+        return {
+            "headlines": headlines,
+            "body_copy": body_copy,
+            "ctas": ctas
+        }
+
+    except requests.exceptions.RequestException as e:
+        print(f"URLからのコンテンツ取得エラー: {e}")
+        return {"headlines": [], "body_copy": [], "ctas": []}
+    except Exception as e:
+        print(f"テキストコンテンツの抽出エラー: {e}")
+        return {"headlines": [], "body_copy": [], "ctas": []}
