@@ -3847,33 +3847,6 @@ elif selected_analysis == "AIによる分析・考察":
     # フリーチャット（プロトタイプ）
     st.markdown("#### チャットで質問する")
     
-    user_question = st.text_input("チャットで質問する", placeholder="質問を入力してください", label_visibility="collapsed")
-    
-    if st.button("送信", key="free_chat_submit"):
-        # ボタンにカスタムクラスを適用するためにst.markdownを使用
-        st.markdown("""
-            <style>
-            .stButton>button[data-testid="st.button-free_chat_submit"] {
-                background-color: #d9534f; color: white;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        if user_question:
-            st.info(f"""
-            **質問:** {user_question}
-            
-            **回答:**
-            
-            ご質問ありがとうございます。AIがデータに基づいて回答を生成します。
-            """)
-        else:
-            st.warning("質問を入力してください")
-
-    st.markdown("---")
-    
-    # フリーチャット（プロトタイプ）
-    st.markdown("#### チャットで質問する")
-    
     user_question = st.text_input("チャットで質問する", placeholder="質問を入力してください", label_visibility="collapsed", key="ai_page_free_chat_input")
     
     if st.button("送信", key="ai_page_free_chat_submit"):
@@ -4355,78 +4328,6 @@ elif selected_analysis == "専門用語解説":
         - **線形**: 全ての接触に均等に貢献を割り当て
         """)
     
-    # --- 地域別分析の地図可視化 ---
-    st.markdown("---")
-    st.markdown("#### 地域別分析（地図）")
-    st.markdown('<div class="graph-description">都道府県別のコンバージョン率を日本地図で可視化します。色が濃い地域ほどパフォーマンスが高いことを示します。</div>', unsafe_allow_html=True)
-
-    # ダミーの地域データを生成
-    prefectures_jp = [
-        '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
-        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
-        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
-        '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
-        '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
-        '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
-        '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
-    ]
-    
-    # フィルターされたデータから地域ごとのCVRを計算（ダミー）
-    # 実際のデータでは、user_properties.geo.regionなどを利用します
-    np.random.seed(0)
-    region_cvr_data = {
-        '都道府県': prefectures_jp,
-        'コンバージョン率': np.random.uniform(1.0, 8.0, size=len(prefectures_jp))
-    }
-    region_cvr_df = pd.DataFrame(region_cvr_data)
-
-    # GeoJSONデータを読み込む
-    try:
-        # ローカルにGeoJSONファイルを配置することを推奨
-        # ここではURLから直接読み込み
-        geojson_url = "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson"
-        import json
-        import requests
-        
-        @st.cache_data
-        def get_geojson():
-            res = requests.get(geojson_url)
-            return res.json()
-
-        japan_geojson = get_geojson()
-
-        # 地図を作成
-        fig_map = px.choropleth_mapbox(
-            region_cvr_df,
-            geojson=japan_geojson,
-            locations='都道府県',
-            featureidkey="properties.name",
-            color='コンバージョン率',
-            color_continuous_scale="Blues",
-            range_color=(region_cvr_df['コンバージョン率'].min(), region_cvr_df['コンバージョン率'].max()),
-            mapbox_style="carto-positron",
-            zoom=4,
-            center={"lat": 36.2048, "lon": 138.2529},
-            opacity=0.7,
-            labels={'コンバージョン率': 'CVR (%)'}
-        )
-        fig_map.update_layout(
-            margin={"r":0,"t":0,"l":0,"b":0},
-            height=600,
-            coloraxis_colorbar=dict(
-                title="CVR (%)",
-                tickvals=[region_cvr_df['コンバージョン率'].min(), region_cvr_df['コンバージョン率'].max()],
-                ticktext=[f"{region_cvr_df['コンバージョン率'].min():.1f}%", f"{region_cvr_df['コンバージョン率'].max():.1f}%"]
-            )
-        )
-        
-        st.plotly_chart(fig_map, use_container_width=True)
-    
-    except Exception as e:
-        st.error(f"地図の描画に失敗しました: {e}")
-        st.info("コロプレス図を表示するには、`requests`ライブラリが必要です。`pip install requests` を実行してください。")
-
-
     st.markdown("---")
     st.markdown("**ヒント**: 各用語をクリックして詳細を確認できます。")
 
