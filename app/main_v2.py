@@ -3402,15 +3402,15 @@ elif selected_analysis == "AIによる分析・考察":
     form_cols = st.columns(2)
     with form_cols[0]:
         st.markdown("##### **月間目標値**")
-        target_cvr = st.number_input("目標CVR (%)", min_value=0.0, step=0.1, format="%.2f")
-        target_cv = st.number_input("目標CV数", min_value=0, step=1)
-        target_cpa = st.number_input("目標CPA", min_value=0, step=100)
+        target_cvr = st.number_input("目標CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=0.0)
+        target_cv = st.number_input("目標CV数", min_value=0, step=1, value=0)
+        target_cpa = st.number_input("目標CPA", min_value=0, step=100, value=0)
     
     with form_cols[1]:
         st.markdown("##### **現状値**")
-        current_cvr = st.number_input("現状CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=conversion_rate)
-        current_cv = st.number_input("現状CV数", min_value=0, step=1, value=total_conversions)
-        current_cpa = st.number_input("現状CPA", min_value=0, step=100)
+        current_cvr = st.number_input("現状CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=0.0)
+        current_cv = st.number_input("現状CV数", min_value=0, step=1, value=0)
+        current_cpa = st.number_input("現状CPA", min_value=0, step=100, value=0)
 
     st.markdown("---")
     st.markdown("### ターゲット顧客・その他の情報")
