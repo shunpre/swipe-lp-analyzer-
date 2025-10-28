@@ -215,34 +215,42 @@ for group_name, items in menu_groups.items():
         button_key = f"menu_{item}"
         if st.sidebar.button(item, key=button_key, use_container_width=True, type="secondary"):
             st.session_state.selected_analysis = item
-            # ページ遷移時にトップにスクロールするJavaScriptを実行
             st.rerun()
 
     st.sidebar.markdown("---")
 
+# ページ遷移時にトップにスクロールするJavaScriptを実行
+js_scroll_to_top = """
+<script>
+    setTimeout(function() {
+        try {
+            window.parent.document.querySelector('section.main').scrollTo(0, 0);
+        } catch (e) {}
+    }, 100);
+</script>
+"""
 # 選択されたボタンにCSSクラスを適用するJavaScriptを実行
 if st.session_state.selected_analysis:
     selected_button_key = f"menu_{st.session_state.selected_analysis}"
     js_code = f"""
     <script>
-        setTimeout(function() {{
+        // ページが完全に読み込まれた後に実行
+        window.addEventListener('load', function() {{
+            // メインの表示領域をページのトップにスクロール
             try {{
-                // スクロールをトップに移動
                 window.parent.document.querySelector('section.main').scrollTo(0, 0);
-
-                // ボタンのスタイルを更新
-                const allButtons = window.parent.document.querySelectorAll('.stButton>button');
-                allButtons.forEach(btn => {{
-                    btn.classList.remove('selected-button');
-                }});
-                const selectedButton = window.parent.document.querySelector('button[data-testid="st.button-{selected_button_key}"]');
-                if (selectedButton) {{
-                    selectedButton.classList.add('selected-button');
-                }}
             }} catch (e) {{
-                console.error("Error applying styles or scrolling: ", e);
+                console.error("Failed to scroll to top: ", e);
             }}
-        }}, 150); // DOMの描画を待つために少し遅延させる
+
+            // ボタンのスタイルを更新
+            const allButtons = window.parent.document.querySelectorAll('.stButton>button');
+            allButtons.forEach(btn => btn.classList.remove('selected-button'));
+            const selectedButton = window.parent.document.querySelector('[data-testid="st.button-{selected_button_key}"]');
+            if (selectedButton) {{
+                selectedButton.classList.add('selected-button');
+            }}
+        }});
     </script>
     """
     st.components.v1.html(js_code, height=0)
