@@ -69,17 +69,29 @@ st.markdown("""
         color: #333;
         border: 1px solid #f0f2f6;
     }
-    /* 選択中のボタン (primary) - 赤枠で囲む */
+    /* 選択中のボタン (primary) */
     .stButton>button[kind="primary"] {
-        background-color: #f0f2f6; /* 通常ボタンと同じ背景色 */
-        color: #333; /* 通常ボタンと同じ文字色 */
-        border: 2px solid #ff4b4b !important; /* 赤い枠線 */
+        background-color: #002060 !important; /* 紺色で塗りつぶし */
+        color: white !important; /* 白文字 */
+        border: 1px solid #002060 !important; /* 枠線の色も統一 */
     }
     /* 通常ボタンのホバー時 - 青い枠線 */
     .stButton>button[kind="secondary"]:hover {
         background-color: #e6f0ff !important;
         color: #333 !important;
         border: 1px solid #002060 !important;
+    }
+    /* コンテンツエリアのプライマリボタン（AI分析を実行、よくある質問など）を赤色に戻す */
+    section.main .stButton>button[kind="primary"] {
+        background-color: #ff4b4b !important;
+        color: white !important;
+        border-color: #ff4b4b !important;
+    }
+    /* st.info のスタイルを強制的に青系に固定 */
+    div[data-testid="stInfo"] {
+        background-color: #e6f3ff !important;
+        border-color: #1c83e1 !important;
+        color: #000 !important;
     }
     /* サイドバーの開閉ボタンのSVGアイコンを非表示にする */
     button[data-testid="stSidebarCollapseButton"] > svg {
@@ -3760,7 +3772,7 @@ elif selected_analysis == "AIによる分析・考察":
     # 質問ボタンにトグル機能を追加
     st.markdown("---")
     st.markdown("### よくある質問")
-    
+
     # FAQ用のデータ計算を事前に初期化
     page_stats_global = pd.DataFrame(columns=['ページ番号', '離脱セッション数', '平均滞在時間_ms', '離脱率', '平均滞在時間_秒'])
     ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数', 'コンバージョン率'])
@@ -3802,15 +3814,20 @@ elif selected_analysis == "AIによる分析・考察":
     col1, col2 = st.columns(2)
     
     # session_stateの初期化
-    if 'faq_toggle' not in st.session_state:
+    if 'faq_toggle' not in st.session_state: # type: ignore
         st.session_state.faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
+    def toggle_faq(faq_id):
+        # 現在の状態を反転させ、他はすべて閉じる
+        current_state = st.session_state.faq_toggle.get(faq_id, False)
+        st.session_state.faq_toggle = {key: False for key in st.session_state.faq_toggle}
+        st.session_state.faq_toggle[faq_id] = not current_state
+
     with col1:
-        if st.button("このLPの最大のボトルネックは？", key="faq_btn_1", use_container_width=True):
-            st.session_state.faq_toggle[1] = not st.session_state.faq_toggle[1]
-            st.session_state.faq_toggle[2], st.session_state.faq_toggle[3], st.session_state.faq_toggle[4] = False, False, False
+        if st.button("このLPの最大のボトルネックは？", key="faq_btn_1", use_container_width=True, on_click=toggle_faq, args=(1,)):
+            pass # on_clickで処理するため、ここは空で良い
         
-        if st.session_state.faq_toggle[1]:
+        if st.session_state.faq_toggle.get(1, False):
             # 離脱率が最も高いページを特定（データがある場合のみ）
             if not page_stats_global.empty:
                 max_exit_page = page_stats_global.loc[page_stats_global['離脱率'].idxmax()]
@@ -3831,11 +3848,10 @@ elif selected_analysis == "AIによる分析・考察":
             else:
                 st.warning("分析データがありません。")
         
-        if st.button("コンバージョン率を改善するには？", key="faq_btn_2", use_container_width=True):
-            st.session_state.faq_toggle[2] = not st.session_state.faq_toggle[2]
-            st.session_state.faq_toggle[1], st.session_state.faq_toggle[3], st.session_state.faq_toggle[4] = False, False, False
+        if st.button("コンバージョン率を改善するには？", key="faq_btn_2", use_container_width=True, on_click=toggle_faq, args=(2,)):
+            pass
         
-        if st.session_state.faq_toggle[2]:
+        if st.session_state.faq_toggle.get(2, False):
             st.info(f"""
             **分析結果:**
             
@@ -3849,11 +3865,10 @@ elif selected_analysis == "AIによる分析・考察":
             """)
     
     with col2:
-        if st.button("A/Bテストの結果、どちらが優れている？", key="faq_btn_3", use_container_width=True):
-            st.session_state.faq_toggle[3] = not st.session_state.faq_toggle[3]
-            st.session_state.faq_toggle[1], st.session_state.faq_toggle[2], st.session_state.faq_toggle[4] = False, False, False
+        if st.button("A/Bテストの結果、どちらが優れている？", key="faq_btn_3", use_container_width=True, on_click=toggle_faq, args=(3,)):
+            pass
 
-        if st.session_state.faq_toggle[3]:
+        if st.session_state.faq_toggle.get(3, False):
             if 'コンバージョン率' in ab_stats_global.columns and not ab_stats_global.empty:
                 best_variant = ab_stats_global.loc[ab_stats_global['コンバージョン率'].idxmax()]
                 st.info(f"""
@@ -3871,12 +3886,11 @@ elif selected_analysis == "AIによる分析・考察":
             else:
                 st.warning("A/Bテストの分析データがありません。")
         
-        if st.button("デバイス別のパフォーマンス差は？", key="faq_btn_4", use_container_width=True):
-            st.session_state.faq_toggle[4] = not st.session_state.faq_toggle[4]
-            st.session_state.faq_toggle[1], st.session_state.faq_toggle[2], st.session_state.faq_toggle[3] = False, False, False
+        if st.button("デバイス別のパフォーマンス差は？", key="faq_btn_4", use_container_width=True, on_click=toggle_faq, args=(4,)):
+            pass
 
-        if st.session_state.faq_toggle[4]:
-            if not device_stats_global.empty:
+        if st.session_state.faq_toggle.get(4, False):
+            if not device_stats_global.empty and 'コンバージョン率' in device_stats_global.columns:
                 best_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmax()]
                 worst_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmin()]
                 st.info(f"""
