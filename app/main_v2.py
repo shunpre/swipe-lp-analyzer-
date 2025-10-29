@@ -75,17 +75,26 @@ st.markdown("""
         color: white !important; /* 白文字 */
         border: 1px solid #002060 !important; /* 枠線の色も統一 */
     }
-    /* 通常ボタンのホバー時 - 青い枠線 */
-    .stButton>button[kind="secondary"]:hover {
+    /* サイドバーの通常ボタンのホバー時 */
+    div[data-testid="stSidebarUserContent"] .stButton>button[kind="secondary"]:hover {
         background-color: #e6f0ff !important;
         color: #333 !important;
         border: 1px solid #002060 !important;
     }
-    /* コンテンツエリアのプライマリボタン（AI分析を実行、よくある質問など）を赤色に戻す */
+    /* コンテンツエリアのプライマリボタン（AI分析を実行など）は赤色にする */
     section.main .stButton>button[kind="primary"] {
         background-color: #ff4b4b !important;
         color: white !important;
         border-color: #ff4b4b !important;
+    }
+    /* コンテンツエリアの通常ボタン（よくある質問など）のホバー時とフォーカス時のスタイルを統一し、赤枠を防ぐ */
+    section.main .stButton>button[kind="secondary"]:hover,
+    section.main .stButton>button[kind="secondary"]:focus,
+    section.main .stButton>button[kind="secondary"]:focus-visible {
+        background-color: #e6f0ff !important;
+        color: #333 !important;
+        border: 1px solid #002060 !important;
+        box-shadow: none !important; /* フォーカス時の影を消す */
     }
     /* st.info のスタイルを強制的に青系に固定 */
     div[data-testid="stInfo"] {
