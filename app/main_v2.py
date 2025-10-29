@@ -3652,16 +3652,6 @@ elif selected_analysis == "AIによる分析・考察":
     st.markdown("---")
     st.markdown("### よくある質問")
     
-    # session_stateでトグル状態を管理
-    if 'faq_bottleneck' not in st.session_state:
-        st.session_state.faq_bottleneck = False
-    if 'faq_cvr' not in st.session_state:
-        st.session_state.faq_cvr = False
-    if 'faq_abtest' not in st.session_state:
-        st.session_state.faq_abtest = False
-    if 'faq_device' not in st.session_state:
-        st.session_state.faq_device = False
-    
     # FAQ用のデータ計算を事前に初期化
     page_stats_global = pd.DataFrame(columns=['ページ番号', '離脱セッション数', '平均滞在時間_ms', '離脱率', '平均滞在時間_秒'])
     ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数', 'コンバージョン率'])
@@ -3677,10 +3667,14 @@ elif selected_analysis == "AIによる分析・考察":
         page_stats_global['平均滞在時間_秒'] = page_stats_global['平均滞在時間_ms'] / 1000
         page_stats_global.rename(columns={'max_page_reached': 'ページ番号'}, inplace=True) # type: ignore
 
-        ab_stats_global = filtered_df.groupby('ab_variant').agg(
-            セッション数=('session_id', 'nunique'),
-            コンバージョン数=('cv_type', lambda x: x.notna().sum())
-        ).reset_index()
+        # ab_variant列が存在する場合のみ集計
+        if 'ab_variant' in filtered_df.columns and filtered_df['ab_variant'].notna().any():
+            ab_stats_global = filtered_df.groupby('ab_variant').agg(
+                セッション数=('session_id', 'nunique'),
+                コンバージョン数=('cv_type', lambda x: x.notna().sum())
+            ).reset_index()
+        else:
+            ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数'])
         if 'セッション数' in ab_stats_global.columns and ab_stats_global['セッション数'].sum() > 0:
             ab_stats_global['コンバージョン率'] = (ab_stats_global['コンバージョン数'] / ab_stats_global['セッション数']) * 100
         
@@ -3694,12 +3688,17 @@ elif selected_analysis == "AIによる分析・考察":
 
     # FAQボタンの表示
     col1, col2 = st.columns(2)
+    
+    # session_stateの初期化
+    if 'faq_toggle' not in st.session_state:
+        st.session_state.faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
     with col1:
-        if st.button("このLPの最大のボトルネックは？"):
-            st.session_state.faq_bottleneck = not st.session_state.faq_bottleneck
+        if st.button("このLPの最大のボトルネックは？", key="faq_btn_1", use_container_width=True):
+            st.session_state.faq_toggle[1] = not st.session_state.faq_toggle[1]
+            st.session_state.faq_toggle[2], st.session_state.faq_toggle[3], st.session_state.faq_toggle[4] = False, False, False
         
-        if st.session_state.faq_bottleneck:
+        if st.session_state.faq_toggle[1]:
             # 離脱率が最も高いページを特定（データがある場合のみ）
             if not page_stats_global.empty:
                 max_exit_page = page_stats_global.loc[page_stats_global['離脱率'].idxmax()]
@@ -3720,10 +3719,11 @@ elif selected_analysis == "AIによる分析・考察":
             else:
                 st.warning("分析データがありません。")
         
-        if st.button("コンバージョン率を改善するには？"):
-            st.session_state.faq_cvr = not st.session_state.faq_cvr
+        if st.button("コンバージョン率を改善するには？", key="faq_btn_2", use_container_width=True):
+            st.session_state.faq_toggle[2] = not st.session_state.faq_toggle[2]
+            st.session_state.faq_toggle[1], st.session_state.faq_toggle[3], st.session_state.faq_toggle[4] = False, False, False
         
-        if st.session_state.faq_cvr:
+        if st.session_state.faq_toggle[2]:
             st.info(f"""
             **分析結果:**
             
@@ -3737,10 +3737,11 @@ elif selected_analysis == "AIによる分析・考察":
             """)
     
     with col2:
-        if st.button("A/Bテストの結果、どちらが優れている？"):
-            st.session_state.faq_abtest = not st.session_state.faq_abtest
-        
-        if st.session_state.faq_abtest:
+        if st.button("A/Bテストの結果、どちらが優れている？", key="faq_btn_3", use_container_width=True):
+            st.session_state.faq_toggle[3] = not st.session_state.faq_toggle[3]
+            st.session_state.faq_toggle[1], st.session_state.faq_toggle[2], st.session_state.faq_toggle[4] = False, False, False
+
+        if st.session_state.faq_toggle[3]:
             if 'コンバージョン率' in ab_stats_global.columns and not ab_stats_global.empty:
                 best_variant = ab_stats_global.loc[ab_stats_global['コンバージョン率'].idxmax()]
                 st.info(f"""
@@ -3758,10 +3759,11 @@ elif selected_analysis == "AIによる分析・考察":
             else:
                 st.warning("A/Bテストの分析データがありません。")
         
-        if st.button("デバイス別のパフォーマンス差は？"):
-            st.session_state.faq_device = not st.session_state.faq_device
-        
-        if st.session_state.faq_device:
+        if st.button("デバイス別のパフォーマンス差は？", key="faq_btn_4", use_container_width=True):
+            st.session_state.faq_toggle[4] = not st.session_state.faq_toggle[4]
+            st.session_state.faq_toggle[1], st.session_state.faq_toggle[2], st.session_state.faq_toggle[3] = False, False, False
+
+        if st.session_state.faq_toggle[4]:
             if not device_stats_global.empty:
                 best_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmax()]
                 worst_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmin()]
