@@ -2931,7 +2931,7 @@ elif selected_analysis == "リアルタイムビュー":
         
         fig = px.area(rt_trend, x='時刻', y='セッション数', markers=True)
         fig.update_layout(height=400, yaxis_title='セッション数', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')３
     else:
         st.info("直近1時間のデータがありません")
 
@@ -2941,20 +2941,32 @@ elif selected_analysis == "リアルタイムビュー":
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">リアルタイムのデータ変動を監視し、異常検知や突発的な機会の発見をサポートします。</div>', unsafe_allow_html=True)
 
-    if st.button("AI分析を実行", key="realtime_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIがリアルタイムデータを分析中..."):
-            st.markdown("#### 1. 現状の評価")
-            st.info("""
-            リアルタイムビューでは、直近1時間のサイト活動を監視しています。セッション数が通常時と比較して急増または急減していないかを確認することが重要です。
-            - **セッション数の急増**: メディア掲載やインフルエンサーによる紹介など、外部からの突発的な流入の可能性があります。
-            - **セッション数の急減**: サイトの障害や広告配信の停止など、何らかの問題が発生している可能性があります。
-            """)
+    # AI分析の表示状態を管理
+    if 'realtime_ai_open' not in st.session_state:
+        st.session_state.realtime_ai_open = False
 
-            st.markdown("#### 2. 今後のアクション")
-            st.warning("""
-            - **機会の活用**: セッション数が急増している場合、その原因を特定し、SNSで言及を広めたり、関連コンテンツをトップに表示するなどして、機会を最大化しましょう。
-            - **問題の早期発見**: セッション数がゼロに近い、または急減している場合は、サイトが正常に表示されるか、広告キャンペーンが正しく配信されているかを直ちに確認してください。
-            """)
+    if st.button("AI分析を実行", key="realtime_ai_btn", type="primary", use_container_width=True):
+        st.session_state.realtime_ai_open = True
+        st.rerun()
+
+    if st.session_state.realtime_ai_open:
+        with st.container():
+            with st.spinner("AIがリアルタイムデータを分析中..."):
+                st.markdown("#### 1. 現状の評価")
+                st.info("""
+                リアルタイムビューでは、直近1時間のサイト活動を監視しています。セッション数が通常時と比較して急増または急減していないかを確認することが重要です。
+                - **セッション数の急増**: メディア掲載やインフルエンサーによる紹介など、外部からの突発的な流入の可能性があります。
+                - **セッション数の急減**: サイトの障害や広告配信の停止など、何らかの問題が発生している可能性があります。
+                """)
+
+                st.markdown("#### 2. 今後のアクション")
+                st.warning("""
+                - **機会の活用**: セッション数が急増している場合、その原因を特定し、SNSで言及を広めたり、関連コンテンツをトップに表示するなどして、機会を最大化しましょう。
+                - **問題の早期発見**: セッション数がゼロに近い、または急減している場合は、サイトが正常に表示されるか、広告キャンペーンが正しく配信されているかを直ちに確認してください。
+                """)
+            if st.button("AI分析を閉じる", key="realtime_ai_close"):
+                st.session_state.realtime_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
