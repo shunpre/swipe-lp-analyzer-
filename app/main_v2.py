@@ -2834,31 +2834,43 @@ elif selected_analysis == "時系列分析":
     # --- AI分析と考察 ---
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">時系列データからパフォーマンスの波を読み解き、広告配信やプロモーションの最適化タイミングを提案します。</div>', unsafe_allow_html=True)
+    
+    # AI分析の表示状態を管理
+    if 'timeseries_ai_open' not in st.session_state:
+        st.session_state.timeseries_ai_open = False
 
     if st.button("AI分析を実行", key="timeseries_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIが時系列データを分析中..."):
-            if not heatmap_stats.empty:
-                # ゴールデンタイムを特定
-                golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
-            else:
-                golden_time = None
-            
-            st.markdown("#### 1. 現状の評価")
-            st.info(f"""
-            曜日・時間帯別のヒートマップから、このLPの「ゴールデンタイム」が明らかになりました。
-            - **最もCVRが高い時間帯**: **{dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台** (CVR: {golden_time['コンバージョン率']:.2f}%)
-            
-            この時間帯は、ターゲットユーザーが最もアクティブで、コンバージョンに至りやすいと考えられます。
-            """)
+        st.session_state.timeseries_ai_open = True
+        st.rerun()
 
-            st.markdown("#### 2. 今後の考察と改善案")
-            st.warning(f"""
-            **ゴールデンタイムの活用:**
-            - **広告配信の強化**: {dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台を中心に、広告の表示を強化したり、入札単価を引き上げることで、効率的にコンバージョンを獲得できる可能性があります。
-            - **プロモーションの実施**: メールマガジンの配信やSNSでの投稿をこの時間帯に合わせることで、開封率やクリック率の向上が期待できます。
-            
-            逆に、CVRが低い時間帯は広告配信を抑制することで、広告費の無駄遣いを防ぎ、全体のCPAを改善することができます。
-            """)
+    if st.session_state.timeseries_ai_open:
+        with st.container():
+            with st.spinner("AIが時系列データを分析中..."):
+                if not heatmap_stats.empty:
+                    # ゴールデンタイムを特定
+                    golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
+                else:
+                    golden_time = None
+                
+                st.markdown("#### 1. 現状の評価")
+                st.info(f"""
+                曜日・時間帯別のヒートマップから、このLPの「ゴールデンタイム」が明らかになりました。
+                - **最もCVRが高い時間帯**: **{dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台** (CVR: {golden_time['コンバージョン率']:.2f}%)
+                
+                この時間帯は、ターゲットユーザーが最もアクティブで、コンバージョンに至りやすいと考えられます。
+                """)
+
+                st.markdown("#### 2. 今後の考察と改善案")
+                st.warning(f"""
+                **ゴールデンタイムの活用:**
+                - **広告配信の強化**: {dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台を中心に、広告の表示を強化したり、入札単価を引き上げることで、効率的にコンバージョンを獲得できる可能性があります。
+                - **プロモーションの実施**: メールマガジンの配信やSNSでの投稿をこの時間帯に合わせることで、開封率やクリック率の向上が期待できます。
+                
+                逆に、CVRが低い時間帯は広告配信を抑制することで、広告費の無駄遣いを防ぎ、全体のCPAを改善することができます。
+                """)
+            if st.button("AI分析を閉じる", key="timeseries_ai_close"):
+                st.session_state.timeseries_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -2928,10 +2940,10 @@ elif selected_analysis == "リアルタイムビュー":
         realtime_df['minute_bin'] = realtime_df['event_timestamp'].dt.floor('10T')
         rt_trend = realtime_df.groupby('minute_bin')['session_id'].nunique().reset_index()
         rt_trend.columns = ['時刻', 'セッション数']
-        
+
         fig = px.area(rt_trend, x='時刻', y='セッション数', markers=True)
         fig.update_layout(height=400, yaxis_title='セッション数', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')３
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')
     else:
         st.info("直近1時間のデータがありません")
 
