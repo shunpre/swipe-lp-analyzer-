@@ -1495,31 +1495,44 @@ elif selected_analysis == "ページ分析":
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">ページ分析の結果に基づき、AIが現状の評価と改善のための考察を提示します。</div>', unsafe_allow_html=True)
 
-    if st.button("AI分析を実行", key="page_analysis_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIがページデータを分析中..."):
-            # ボトルネックページを特定
-            bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
-            
-            st.markdown("#### 1. 現状の評価")
-            st.info(f"""
-            ポジショニングマップと各指標から、**ページ{int(bottleneck_page['ページ番号'])}** が最も重要な改善候補（ボトルネック）であると判断されます。
-            - **離脱率**: {bottleneck_page['離脱率']:.1f}% と高く、多くのユーザーがここでLPから離れています。
-            - **平均滞在時間**: {bottleneck_page['平均滞在時間(秒)']:.1f}秒 と短く、コンテンツが十分に読まれていない可能性があります。
-            - **逆行パターン**: 逆行が多いページは、ユーザーが情報を探して迷っている兆候です。遷移元と遷移先のコンテンツの流れを見直す必要があります。
-            """)
+    # AI分析の表示状態を管理
+    if 'page_analysis_ai_open' not in st.session_state:
+        st.session_state.page_analysis_ai_open = False
 
-            st.markdown("#### 2. 今後の考察と改善案")
-            st.warning(f"""
-            **ページ{int(bottleneck_page['ページ番号'])}** の改善が急務です。滞在時間が短く離脱率が高いことから、以下の可能性が考えられます。
-            - **コンテンツのミスマッチ**: 前のページからの期待と、このページの内容が合っていない。
-            - **魅力の欠如**: ユーザーの興味を引く情報やビジュアルが不足している。
-            - **次のアクションが不明確**: ユーザーが次に何をすべきか分からず離脱している。
-            
-            **具体的な改善アクション案:**
-            1. **コンテンツの見直し**: ページ{int(bottleneck_page['ページ番号'])}のキャッチコピーや画像が、ユーザーのニーズに合っているか再確認する。
-            2. **CTAの設置**: 次のページへ誘導する明確なCTA（コールトゥアクション）ボタンを設置、または既存のものをより目立たせる。
-            3. **A/Bテストの実施**: 異なる訴求内容のコンテンツやデザインでA/Bテストを行い、どちらが効果的か検証する。
-            """)
+    if st.button("AI分析を実行", key="page_analysis_ai_btn", type="primary", use_container_width=True):
+        st.session_state.page_analysis_ai_open = True
+        st.rerun()
+
+    if st.session_state.page_analysis_ai_open:
+        with st.container():
+            with st.spinner("AIがページデータを分析中..."):
+                # ボトルネックページを特定
+                bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
+                
+                st.markdown("#### 1. 現状の評価")
+                st.info(f"""
+                ポジショニングマップと各指標から、**ページ{int(bottleneck_page['ページ番号'])}** が最も重要な改善候補（ボトルネック）であると判断されます。
+                - **離脱率**: {bottleneck_page['離脱率']:.1f}% と高く、多くのユーザーがここでLPから離れています。
+                - **平均滞在時間**: {bottleneck_page['平均滞在時間(秒)']:.1f}秒 と短く、コンテンツが十分に読まれていない可能性があります。
+                - **逆行パターン**: 逆行が多いページは、ユーザーが情報を探して迷っている兆候です。遷移元と遷移先のコンテンツの流れを見直す必要があります。
+                """)
+
+                st.markdown("#### 2. 今後の考察と改善案")
+                st.warning(f"""
+                **ページ{int(bottleneck_page['ページ番号'])}** の改善が急務です。滞在時間が短く離脱率が高いことから、以下の可能性が考えられます。
+                - **コンテンツのミスマッチ**: 前のページからの期待と、このページの内容が合っていない。
+                - **魅力の欠如**: ユーザーの興味を引く情報やビジュアルが不足している。
+                - **次のアクションが不明確**: ユーザーが次に何をすべきか分からず離脱している。
+                
+                **具体的な改善アクション案:**
+                1. **コンテンツの見直し**: ページ{int(bottleneck_page['ページ番号'])}のキャッチコピーや画像が、ユーザーのニーズに合っているか再確認する。
+                2. **CTAの設置**: 次のページへ誘導する明確なCTA（コールトゥアクション）ボタンを設置、または既存のものをより目立たせる。
+                3. **A/Bテストの実施**: 異なる訴求内容のコンテンツやデザインでA/Bテストを行い、どちらが効果的か検証する。
+                """)
+
+            if st.button("AI分析を閉じる", key="page_analysis_ai_close"):
+                st.session_state.page_analysis_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -1733,31 +1746,43 @@ elif selected_analysis == "セグメント分析":
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">セグメント分析の結果に基づき、AIが現状の評価と改善のための考察を提示します。</div>', unsafe_allow_html=True)
 
-    if st.button("AI分析を実行", key="segment_analysis_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIがセグメントデータを分析中..."):
-            if not segment_stats.empty:
-                best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
-                worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
-            else:
-                best_segment, worst_segment = (None, None)
-            
-            st.markdown("#### 1. 現状の評価")
-            st.info(f"""
-            {segment_type}では、パフォーマンスに顕著な差が見られます。
-            - **最もパフォーマンスが高いセグメント**: **{best_segment[segment_name]}** (CVR: {best_segment['コンバージョン率']:.2f}%)
-            - **最もパフォーマンスが低いセグメント**: **{worst_segment[segment_name]}** (CVR: {worst_segment['コンバージョン率']:.2f}%)
-            
-            特に **{worst_segment[segment_name]}** のセグメントは、他のセグメントと比較してCVRが低く、改善の機会が大きい領域です。
-            """)
+    # AI分析の表示状態を管理
+    if 'segment_analysis_ai_open' not in st.session_state:
+        st.session_state.segment_analysis_ai_open = False
 
-            st.markdown("#### 2. 今後の考察と改善案")
-            st.warning(f"""
-            **{worst_segment[segment_name]}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。
-            - **{segment_type}が「デバイス別」の場合**: {worst_segment[segment_name]}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
-            - **{segment_type}が「チャネル別」の場合**: {worst_segment[segment_name]}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
-            
-            逆に、**{best_segment[segment_name]}** は非常に効果的なセグメントです。このセグメントへの広告予算の増額や、類似ユーザーへのアプローチ拡大を検討する価値があります。
-            """)
+    if st.button("AI分析を実行", key="segment_analysis_ai_btn", type="primary", use_container_width=True):
+        st.session_state.segment_analysis_ai_open = True
+        st.rerun()
+
+    if st.session_state.segment_analysis_ai_open:
+        with st.container():
+            with st.spinner("AIがセグメントデータを分析中..."):
+                if not segment_stats.empty:
+                    best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
+                    worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
+                else:
+                    best_segment, worst_segment = (None, None)
+                
+                st.markdown("#### 1. 現状の評価")
+                st.info(f"""
+                {segment_type}では、パフォーマンスに顕著な差が見られます。
+                - **最もパフォーマンスが高いセグメント**: **{best_segment[segment_name]}** (CVR: {best_segment['コンバージョン率']:.2f}%)
+                - **最もパフォーマンスが低いセグメント**: **{worst_segment[segment_name]}** (CVR: {worst_segment['コンバージョン率']:.2f}%)
+                
+                特に **{worst_segment[segment_name]}** のセグメントは、他のセグメントと比較してCVRが低く、改善の機会が大きい領域です。
+                """)
+
+                st.markdown("#### 2. 今後の考察と改善案")
+                st.warning(f"""
+                **{worst_segment[segment_name]}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。
+                - **{segment_type}が「デバイス別」の場合**: {worst_segment[segment_name]}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
+                - **{segment_type}が「チャネル別」の場合**: {worst_segment[segment_name]}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
+                
+                逆に、**{best_segment[segment_name]}** は非常に効果的なセグメントです。このセグメントへの広告予算の増額や、類似ユーザーへのアプローチ拡大を検討する価値があります。
+                """)
+            if st.button("AI分析を閉じる", key="segment_analysis_ai_close"):
+                st.session_state.segment_analysis_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -2055,34 +2080,46 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">A/Bテストの結果に基づき、AIが統計的な評価と次のアクションを提案します。</div>', unsafe_allow_html=True)
 
-    if st.button("AI分析を実行", key="ab_test_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIがA/Bテスト結果を分析中..."):
-            if len(ab_stats) >= 2:
-                winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
-                baseline = ab_stats.iloc[0]
-                
-                st.markdown("#### 1. テスト結果の評価")
-                st.info(f"""
-                今回のA/Bテストの結果、**「{winner['バリアント']}」** が最も高いパフォーマンスを示しました。
-                - **勝者**: {winner['バリアント']} (CVR: {winner['コンバージョン率']:.2f}%)
-                - **ベースライン**: {baseline['バリアント']} (CVR: {baseline['コンバージョン率']:.2f}%)
-                - **CVR向上率**: {winner['CVR向上率']:.1f}%
-                - **統計的有意差**: {winner['有意差']} (p値: {winner['p値']:.4f})
-                
-                p値が0.05未満の場合、この結果が偶然である可能性は低く、信頼性が高いと判断できます。
-                """)
+    # AI分析の表示状態を管理
+    if 'ab_test_ai_open' not in st.session_state:
+        st.session_state.ab_test_ai_open = False
 
-                st.markdown("#### 2. 今後のアクション提案")
-                st.warning(f"""
-                **「{winner['バリアント']}」** のパターンを本採用することを強く推奨します。
-                
-                **次のステップ:**
-                1. **勝者パターンの実装**: エンジニアリングチームと連携し、勝者パターン「{winner['バリアント']}」を全てのユーザーに適用してください。
-                2. **効果測定**: 実装後、再度パフォーマンスをモニタリングし、期待通りの効果が出ているか確認します。
-                3. **次のテスト計画**: 今回のテストで得られた知見（例：「{winner['バリアント']}」のどの要素が良かったか）を基に、さらなる改善のための新しいA/Bテストを計画しましょう。
-                """)
-            else:
-                st.warning("比較するバリアントが2つ未満のため、詳細な分析は実行できません。")
+    if st.button("AI分析を実行", key="ab_test_ai_btn", type="primary", use_container_width=True):
+        st.session_state.ab_test_ai_open = True
+        st.rerun()
+
+    if st.session_state.ab_test_ai_open:
+        with st.container():
+            with st.spinner("AIがA/Bテスト結果を分析中..."):
+                if len(ab_stats) >= 2:
+                    winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
+                    baseline = ab_stats.iloc[0]
+                    
+                    st.markdown("#### 1. テスト結果の評価")
+                    st.info(f"""
+                    今回のA/Bテストの結果、**「{winner['バリアント']}」** が最も高いパフォーマンスを示しました。
+                    - **勝者**: {winner['バリアント']} (CVR: {winner['コンバージョン率']:.2f}%)
+                    - **ベースライン**: {baseline['バリアント']} (CVR: {baseline['コンバージョン率']:.2f}%)
+                    - **CVR向上率**: {winner['CVR向上率']:.1f}%
+                    - **統計的有意差**: {winner['有意差']} (p値: {winner['p値']:.4f})
+                    
+                    p値が0.05未満の場合、この結果が偶然である可能性は低く、信頼性が高いと判断できます。
+                    """)
+
+                    st.markdown("#### 2. 今後のアクション提案")
+                    st.warning(f"""
+                    **「{winner['バリアント']}」** のパターンを本採用することを強く推奨します。
+                    
+                    **次のステップ:**
+                    1. **勝者パターンの実装**: エンジニアリングチームと連携し、勝者パターン「{winner['バリアント']}」を全てのユーザーに適用してください。
+                    2. **効果測定**: 実装後、再度パフォーマンスをモニタリングし、期待通りの効果が出ているか確認します。
+                    3. **次のテスト計画**: 今回のテストで得られた知見（例：「{winner['バリアント']}」のどの要素が良かったか）を基に、さらなる改善のための新しいA/Bテストを計画しましょう。
+                    """)
+                else:
+                    st.warning("比較するバリアントが2つ未満のため、詳細な分析は実行できません。")
+            if st.button("AI分析を閉じる", key="ab_test_ai_close"):
+                st.session_state.ab_test_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -2299,28 +2336,40 @@ elif selected_analysis == "インタラクション分析":
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">各インタラクション要素のパフォーマンスに基づき、AIがユーザーの関心と行動を分析します。</div>', unsafe_allow_html=True)
 
-    if st.button("AI分析を実行", key="interaction_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIがインタラクションデータを分析中..."):
-            best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
-            
-            st.markdown("#### 1. 現状の評価")
-            st.info(f"""
-            インタラクション要素の中で、**「{best_ctr_element['要素']}」** が最も高いクリック率（{best_ctr_element['クリック率 (CTR)']:.2f}%）を記録しており、ユーザーの関心を最も強く引いている要素と言えます。
-            
-            一方で、クリック率が低い要素は、ユーザーに気づかれていないか、魅力的に感じられていない可能性があります。
-            """)
+    # AI分析の表示状態を管理
+    if 'interaction_ai_open' not in st.session_state:
+        st.session_state.interaction_ai_open = False
 
-            st.markdown("#### 2. 今後の考察と改善案")
-            st.warning(f"""
-            **高CTR要素の活用:**
-            「{best_ctr_element['要素']}」はユーザーの関心が高いことが証明されたため、この要素から主要なCTAやコンバージョンポイントへの導線を強化することで、全体のCVR向上が期待できます。
-            
-            **低CTR要素の改善:**
-            クリック率が低い要素については、以下の改善策が考えられます。
-            - **視認性の向上**: デザイン（色、サイズ、配置）を見直し、より目立たせる。
-            - **文言の変更**: ユーザーのメリットや緊急性を訴求するコピーに変更する。
-            - **A/Bテスト**: 複数のデザインや文言パターンでA/Bテストを行い、最適な組み合わせを見つける。
-            """)
+    if st.button("AI分析を実行", key="interaction_ai_btn", type="primary", use_container_width=True):
+        st.session_state.interaction_ai_open = True
+        st.rerun()
+
+    if st.session_state.interaction_ai_open:
+        with st.container():
+            with st.spinner("AIがインタラクションデータを分析中..."):
+                best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
+                
+                st.markdown("#### 1. 現状の評価")
+                st.info(f"""
+                インタラクション要素の中で、**「{best_ctr_element['要素']}」** が最も高いクリック率（{best_ctr_element['クリック率 (CTR)']:.2f}%）を記録しており、ユーザーの関心を最も強く引いている要素と言えます。
+                
+                一方で、クリック率が低い要素は、ユーザーに気づかれていないか、魅力的に感じられていない可能性があります。
+                """)
+
+                st.markdown("#### 2. 今後の考察と改善案")
+                st.warning(f"""
+                **高CTR要素の活用:**
+                「{best_ctr_element['要素']}」はユーザーの関心が高いことが証明されたため、この要素から主要なCTAやコンバージョンポイントへの導線を強化することで、全体のCVR向上が期待できます。
+                
+                **低CTR要素の改善:**
+                クリック率が低い要素については、以下の改善策が考えられます。
+                - **視認性の向上**: デザイン（色、サイズ、配置）を見直し、より目立たせる。
+                - **文言の変更**: ユーザーのメリットや緊急性を訴求するコピーに変更する。
+                - **A/Bテスト**: 複数のデザインや文言パターンでA/Bテストを行い、最適な組み合わせを見つける。
+                """)
+            if st.button("AI分析を閉じる", key="interaction_ai_close"):
+                st.session_state.interaction_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -2545,31 +2594,43 @@ elif selected_analysis == "動画・スクロール分析":
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">動画視聴やスクロール行動とコンバージョンの関係性を分析し、エンゲージメント向上のヒントを提示します。</div>', unsafe_allow_html=True)
 
+    # AI分析の表示状態を管理
+    if 'video_scroll_ai_open' not in st.session_state:
+        st.session_state.video_scroll_ai_open = False
+
     if st.button("AI分析を実行", key="video_scroll_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIがエンゲージメントデータを分析中..."):
-            st.markdown("#### 1. 現状の評価")
-            if len(video_df) > 0:
-                st.info(f"""
-                **動画視聴とコンバージョンの関係:**
-                動画を視聴したユーザーのコンバージョン率は **{video_cvr:.2f}%** であり、視聴しなかったユーザーの **{non_video_cvr:.2f}%** と比較して高い傾向にあります。これは、動画コンテンツがユーザーの理解を深め、コンバージョンを促進する上で有効であることを示唆しています。
+        st.session_state.video_scroll_ai_open = True
+        st.rerun()
+
+    if st.session_state.video_scroll_ai_open:
+        with st.container():
+            with st.spinner("AIがエンゲージメントデータを分析中..."):
+                st.markdown("#### 1. 現状の評価")
+                if len(video_df) > 0:
+                    st.info(f"""
+                    **動画視聴とコンバージョンの関係:**
+                    動画を視聴したユーザーのコンバージョン率は **{video_cvr:.2f}%** であり、視聴しなかったユーザーの **{non_video_cvr:.2f}%** と比較して高い傾向にあります。これは、動画コンテンツがユーザーの理解を深め、コンバージョンを促進する上で有効であることを示唆しています。
+                    """)
+                else:
+                    st.info("このLPには動画コンテンツのデータがありません。")
+
+                st.info("""
+                **スクロール行動とコンバージョンの関係:**
+                逆行率が高いページや、スクロール率が低いにもかかわらず離脱が多いページは、ユーザーがコンテンツに満足していないか、求めている情報を見つけられていない可能性があります。
                 """)
-            else:
-                st.info("このLPには動画コンテンツのデータがありません。")
 
-            st.info("""
-            **スクロール行動とコンバージョンの関係:**
-            逆行率が高いページや、スクロール率が低いにもかかわらず離脱が多いページは、ユーザーがコンテンツに満足していないか、求めている情報を見つけられていない可能性があります。
-            """)
-
-            st.markdown("#### 2. 今後の考察と改善案")
-            st.warning("""
-            **動画コンテンツの活用:**
-            動画の視聴完了率や、どの部分で視聴を止めたかを分析することで、さらにコンテンツを改善できます。動画の冒頭で強いメッセージを伝え、視聴維持率を高める工夫が重要です。
-            
-            **スクロール体験の改善:**
-            - **逆行率が高いページ**: なぜユーザーが戻る必要があるのかを分析します。情報が不足している場合は補足し、ナビゲーションが分かりにくい場合は改善します。
-            - **スクロール率が低いページ**: ページの冒頭（ファーストビュー）でユーザーの興味を引き、続きを読む動機付けを与える必要があります。魅力的なキャッチコピーや画像の使用が効果的です。
-            """)
+                st.markdown("#### 2. 今後の考察と改善案")
+                st.warning("""
+                **動画コンテンツの活用:**
+                動画の視聴完了率や、どの部分で視聴を止めたかを分析することで、さらにコンテンツを改善できます。動画の冒頭で強いメッセージを伝え、視聴維持率を高める工夫が重要です。
+                
+                **スクロール体験の改善:**
+                - **逆行率が高いページ**: なぜユーザーが戻る必要があるのかを分析します。情報が不足している場合は補足し、ナビゲーションが分かりにくい場合は改善します。
+                - **スクロール率が低いページ**: ページの冒頭（ファーストビュー）でユーザーの興味を引き、続きを読む動機付けを与える必要があります。魅力的なキャッチコピーや画像の使用が効果的です。
+                """)
+            if st.button("AI分析を閉じる", key="video_scroll_ai_close"):
+                st.session_state.video_scroll_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
