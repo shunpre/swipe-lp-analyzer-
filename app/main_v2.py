@@ -1000,16 +1000,33 @@ if selected_analysis == "全体サマリー":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'summary_faq_toggle' not in st.session_state:
+        st.session_state.summary_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("このLPの強みと弱みは？", key="faq_summary_1"):
+        if st.button("このLPの強みと弱みは？", key="faq_summary_1", use_container_width=True):
+            st.session_state.summary_faq_toggle[1] = not st.session_state.summary_faq_toggle[1]
+            st.session_state.summary_faq_toggle[2], st.session_state.summary_faq_toggle[3], st.session_state.summary_faq_toggle[4] = False, False, False
+        if st.session_state.summary_faq_toggle[1]:
             st.info(f"**強み**は、平均滞在時間が{avg_stay_time:.1f}秒と比較的長く、コンテンツに興味を持ったユーザーは読み進めている点です。\n\n**弱み**は、FV残存率が{fv_retention_rate:.1f}%と低く、多くのユーザーが最初のページで離脱している点です。")
-        if st.button("パフォーマンスが悪い原因を特定するには？", key="faq_summary_3"):
+        
+        if st.button("パフォーマンスが悪い原因を特定するには？", key="faq_summary_3", use_container_width=True):
+            st.session_state.summary_faq_toggle[3] = not st.session_state.summary_faq_toggle[3]
+            st.session_state.summary_faq_toggle[1], st.session_state.summary_faq_toggle[2], st.session_state.summary_faq_toggle[4] = False, False, False
+        if st.session_state.summary_faq_toggle[3]:
             st.info("まず「ページ分析」で離脱率が高いボトルネックページを特定します。次に「セグメント分析」で、特定のデバイス（例：スマホ）やチャネル（例：SNS経由）のパフォーマンスが特に悪いかを確認することで、原因を絞り込めます。")
     with faq_cols[1]:
-        if st.button("最も優先して改善すべき指標は？", key="faq_summary_2"):
+        if st.button("最も優先して改善すべき指標は？", key="faq_summary_2", use_container_width=True):
+            st.session_state.summary_faq_toggle[2] = not st.session_state.summary_faq_toggle[2]
+            st.session_state.summary_faq_toggle[1], st.session_state.summary_faq_toggle[3], st.session_state.summary_faq_toggle[4] = False, False, False
+        if st.session_state.summary_faq_toggle[2]:
             st.info(f"**FV残存率（現在{fv_retention_rate:.1f}%）**です。多くのユーザーがLPの入口で離脱しているため、ここを改善することが最もインパクトが大きいです。")
-        if st.button("次にどの分析を見るべき？", key="faq_summary_4"):
+        
+        if st.button("次にどの分析を見るべき？", key="faq_summary_4", use_container_width=True):
+            st.session_state.summary_faq_toggle[4] = not st.session_state.summary_faq_toggle[4]
+            st.session_state.summary_faq_toggle[1], st.session_state.summary_faq_toggle[2], st.session_state.summary_faq_toggle[3] = False, False, False
+        if st.session_state.summary_faq_toggle[4]:
             st.info("「**ページ分析**」がおすすめです。ユーザーがどのページで最も離脱しているか（ボトルネック）を特定し、具体的な改善箇所を見つけましょう。")
 
 
@@ -1507,17 +1524,34 @@ elif selected_analysis == "ページ分析":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'page_faq_toggle' not in st.session_state:
+        st.session_state.page_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("最も改善すべきページはどれ？", key="faq_page_1"):
+        if st.button("最も改善すべきページはどれ？", key="faq_page_1", use_container_width=True):
+            st.session_state.page_faq_toggle[1] = not st.session_state.page_faq_toggle[1]
+            st.session_state.page_faq_toggle[2], st.session_state.page_faq_toggle[3], st.session_state.page_faq_toggle[4] = False, False, False
+        if st.session_state.page_faq_toggle[1]:
             bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
             st.info(f"**ページ{int(bottleneck_page['ページ番号'])}** です。離脱率が{bottleneck_page['離脱率']:.1f}%と高く、平均滞在時間が{bottleneck_page['平均滞在時間(秒)']:.1f}秒と短いため、最優先で改善すべきボトルネックです。")
-        if st.button("滞在時間が短いページの共通点は？", key="faq_page_3"):
+        
+        if st.button("滞在時間が短いページの共通点は？", key="faq_page_3", use_container_width=True):
+            st.session_state.page_faq_toggle[3] = not st.session_state.page_faq_toggle[3]
+            st.session_state.page_faq_toggle[1], st.session_state.page_faq_toggle[2], st.session_state.page_faq_toggle[4] = False, False, False
+        if st.session_state.page_faq_toggle[3]:
             st.info("滞在時間が短いページは、ユーザーの期待とコンテンツが一致していない、情報が分かりにくい、または単に興味を引かれていない可能性があります。前のページからの文脈を見直し、コンテンツの魅力を高める必要があります。")
     with faq_cols[1]:
-        if st.button("ユーザーが前のページに戻る原因は？", key="faq_page_2"):
+        if st.button("ユーザーが前のページに戻る原因は？", key="faq_page_2", use_container_width=True):
+            st.session_state.page_faq_toggle[2] = not st.session_state.page_faq_toggle[2]
+            st.session_state.page_faq_toggle[1], st.session_state.page_faq_toggle[3], st.session_state.page_faq_toggle[4] = False, False, False
+        if st.session_state.page_faq_toggle[2]:
             st.info("ユーザーが逆行（前のページに戻る）するのは、主に「求めている情報が見つからない」「前のページの情報と比較・再確認したい」という理由が考えられます。逆行が多いページ間のコンテンツの流れを見直し、情報の不足がないか確認することが重要です。")
-        if st.button("離脱率と滞在時間の関係は？", key="faq_page_4"):
+        
+        if st.button("離脱率と滞在時間の関係は？", key="faq_page_4", use_container_width=True):
+            st.session_state.page_faq_toggle[4] = not st.session_state.page_faq_toggle[4]
+            st.session_state.page_faq_toggle[1], st.session_state.page_faq_toggle[2], st.session_state.page_faq_toggle[3] = False, False, False
+        if st.session_state.page_faq_toggle[4]:
             st.info("「離脱率が高く、滞在時間が短い」ページは、コンテンツが全く響いていない重大な問題ページです。逆に「離脱率が高く、滞在時間が長い」ページは、コンテンツは読まれているが次のアクションに繋がっていない「惜しい」ページと言えます。")
 
 
@@ -1724,18 +1758,35 @@ elif selected_analysis == "セグメント分析":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'segment_faq_toggle' not in st.session_state:
+        st.session_state.segment_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button(f"パフォーマンスが最も良い{segment_name}は？", key="faq_segment_1"):
+        if st.button(f"パフォーマンスが最も良い{segment_name}は？", key="faq_segment_1", use_container_width=True):
+            st.session_state.segment_faq_toggle[1] = not st.session_state.segment_faq_toggle[1]
+            st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False
+        if st.session_state.segment_faq_toggle[1]:
             best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
             st.info(f"**{best_segment[segment_name]}** です。コンバージョン率が **{best_segment['コンバージョン率']:.2f}%** と最も高いパフォーマンスを示しています。")
-        if st.button(f"パフォーマンスが良いセグメントに集中すべき？", key="faq_segment_3"):
+        
+        if st.button(f"パフォーマンスが良いセグメントに集中すべき？", key="faq_segment_3", use_container_width=True):
+            st.session_state.segment_faq_toggle[3] = not st.session_state.segment_faq_toggle[3]
+            st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[4] = False, False, False
+        if st.session_state.segment_faq_toggle[3]:
             st.info("はい、短期的には最も効果的なアプローチです。パフォーマンスが良いセグメント（例：特定の広告チャネルやデバイス）への予算配分を増やすことで、全体のコンバージョン数を効率的に伸ばすことができます。")
     with faq_cols[1]:
-        if st.button(f"パフォーマンスが最も悪い{segment_name}の原因は？", key="faq_segment_2"):
+        if st.button(f"パフォーマンスが最も悪い{segment_name}の原因は？", key="faq_segment_2", use_container_width=True):
+            st.session_state.segment_faq_toggle[2] = not st.session_state.segment_faq_toggle[2]
+            st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False
+        if st.session_state.segment_faq_toggle[2]:
             worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
             st.info(f"**{worst_segment[segment_name]}** のパフォーマンスが低い原因として、{segment_type}が「デバイス別」なら「表示崩れや操作性の問題」、{segment_type}が「チャネル別」なら「広告ターゲティングとLP内容のミスマッチ」などが考えられます。")
-        if st.button(f"セグメント毎にLPを変えるべき？", key="faq_segment_4"):
+        
+        if st.button(f"セグメント毎にLPを変えるべき？", key="faq_segment_4", use_container_width=True):
+            st.session_state.segment_faq_toggle[4] = not st.session_state.segment_faq_toggle[4]
+            st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[3] = False, False, False
+        if st.session_state.segment_faq_toggle[4]:
             st.info("はい、中長期的には非常に有効な施策です。例えば、PCユーザーには詳細な情報を、スマホユーザーには要点を絞ったコンテンツを見せるなど、セグメントに合わせてLPをパーソナライズすることで、CVRの大幅な向上が期待できます。")
 
 # タブ4: A/Bテスト分析
@@ -2030,21 +2081,38 @@ elif selected_analysis == "A/Bテスト分析":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'ab_test_faq_toggle' not in st.session_state:
+        st.session_state.ab_test_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("どのバリアントが最も良かったですか？", key="faq_ab_1"):
+        if st.button("どのバリアントが最も良かったですか？", key="faq_ab_1", use_container_width=True):
+            st.session_state.ab_test_faq_toggle[1] = not st.session_state.ab_test_faq_toggle[1]
+            st.session_state.ab_test_faq_toggle[2], st.session_state.ab_test_faq_toggle[3], st.session_state.ab_test_faq_toggle[4] = False, False, False
+        if st.session_state.ab_test_faq_toggle[1]:
             winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
             st.info(f"**「{winner['バリアント']}」** がCVR {winner['コンバージョン率']:.2f}%で最も良い結果でした。")
-        if st.button("p値とは何ですか？", key="faq_ab_3"):
+        
+        if st.button("p値とは何ですか？", key="faq_ab_3", use_container_width=True):
+            st.session_state.ab_test_faq_toggle[3] = not st.session_state.ab_test_faq_toggle[3]
+            st.session_state.ab_test_faq_toggle[1], st.session_state.ab_test_faq_toggle[2], st.session_state.ab_test_faq_toggle[4] = False, False, False
+        if st.session_state.ab_test_faq_toggle[3]:
             st.info("p値は「観測された差が偶然である確率」を示します。一般的にp値が0.05（5%）未満の場合、「統計的に有意な差がある」と判断し、その結果は信頼できると考えます。")
     with faq_cols[1]:
-        if st.button("このテスト結果は信頼できますか？", key="faq_ab_2"):
+        if st.button("このテスト結果は信頼できますか？", key="faq_ab_2", use_container_width=True):
+            st.session_state.ab_test_faq_toggle[2] = not st.session_state.ab_test_faq_toggle[2]
+            st.session_state.ab_test_faq_toggle[1], st.session_state.ab_test_faq_toggle[3], st.session_state.ab_test_faq_toggle[4] = False, False, False
+        if st.session_state.ab_test_faq_toggle[2]:
             winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
             if winner['p値'] < 0.05:
                 st.info(f"はい、信頼できる可能性が高いです。勝者バリアントのp値は{winner['p値']:.4f}であり、統計的有意差の基準である0.05を下回っています。")
             else:
                 st.warning(f"まだ信頼できるとは言えません。p値が{winner['p値']:.4f}と0.05を上回っているため、この差が偶然である可能性を否定できません。もう少しテスト期間を延長してサンプルサイズを増やすことを推奨します。")
-        if st.button("次のA/Bテストは何をすべき？", key="faq_ab_4"):
+        
+        if st.button("次のA/Bテストは何をすべき？", key="faq_ab_4", use_container_width=True):
+            st.session_state.ab_test_faq_toggle[4] = not st.session_state.ab_test_faq_toggle[4]
+            st.session_state.ab_test_faq_toggle[1], st.session_state.ab_test_faq_toggle[2], st.session_state.ab_test_faq_toggle[3] = False, False, False
+        if st.session_state.ab_test_faq_toggle[4]:
             winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
             st.info(f"今回の勝者「{winner['バリアント']}」の要素をベースに、さらに改善できる点をテストしましょう。例えば、CTAボタンの文言を変える、フォームの項目を減らす、などの新しい仮説でテストを計画するのが良いでしょう。")
 
@@ -2248,17 +2316,34 @@ elif selected_analysis == "インタラクション分析":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'interaction_faq_toggle' not in st.session_state:
+        st.session_state.interaction_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("最もクリックされている要素は？", key="faq_interaction_1"):
+        if st.button("最もクリックされている要素は？", key="faq_interaction_1", use_container_width=True):
+            st.session_state.interaction_faq_toggle[1] = not st.session_state.interaction_faq_toggle[1]
+            st.session_state.interaction_faq_toggle[2], st.session_state.interaction_faq_toggle[3], st.session_state.interaction_faq_toggle[4] = False, False, False
+        if st.session_state.interaction_faq_toggle[1]:
             best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
             st.info(f"クリック率（CTR）が最も高いのは「**{best_ctr_element['要素']}**」で、{best_ctr_element['クリック率 (CTR)']:.2f}%です。ユーザーの関心が最も高い要素です。")
-        if st.button("クリック率が低い要素はどうすれば？", key="faq_interaction_3"):
+        
+        if st.button("クリック率が低い要素はどうすれば？", key="faq_interaction_3", use_container_width=True):
+            st.session_state.interaction_faq_toggle[3] = not st.session_state.interaction_faq_toggle[3]
+            st.session_state.interaction_faq_toggle[1], st.session_state.interaction_faq_toggle[2], st.session_state.interaction_faq_toggle[4] = False, False, False
+        if st.session_state.interaction_faq_toggle[3]:
             st.info("クリック率が低い要素は、まずデザイン（色、サイズ、配置）を見直して視認性を高めましょう。それでも改善しない場合は、要素の文言（コピー）がユーザーにとって魅力的か、メリットが伝わるかを再検討する必要があります。")
     with faq_cols[1]:
-        if st.button("CTAボタンのCTRを上げるには？", key="faq_interaction_2"):
+        if st.button("CTAボタンのCTRを上げるには？", key="faq_interaction_2", use_container_width=True):
+            st.session_state.interaction_faq_toggle[2] = not st.session_state.interaction_faq_toggle[2]
+            st.session_state.interaction_faq_toggle[1], st.session_state.interaction_faq_toggle[3], st.session_state.interaction_faq_toggle[4] = False, False, False
+        if st.session_state.interaction_faq_toggle[2]:
             st.info("CTAボタンのCTRを上げるには、1) ボタンの色を背景色と対照的な目立つ色にする、2) 「資料請求」→「無料で資料をもらう」のように具体的なアクションやメリットを文言に入れる、3) ボタンのサイズを大きくする、などのA/Bテストが有効です。")
-        if st.button("デバイスによってクリック率は変わる？", key="faq_interaction_4"):
+        
+        if st.button("デバイスによってクリック率は変わる？", key="faq_interaction_4", use_container_width=True):
+            st.session_state.interaction_faq_toggle[4] = not st.session_state.interaction_faq_toggle[4]
+            st.session_state.interaction_faq_toggle[1], st.session_state.interaction_faq_toggle[2], st.session_state.interaction_faq_toggle[3] = False, False, False
+        if st.session_state.interaction_faq_toggle[4]:
             st.info("はい、大きく変わることがあります。例えば、PCではクリックしやすくても、スマホではボタンが小さすぎて押しにくい、といった問題が考えられます。「セグメント分析」でデバイス別のパフォーマンスを確認し、最適化することが重要です。")
 
 # タブ6: 動画・スクロール分析
@@ -2479,19 +2564,36 @@ elif selected_analysis == "動画・スクロール分析":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'video_faq_toggle' not in st.session_state:
+        st.session_state.video_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("動画はコンバージョンに貢献していますか？", key="faq_video_1"):
+        if st.button("動画はコンバージョンに貢献していますか？", key="faq_video_1", use_container_width=True):
+            st.session_state.video_faq_toggle[1] = not st.session_state.video_faq_toggle[1]
+            st.session_state.video_faq_toggle[2], st.session_state.video_faq_toggle[3], st.session_state.video_faq_toggle[4] = False, False, False
+        if st.session_state.video_faq_toggle[1]:
             if len(video_df) > 0:
                 st.info(f"はい、貢献している可能性が高いです。動画視聴ユーザーのCVRは{video_cvr:.2f}%で、非視聴ユーザーの{non_video_cvr:.2f}%より高いです。")
             else:
                 st.info("このLPには動画データがありません。")
-        if st.button("逆行率が高いページは何が問題？", key="faq_video_3"):
+        
+        if st.button("逆行率が高いページは何が問題？", key="faq_video_3", use_container_width=True):
+            st.session_state.video_faq_toggle[3] = not st.session_state.video_faq_toggle[3]
+            st.session_state.video_faq_toggle[1], st.session_state.video_faq_toggle[2], st.session_state.video_faq_toggle[4] = False, False, False
+        if st.session_state.video_faq_toggle[3]:
             st.info("逆行率が高いのは、ユーザーが「情報不足で前のページに戻って確認している」または「ページの構成が分かりにくく迷っている」兆候です。ページ間の情報の流れを見直し、ナビゲーションを分かりやすくする必要があります。")
     with faq_cols[1]:
-        if st.button("動画のどこを改善すれば良いですか？", key="faq_video_2"):
+        if st.button("動画のどこを改善すれば良いですか？", key="faq_video_2", use_container_width=True):
+            st.session_state.video_faq_toggle[2] = not st.session_state.video_faq_toggle[2]
+            st.session_state.video_faq_toggle[1], st.session_state.video_faq_toggle[3], st.session_state.video_faq_toggle[4] = False, False, False
+        if st.session_state.video_faq_toggle[2]:
             st.info("動画の視聴維持率データを分析することが重要です。多くのユーザーが離脱する箇所を特定し、その部分のコンテンツ（メッセージ、テンポ、ビジュアル）を改善しましょう。特に最初の5秒でユーザーの心を掴むことが重要です。")
-        if st.button("スクロールされないページはどうすれば？", key="faq_video_4"):
+        
+        if st.button("スクロールされないページはどうすれば？", key="faq_video_4", use_container_width=True):
+            st.session_state.video_faq_toggle[4] = not st.session_state.video_faq_toggle[4]
+            st.session_state.video_faq_toggle[1], st.session_state.video_faq_toggle[2], st.session_state.video_faq_toggle[3] = False, False, False
+        if st.session_state.video_faq_toggle[4]:
             st.info("スクロールされないのは、ファーストビュー（FV）に魅力がない証拠です。ユーザーが「続きを読む価値がある」と感じるような、強力なキャッチコピー、魅力的な画像、権威付け（実績や推薦文など）をFVに配置することが効果的です。")
 
 
@@ -2748,17 +2850,34 @@ elif selected_analysis == "時系列分析":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'time_faq_toggle' not in st.session_state:
+        st.session_state.time_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("CVRが最も高い時間帯はいつ？", key="faq_time_1"):
+        if st.button("CVRが最も高い時間帯はいつ？", key="faq_time_1", use_container_width=True):
+            st.session_state.time_faq_toggle[1] = not st.session_state.time_faq_toggle[1]
+            st.session_state.time_faq_toggle[2], st.session_state.time_faq_toggle[3], st.session_state.time_faq_toggle[4] = False, False, False
+        if st.session_state.time_faq_toggle[1]:
             golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
             st.info(f"**{dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台**です。この時間帯のCVRは{golden_time['コンバージョン率']:.2f}%と最も高くなっています。")
-        if st.button("週末と平日でパフォーマンスは違う？", key="faq_time_3"):
+        
+        if st.button("週末と平日でパフォーマンスは違う？", key="faq_time_3", use_container_width=True):
+            st.session_state.time_faq_toggle[3] = not st.session_state.time_faq_toggle[3]
+            st.session_state.time_faq_toggle[1], st.session_state.time_faq_toggle[2], st.session_state.time_faq_toggle[4] = False, False, False
+        if st.session_state.time_faq_toggle[3]:
             st.info("ヒートマップを確認することで、週末と平日のパフォーマンスの違いを視覚的に把握できます。一般的にBtoB商材は平日に、BtoC商材は週末や夜間にパフォーマンスが高まる傾向があります。")
     with faq_cols[1]:
-        if st.button("ゴールデンタイムをどう活用すれば良い？", key="faq_time_2"):
+        if st.button("ゴールデンタイムをどう活用すれば良い？", key="faq_time_2", use_container_width=True):
+            st.session_state.time_faq_toggle[2] = not st.session_state.time_faq_toggle[2]
+            st.session_state.time_faq_toggle[1], st.session_state.time_faq_toggle[3], st.session_state.time_faq_toggle[4] = False, False, False
+        if st.session_state.time_faq_toggle[2]:
             st.info("CVRが高い「ゴールデンタイム」には、リスティング広告の入札単価を強化したり、SNS広告の配信を集中させることが有効です。また、メルマガ配信やSNS投稿もこの時間帯を狙うと効果的です。")
-        if st.button("CVRが低い時間帯はどうすべき？", key="faq_time_4"):
+        
+        if st.button("CVRが低い時間帯はどうすべき？", key="faq_time_4", use_container_width=True):
+            st.session_state.time_faq_toggle[4] = not st.session_state.time_faq_toggle[4]
+            st.session_state.time_faq_toggle[1], st.session_state.time_faq_toggle[2], st.session_state.time_faq_toggle[3] = False, False, False
+        if st.session_state.time_faq_toggle[4]:
             st.info("CVRが著しく低い時間帯は、広告の配信を停止または抑制することで、無駄な広告費を削減し、全体の広告費用対効果（ROAS）を改善できます。")
 
 # タブ7: リアルタイム分析
@@ -2826,16 +2945,33 @@ elif selected_analysis == "リアルタイムビュー":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'realtime_faq_toggle' not in st.session_state:
+        st.session_state.realtime_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("セッション数が急に増えたらどうする？", key="faq_realtime_1"):
+        if st.button("セッション数が急に増えたらどうする？", key="faq_realtime_1", use_container_width=True):
+            st.session_state.realtime_faq_toggle[1] = not st.session_state.realtime_faq_toggle[1]
+            st.session_state.realtime_faq_toggle[2], st.session_state.realtime_faq_toggle[3], st.session_state.realtime_faq_toggle[4] = False, False, False
+        if st.session_state.realtime_faq_toggle[1]:
             st.info("まず流入元を確認しましょう。SNSでの拡散やメディア掲載が原因であれば、その機会を最大化するために公式アカウントで言及したり、関連キャンペーンを実施するのが有効です。")
-        if st.button("このビューをどう活用する？", key="faq_realtime_3"):
+        
+        if st.button("このビューをどう活用する？", key="faq_realtime_3", use_container_width=True):
+            st.session_state.realtime_faq_toggle[3] = not st.session_state.realtime_faq_toggle[3]
+            st.session_state.realtime_faq_toggle[1], st.session_state.realtime_faq_toggle[2], st.session_state.realtime_faq_toggle[4] = False, False, False
+        if st.session_state.realtime_faq_toggle[3]:
             st.info("主に「異常検知」と「機会発見」のために使います。広告キャンペーン開始直後の効果測定や、サーバーダウンなどの障害の早期発見に役立ちます。")
     with faq_cols[1]:
-        if st.button("セッション数がゼロになったら？", key="faq_realtime_2"):
+        if st.button("セッション数がゼロになったら？", key="faq_realtime_2", use_container_width=True):
+            st.session_state.realtime_faq_toggle[2] = not st.session_state.realtime_faq_toggle[2]
+            st.session_state.realtime_faq_toggle[1], st.session_state.realtime_faq_toggle[3], st.session_state.realtime_faq_toggle[4] = False, False, False
+        if st.session_state.realtime_faq_toggle[2]:
             st.warning("サイトに重大な問題が発生している可能性があります。すぐにウェブサイトが正常に表示されるか、広告配信が停止していないか、ドメインやサーバーに問題がないかを確認してください。")
-        if st.button("更新頻度はどのくらい？", key="faq_realtime_4"):
+        
+        if st.button("更新頻度はどのくらい？", key="faq_realtime_4", use_container_width=True):
+            st.session_state.realtime_faq_toggle[4] = not st.session_state.realtime_faq_toggle[4]
+            st.session_state.realtime_faq_toggle[1], st.session_state.realtime_faq_toggle[2], st.session_state.realtime_faq_toggle[3] = False, False, False
+        if st.session_state.realtime_faq_toggle[4]:
             st.info("このビューのデータは、数分から数十分程度の遅延で更新されます（実際の更新頻度はデータソースの仕様に依存します）。常に最新の状況を反映するものではない点にご注意ください。")
 
 # タブ8: カスタムオーディエンス
@@ -3184,18 +3320,35 @@ elif selected_analysis == "デモグラフィック情報":
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
+    if 'demographic_faq_toggle' not in st.session_state:
+        st.session_state.demographic_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     faq_cols = st.columns(2)
     with faq_cols[0]:
-        if st.button("最もCVRが高い年齢層は？", key="faq_demo_1"):
+        if st.button("最もCVRが高い年齢層は？", key="faq_demo_1", use_container_width=True):
+            st.session_state.demographic_faq_toggle[1] = not st.session_state.demographic_faq_toggle[1]
+            st.session_state.demographic_faq_toggle[2], st.session_state.demographic_faq_toggle[3], st.session_state.demographic_faq_toggle[4] = False, False, False
+        if st.session_state.demographic_faq_toggle[1]:
             best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
             st.info(f"**{best_age_group['年齢層']}** です。この年齢層のCVRは{best_age_group['CVR (%)']:.1f}%と最も高くなっています。")
-        if st.button("特定の地域だけCVRが高い理由は？", key="faq_demo_3"):
+        
+        if st.button("特定の地域だけCVRが高い理由は？", key="faq_demo_3", use_container_width=True):
+            st.session_state.demographic_faq_toggle[3] = not st.session_state.demographic_faq_toggle[3]
+            st.session_state.demographic_faq_toggle[1], st.session_state.demographic_faq_toggle[2], st.session_state.demographic_faq_toggle[4] = False, False, False
+        if st.session_state.demographic_faq_toggle[3]:
             st.info("地域によってCVRに差が出るのは、地域限定のキャンペーン、競合の状況、地域特有のニーズ、または広告の地域ターゲティング設定などが原因として考えられます。")
     with faq_cols[1]:
-        if st.button("この分析結果をどう広告に活かす？", key="faq_demo_2"):
+        if st.button("この分析結果をどう広告に活かす？", key="faq_demo_2", use_container_width=True):
+            st.session_state.demographic_faq_toggle[2] = not st.session_state.demographic_faq_toggle[2]
+            st.session_state.demographic_faq_toggle[1], st.session_state.demographic_faq_toggle[3], st.session_state.demographic_faq_toggle[4] = False, False, False
+        if st.session_state.demographic_faq_toggle[2]:
             best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
             st.info(f"CVRが高い **{best_age_group['年齢層']}** や特定の性別・地域に広告のターゲティングを絞り込む、または予算を重点的に配分することで、広告の費用対効果を高めることができます。")
-        if st.button("男女でLPの訴求を変えるべき？", key="faq_demo_4"):
+        
+        if st.button("男女でLPの訴求を変えるべき？", key="faq_demo_4", use_container_width=True):
+            st.session_state.demographic_faq_toggle[4] = not st.session_state.demographic_faq_toggle[4]
+            st.session_state.demographic_faq_toggle[1], st.session_state.demographic_faq_toggle[2], st.session_state.demographic_faq_toggle[3] = False, False, False
+        if st.session_state.demographic_faq_toggle[4]:
             st.info("もし男女でCVRやサイト内行動に大きな差が見られる場合は、訴求メッセージやデザインを男女別に最適化（パーソナライズ）することが有効です。例えば、男性には機能性を、女性には共感を呼ぶストーリーを訴求するなどの方法が考えられます。")
 
 
@@ -3265,6 +3418,9 @@ elif selected_analysis == "AIによる分析・考察":
     # LPフィルター
     if selected_lp:
         filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+
+    # is_conversion列を作成
+    filtered_df['is_conversion'] = filtered_df['cv_type'].notna().astype(int)
 
     # ==============================================================================
     #  デバッグ用: 3分以上の滞在時間データを強制的に生成
@@ -3670,19 +3826,22 @@ elif selected_analysis == "AIによる分析・考察":
         # ab_variant列が存在する場合のみ集計
         if 'ab_variant' in filtered_df.columns and filtered_df['ab_variant'].notna().any():
             ab_stats_global = filtered_df.groupby('ab_variant').agg(
-                セッション数=('session_id', 'nunique'),
-                コンバージョン数=('cv_type', lambda x: x.notna().sum())
+                セッション数=('session_id', 'nunique')
             ).reset_index()
+            ab_cv_stats = filtered_df[filtered_df['is_conversion'] == 1].groupby('ab_variant')['session_id'].nunique().reset_index(name='コンバージョン数')
+            ab_stats_global = pd.merge(ab_stats_global, ab_cv_stats, on='ab_variant', how='left').fillna(0)
         else:
             ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数'])
+        
         if 'セッション数' in ab_stats_global.columns and ab_stats_global['セッション数'].sum() > 0:
             ab_stats_global['コンバージョン率'] = (ab_stats_global['コンバージョン数'] / ab_stats_global['セッション数']) * 100
         
         # デバイス別統計
         device_stats_global = filtered_df.groupby('device_type').agg(
-            セッション数=('session_id', 'nunique'),
-            コンバージョン数=('cv_type', lambda x: x.notna().sum())
+            セッション数=('session_id', 'nunique')
         ).reset_index()
+        device_cv_stats = filtered_df[filtered_df['is_conversion'] == 1].groupby('device_type')['session_id'].nunique().reset_index(name='コンバージョン数')
+        device_stats_global = pd.merge(device_stats_global, device_cv_stats, on='device_type', how='left').fillna(0)
         if 'セッション数' in device_stats_global.columns and device_stats_global['セッション数'].sum() > 0:
             device_stats_global['コンバージョン率'] = (device_stats_global['コンバージョン数'] / device_stats_global['セッション数']) * 100
 
