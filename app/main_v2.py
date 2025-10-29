@@ -163,9 +163,11 @@ st.markdown("""
 # --- 堅牢化のためのヘルパー関数 ---
 def safe_rate(numerator, denominator):
     """ゼロ除算を回避して率を計算する"""
-    if denominator == 0:
-        return 0.0
-    return numerator / denominator
+    # denominatorがSeriesの場合でも動作するように修正
+    if isinstance(denominator, pd.Series):
+        return numerator.divide(denominator, fill_value=0)
+    # denominatorが単一の数値の場合
+    return numerator / denominator if denominator != 0 else 0.0
 
 # データ読み込み
 @st.cache_data
@@ -533,10 +535,10 @@ if selected_analysis == "全体サマリー":
     kpi_by_path['CTR'] = kpi_by_path.apply(lambda row: safe_rate(row['クリック数'], row['セッション数']) * 100, axis=1)
     # FV残存率
     fv_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 2].groupby('page_path')['session_id'].nunique()
-    kpi_by_path['FV残存率'] = (safe_rate(fv_sessions, path_sessions) * 100).fillna(0)
+    kpi_by_path['FV残存率'] = (safe_rate(fv_sessions, path_sessions) * 100).fillna(0) # safe_rateがSeriesを返すように
     # 最終CTA到達率
     final_cta_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 10].groupby('page_path')['session_id'].nunique()
-    kpi_by_path['最終CTA到達率'] = (safe_rate(final_cta_sessions, path_sessions) * 100).fillna(0)
+    kpi_by_path['最終CTA到達率'] = (safe_rate(final_cta_sessions, path_sessions) * 100).fillna(0) # こちらも同様に修正
 
     kpi_by_path = kpi_by_path.reset_index()
     kpi_by_path.rename(columns={'page_path': 'ページパス'}, inplace=True)
@@ -3359,7 +3361,7 @@ elif selected_analysis == "デモグラフィック情報":
 
 # タブ9: AI提案
 elif selected_analysis == "AIによる分析・考察":
-    st.markdown('<div class="sub-header">AIによる分析・改善案</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">AI による分析・考察</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
