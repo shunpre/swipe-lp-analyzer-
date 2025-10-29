@@ -59,8 +59,31 @@ st.markdown("""
         border-radius: 0.3rem;
         border-left: 3px solid #002060;
     }
-    /* サイドバーのラジオボタンをボタン風にカスタム */
-    div[data-testid="stRadio"] > label {
+    /* --- サイドバーメニューのカスタムスタイル --- */
+    /* グループの最初の項目の上にスペースと線を追加して、グループヘッダーのように見せる */
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("AIによる分析・考察")),
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("リアルタイムビュー")),
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("ページ分析")),
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("セグメント分析")),
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("使用ガイド")) {
+        margin-top: 1.5rem; /* グループ間のスペース */
+        border-top: 1px solid #e0e0e0;
+        padding-top: 1.5rem; /* 線とテキストの間のスペース */
+        position: relative;
+    }
+    /* グループ名を追加 */
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("AIによる分析・考察"))::before { content: "AIアナリスト"; position: absolute; top: -0.5rem; font-weight: bold; color: #333; }
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("リアルタイムビュー"))::before { content: "基本分析"; position: absolute; top: -0.5rem; font-weight: bold; color: #333; }
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("ページ分析"))::before { content: "LP最適化分析"; position: absolute; top: -0.5rem; font-weight: bold; color: #333; }
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("セグメント分析"))::before { content: "詳細分析"; position: absolute; top: -0.5rem; font-weight: bold; color: #333; }
+    .sidebar-menu div[data-testid="stRadio"] label:has(div:contains("使用ガイド"))::before { content: "ヘルプ"; position: absolute; top: -0.5rem; font-weight: bold; color: #333; }
+    /* ラジオボタンの丸を非表示にする */
+    div[data-testid="stRadio"] input[type="radio"] {
+        display: none;
+    }
+    /* --- サイドバーメニューのカスタムスタイル --- */
+    /* ラジオボタンのラベルをボタン風にする */
+    .sidebar-menu div[data-testid="stRadio"] label {
         display: block;
         padding: 8px 12px;
         margin: 4px 0;
@@ -71,20 +94,11 @@ st.markdown("""
         cursor: pointer;
         border: 1px solid transparent;
     }
-    /* ホバー時のスタイル */
-    div[data-testid="stRadio"] > label:hover {
-        background-color: #e6f0ff;
-        border-color: #002060;
-    }
-    /* 選択中のスタイル */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child[aria-checked="true"] + div {
+    /* 選択されているラジオボタンのラベルのスタイル */
+    .sidebar-menu div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child[aria-checked="true"] + div {
         background-color: #002060 !important;
         color: white !important;
         font-weight: bold;
-    }
-    /* ラジオボタンの丸を非表示にする */
-    div[data-testid="stRadio"] input[type="radio"] {
-        display: none;
     }
     /* サイドバーの開閉ボタンのSVGアイコンを非表示にする */
     button[data-testid="stSidebarCollapseButton"] > svg {
@@ -197,47 +211,21 @@ menu_groups = {
     "詳細分析": ["セグメント分析", "インタラクション分析", "動画・スクロール分析"],
     "ヘルプ": ["使用ガイド", "専門用語解説"]
 }
+# 全てのメニュー項目を1つのリストにフラット化
+all_menu_items = [item for sublist in menu_groups.values() for item in sublist]
 
-# グループごとにメニューを表示
-for group_name, items in menu_groups.items():
-    st.sidebar.markdown(f"**{group_name}**")
-    for item in items: # type: ignore
-        is_selected = st.session_state.selected_analysis == item
-        button_key = f"menu_{item}"
-        if st.sidebar.button(item, key=button_key, use_container_width=True, type="secondary"):
-            st.session_state.selected_analysis = item
-            st.rerun()
+# サイドバーメニューをカスタムクラスで囲む
+st.sidebar.markdown('<div class="sidebar-menu">', unsafe_allow_html=True)
 
-    st.sidebar.markdown("---")
+# 1つのst.radioで全メニューを管理
+st.session_state.selected_analysis = st.radio(
+    "analysis_menu",
+    options=all_menu_items,
+    label_visibility="collapsed",
+    index=all_menu_items.index(st.session_state.selected_analysis) if st.session_state.selected_analysis in all_menu_items else 0
+)
 
-# ページ遷移時にトップにスクロールするJavaScriptを実行
-js_scroll_to_top = """
-<script>
-    setTimeout(function() {
-        try {
-            window.parent.document.querySelector('section.main').scrollTo(0, 0);
-        } catch (e) {}
-    }, 100);
-</script>
-"""
-# 選択されたボタンにCSSクラスを適用するJavaScriptを実行
-if st.session_state.selected_analysis:
-    selected_button_key = f"menu_{st.session_state.selected_analysis}"
-    js_code = f"""
-    <script>
-        setTimeout(function() {{
-            const allButtons = window.parent.document.querySelectorAll('.stButton>button');
-            allButtons.forEach(btn => {{
-                btn.classList.remove('selected-button');
-            }});
-            const selectedButton = window.parent.document.querySelector('[data-testid="st.button-{selected_button_key}"]');
-            if (selectedButton) {{
-                selectedButton.classList.add('selected-button');
-            }}
-        }}, 100); // 100ミリ秒待ってから実行
-    </script>
-    """
-    st.components.v1.html(js_code, height=0)
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 selected_analysis = st.session_state.selected_analysis
 

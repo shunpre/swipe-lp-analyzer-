@@ -63,37 +63,23 @@ st.markdown("""
         border-radius: 0.3rem;
         border-left: 3px solid #002060;
     }
-    /* サイドバーのラジオボタンをボタン風にカスタム */
-    div[data-testid="stRadio"] > label {
-        display: block;
-        padding: 8px 12px;
-        margin: 4px 0;
-        border-radius: 0.3rem;
+    /* 通常のボタン (secondary) */
+    .stButton>button[kind="secondary"] {
         background-color: #f0f2f6;
         color: #333;
-        transition: all 0.2s;
-        cursor: pointer;
-        border: 1px solid transparent;
+        border: 1px solid #f0f2f6;
     }
-    /* ホバー時のスタイル */
-    div[data-testid="stRadio"] > label:hover {
-        background-color: #e6f0ff;
-        border-color: #002060;
+    /* 選択中のボタン (primary) - 赤枠で囲む */
+    .stButton>button[kind="primary"] {
+        background-color: #f0f2f6; /* 通常ボタンと同じ背景色 */
+        color: #333; /* 通常ボタンと同じ文字色 */
+        border: 2px solid #ff4b4b !important; /* 赤い枠線 */
     }
-    /* 選択中のスタイル */
-    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child[aria-checked="true"] + div {
-        background-color: #002060 !important;
-        color: white !important;
-        font-weight: bold;
-    }
-    /* 選択中のボタンに赤い枠線を追加 */
-    .selected-button {
-        border: 2px solid #ff4b4b !important;
+    /* 通常ボタンのホバー時 - 青い枠線 */
+    .stButton>button[kind="secondary"]:hover {
         background-color: #e6f0ff !important;
-    }
-    /* ラジオボタンの丸を非表示にする */
-    div[data-testid="stRadio"] input[type="radio"] {
-        display: none;
+        color: #333 !important;
+        border: 1px solid #002060 !important;
     }
     /* サイドバーの開閉ボタンのSVGアイコンを非表示にする */
     button[data-testid="stSidebarCollapseButton"] > svg {
@@ -211,49 +197,16 @@ menu_groups = {
 for group_name, items in menu_groups.items():
     st.sidebar.markdown(f"**{group_name}**")
     for item in items: # type: ignore
+        # 現在のアイテムが選択されているかどうかを判断
         is_selected = st.session_state.selected_analysis == item
-        button_key = f"menu_{item}"
-        if st.sidebar.button(item, key=button_key, use_container_width=True, type="secondary"):
+        # 選択状態に応じてボタンのtypeを変更
+        button_type = "primary" if is_selected else "secondary"
+        
+        if st.sidebar.button(item, key=f"menu_{item}", use_container_width=True, type=button_type):
             st.session_state.selected_analysis = item
             st.rerun()
 
     st.sidebar.markdown("---")
-
-# ページ遷移時にトップにスクロールするJavaScriptを実行
-js_scroll_to_top = """
-<script>
-    setTimeout(function() {
-        try {
-            window.parent.document.querySelector('section.main').scrollTo(0, 0);
-        } catch (e) {}
-    }, 100);
-</script>
-"""
-# 選択されたボタンにCSSクラスを適用するJavaScriptを実行
-if st.session_state.selected_analysis:
-    selected_button_key = f"menu_{st.session_state.selected_analysis}"
-    js_code = f"""
-    <script>
-        // ページが完全に読み込まれた後に実行
-        window.addEventListener('load', function() {{
-            // メインの表示領域をページのトップにスクロール
-            try {{
-                window.parent.document.querySelector('section.main').scrollTo(0, 0);
-            }} catch (e) {{
-                console.error("Failed to scroll to top: ", e);
-            }}
-
-            // ボタンのスタイルを更新
-            const allButtons = window.parent.document.querySelectorAll('.stButton>button');
-            allButtons.forEach(btn => btn.classList.remove('selected-button'));
-            const selectedButton = window.parent.document.querySelector('[data-testid="st.button-{selected_button_key}"]');
-            if (selectedButton) {{
-                selectedButton.classList.add('selected-button');
-            }}
-        }});
-    </script>
-    """
-    st.components.v1.html(js_code, height=0)
 
 selected_analysis = st.session_state.selected_analysis
 
