@@ -959,30 +959,43 @@ if selected_analysis == "全体サマリー":
     # --- AI分析と考察 ---
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">LP全体の主要指標に基づき、AIが現状の評価と次のアクションを提案します。</div>', unsafe_allow_html=True)
+    
+    # AI分析の表示状態を管理
+    if 'summary_ai_open' not in st.session_state:
+        st.session_state.summary_ai_open = False
 
     if st.button("AI分析を実行", key="summary_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIが全体データを分析中..."):
-            st.markdown("#### 1. 現状の評価")
-            evaluation_text = f"""
-            現在のLPパフォーマンスを総合的に評価します。
-            - **強み**: 平均滞在時間({avg_stay_time:.1f}秒)や最終CTA到達率({final_cta_rate:.1f}%)は比較的良好で、一度興味を持ったユーザーはコンテンツを読み進める傾向にあります。
-            - **弱み**: コンバージョン率({conversion_rate:.2f}%)とFV残存率({fv_retention_rate:.1f}%)が課題です。特に、多くのユーザーが最初のページ（ファーストビュー）で離脱している可能性が高いです。
-            """
-            st.info(evaluation_text)
+        st.session_state.summary_ai_open = True
+        st.rerun()
 
-            st.markdown("#### 2. 今後の考察と改善案")
-            recommendation_text = """
-            **最優先課題は「ファーストビューの改善」です。**
-            多くのユーザーが最初の接点で離脱しているため、ここを改善することが全体のパフォーマンス向上に最も効果的です。
-            
-            **具体的な改善アクション案:**
-            1. **キャッチコピーの見直し**: ターゲットに響く、より強力なメッセージに変更する。
-            2. **メインビジュアルの変更**: ユーザーの興味を引く画像や動画に差し替える。
-            3. **A/Bテストの実施**: 上記の要素で複数のパターンを用意し、「A/Bテスト分析」機能で効果を検証する。
-            
-            次に、「ページ分析」機能を用いて、ファーストビュー以降で離脱率が特に高い「ボトルネックページ」を特定し、改善を進めましょう。
-            """
-            st.warning(recommendation_text)
+    if st.session_state.summary_ai_open:
+        with st.container():
+            with st.spinner("AIが全体データを分析中..."):
+                st.markdown("#### 1. 現状の評価")
+                evaluation_text = f"""
+                現在のLPパフォーマンスを総合的に評価します。
+                - **強み**: 平均滞在時間({avg_stay_time:.1f}秒)や最終CTA到達率({final_cta_rate:.1f}%)は比較的良好で、一度興味を持ったユーザーはコンテンツを読み進める傾向にあります。
+                - **弱み**: コンバージョン率({conversion_rate:.2f}%)とFV残存率({fv_retention_rate:.1f}%)が課題です。特に、多くのユーザーが最初のページ（ファーストビュー）で離脱している可能性が高いです。
+                """
+                st.info(evaluation_text)
+
+                st.markdown("#### 2. 今後の考察と改善案")
+                recommendation_text = """
+                **最優先課題は「ファーストビューの改善」です。**
+                多くのユーザーが最初の接点で離脱しているため、ここを改善することが全体のパフォーマンス向上に最も効果的です。
+                
+                **具体的な改善アクション案:**
+                1. **キャッチコピーの見直し**: ターゲットに響く、より強力なメッセージに変更する。
+                2. **メインビジュアルの変更**: ユーザーの興味を引く画像や動画に差し替える。
+                3. **A/Bテストの実施**: 上記の要素で複数のパターンを用意し、「A/Bテスト分析」機能で効果を検証する。
+                
+                次に、「ページ分析」機能を用いて、ファーストビュー以降で離脱率が特に高い「ボトルネックページ」を特定し、改善を進めましょう。
+                """
+                st.warning(recommendation_text)
+
+            if st.button("AI分析を閉じる", key="summary_ai_close"):
+                st.session_state.summary_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
