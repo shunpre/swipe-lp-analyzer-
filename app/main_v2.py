@@ -5,6 +5,7 @@
 
 import streamlit as st
 import pandas as pd
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
@@ -158,6 +159,13 @@ st.markdown("""
     window.parent.document.querySelector('section.main').scrollTo(0, 0);
 </script>
 """, unsafe_allow_html=True)
+
+# --- 堅牢化のためのヘルパー関数 ---
+def safe_rate(numerator, denominator):
+    """ゼロ除算を回避して率を計算する"""
+    if denominator == 0:
+        return 0.0
+    return numerator / denominator
 
 # データ読み込み
 @st.cache_data
@@ -489,10 +497,10 @@ if selected_analysis == "全体サマリー":
     daily_df = pd.merge(daily_df, daily_final_cta, on='日付', how='left').fillna(0)
 
     # 率を計算
-    daily_df['CVR'] = (daily_df['CV数'] / daily_df['セッション数'] * 100).fillna(0)
-    daily_df['CTR'] = (daily_df['クリック数'] / daily_df['セッション数'] * 100).fillna(0)
-    daily_df['FV残存率'] = (daily_df['FV残存数'] / daily_df['セッション数'] * 100).fillna(0)
-    daily_df['最終CTA到達率'] = (daily_df['最終CTA到達数'] / daily_df['セッション数'] * 100).fillna(0)
+    daily_df['CVR'] = daily_df.apply(lambda row: safe_rate(row['CV数'], row['セッション数']) * 100, axis=1)
+    daily_df['CTR'] = daily_df.apply(lambda row: safe_rate(row['クリック数'], row['セッション数']) * 100, axis=1)
+    daily_df['FV残存率'] = daily_df.apply(lambda row: safe_rate(row['FV残存数'], row['セッション数']) * 100, axis=1)
+    daily_df['最終CTA到達率'] = daily_df.apply(lambda row: safe_rate(row['最終CTA到達数'], row['セッション数']) * 100, axis=1)
     daily_df['平均滞在時間'] = daily_df['平均滞在時間'] / 1000
 
     # 日付を降順にソート
@@ -519,14 +527,14 @@ if selected_analysis == "全体サマリー":
         '平均到達ページ': period_filtered_df.groupby('page_path')['max_page_reached'].mean()
     }).fillna(0)
 
-    kpi_by_path['CVR'] = (kpi_by_path['CV数'] / kpi_by_path['セッション数'] * 100).fillna(0)
-    kpi_by_path['CTR'] = (kpi_by_path['クリック数'] / kpi_by_path['セッション数'] * 100).fillna(0)
+    kpi_by_path['CVR'] = kpi_by_path.apply(lambda row: safe_rate(row['CV数'], row['セッション数']) * 100, axis=1)
+    kpi_by_path['CTR'] = kpi_by_path.apply(lambda row: safe_rate(row['クリック数'], row['セッション数']) * 100, axis=1)
     # FV残存率
     fv_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 2].groupby('page_path')['session_id'].nunique()
-    kpi_by_path['FV残存率'] = (fv_sessions / path_sessions * 100).fillna(0)
+    kpi_by_path['FV残存率'] = (safe_rate(fv_sessions, path_sessions) * 100).fillna(0)
     # 最終CTA到達率
     final_cta_sessions = period_filtered_df[period_filtered_df['max_page_reached'] >= 10].groupby('page_path')['session_id'].nunique()
-    kpi_by_path['最終CTA到達率'] = (final_cta_sessions / path_sessions * 100).fillna(0)
+    kpi_by_path['最終CTA到達率'] = (safe_rate(final_cta_sessions, path_sessions) * 100).fillna(0)
 
     kpi_by_path = kpi_by_path.reset_index()
     kpi_by_path.rename(columns={'page_path': 'ページパス'}, inplace=True)
@@ -564,9 +572,9 @@ if selected_analysis == "全体サマリー":
         '離脱防止POPクリック数': exit_popup_clicks
     }).fillna(0)
 
-    interaction_kpis['CTAクリック率'] = (interaction_kpis['CTAクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
-    interaction_kpis['FBクリック率'] = (interaction_kpis['FBクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
-    interaction_kpis['離脱防止POPクリック率'] = (interaction_kpis['離脱防止POPクリック数'] / interaction_kpis['セッション数'] * 100).fillna(0)
+    interaction_kpis['CTAクリック率'] = interaction_kpis.apply(lambda row: safe_rate(row['CTAクリック数'], row['セッション数']) * 100, axis=1)
+    interaction_kpis['FBクリック率'] = interaction_kpis.apply(lambda row: safe_rate(row['FBクリック数'], row['セッション数']) * 100, axis=1)
+    interaction_kpis['離脱防止POPクリック率'] = interaction_kpis.apply(lambda row: safe_rate(row['離脱防止POPクリック数'], row['セッション数']) * 100, axis=1)
 
     interaction_kpis = interaction_kpis.reset_index().rename(columns={'page_path': 'ページパス'})
 
@@ -666,8 +674,8 @@ if selected_analysis == "全体サマリー":
         )['session_id'].nunique().reset_index()
         daily_cv.columns = ['日付', 'コンバージョン数']
         
-        daily_cvr = daily_cvr.merge(daily_cv, on='日付', how='left').fillna(0)
-        daily_cvr['コンバージョン率'] = (daily_cvr['コンバージョン数'] / daily_cvr['セッション数'] * 100)
+        daily_cvr = daily_cvr.merge(daily_cv, on='日付', how='left').fillna(0) # type: ignore
+        daily_cvr['コンバージョン率'] = daily_cvr.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
         
         if comparison_df is not None and len(comparison_df) > 0:
             # 比較データを追加
@@ -679,8 +687,8 @@ if selected_analysis == "全体サマリー":
             )['session_id'].nunique().reset_index()
             comp_daily_cv.columns = ['日付', 'コンバージョン数']
             
-            comp_daily_cvr = comp_daily_cvr.merge(comp_daily_cv, on='日付', how='left').fillna(0)
-            comp_daily_cvr['比較期間CVR'] = (comp_daily_cvr['コンバージョン数'] / comp_daily_cvr['セッション数'] * 100)
+            comp_daily_cvr = comp_daily_cvr.merge(comp_daily_cv, on='日付', how='left').fillna(0) # type: ignore
+            comp_daily_cvr['比較期間CVR'] = comp_daily_cvr.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
             
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=daily_cvr['日付'], y=daily_cvr['コンバージョン率'],
@@ -710,7 +718,7 @@ if selected_analysis == "全体サマリー":
         device_cv.columns = ['デバイス', 'コンバージョン数']
         
         device_stats = device_stats.merge(device_cv, on='デバイス', how='left').fillna(0)
-        device_stats['コンバージョン率'] = (device_stats['コンバージョン数'] / device_stats['セッション数'] * 100)
+        device_stats['コンバージョン率'] = device_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
         
         fig = go.Figure()
         # 主軸（左Y軸）にセッション数とコンバージョン数の棒グラフを追加
@@ -746,7 +754,7 @@ if selected_analysis == "全体サマリー":
         channel_cv.columns = ['チャネル', 'コンバージョン数']
         
         channel_stats = channel_stats.merge(channel_cv, on='チャネル', how='left').fillna(0)
-        channel_stats['コンバージョン率'] = (channel_stats['コンバージョン数'] / channel_stats['セッション数'] * 100)
+        channel_stats['コンバージョン率'] = channel_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
         
         col1, col2 = st.columns(2)
         
@@ -868,7 +876,7 @@ if selected_analysis == "全体サマリー":
         hourly_cv.columns = ['時間', 'コンバージョン数']
         
         hourly_cvr = hourly_sessions.merge(hourly_cv, on='時間', how='left').fillna(0)
-        hourly_cvr['コンバージョン率'] = (hourly_cvr['コンバージョン数'] / hourly_cvr['セッション数'] * 100)
+        hourly_cvr['コンバージョン率'] = hourly_cvr.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
         
         fig = px.bar(hourly_cvr, x='時間', y='コンバージョン率')
         fig.update_traces(hovertemplate='時間: %{x}時台<br>コンバージョン率: %{y:.2f}%<extra></extra>')
@@ -890,7 +898,7 @@ if selected_analysis == "全体サマリー":
         dow_cv.columns = ['曜日', 'コンバージョン数']
         
         dow_cvr = dow_sessions.merge(dow_cv, on='曜日', how='left').fillna(0)
-        dow_cvr['コンバージョン率'] = (dow_cvr['コンバージョン数'] / dow_cvr['セッション数'] * 100)
+        dow_cvr['コンバージョン率'] = dow_cvr.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
         dow_cvr['曜日_日本語'] = dow_cvr['曜日'].map(dow_map)
         dow_cvr['曜日_order'] = dow_cvr['曜日'].apply(lambda x: dow_order.index(x))
         dow_cvr = dow_cvr.sort_values('曜日_order')
@@ -1507,8 +1515,9 @@ elif selected_analysis == "ページ分析":
             st.session_state.page_faq_toggle[1] = not st.session_state.page_faq_toggle[1]
             st.session_state.page_faq_toggle[2], st.session_state.page_faq_toggle[3], st.session_state.page_faq_toggle[4] = False, False, False
         if st.session_state.page_faq_toggle[1]:
-            bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
-            st.info(f"**ページ{int(bottleneck_page['ページ番号'])}** です。離脱率が{bottleneck_page['離脱率']:.1f}%と高く、平均滞在時間が{bottleneck_page['平均滞在時間(秒)']:.1f}秒と短いため、最優先で改善すべきボトルネックです。")
+            if not page_stats.empty:
+                bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
+                st.info(f"**ページ{int(bottleneck_page['ページ番号'])}** です。離脱率が{bottleneck_page['離脱率']:.1f}%と高く、平均滞在時間が{bottleneck_page['平均滞在時間(秒)']:.1f}秒と短いため、最優先で改善すべきボトルネックです。")
         
         if st.button("滞在時間が短いページの共通点は？", key="faq_page_3", use_container_width=True):
             st.session_state.page_faq_toggle[3] = not st.session_state.page_faq_toggle[3]
@@ -1665,7 +1674,7 @@ elif selected_analysis == "セグメント分析":
     segment_cv.columns = [segment_name, 'コンバージョン数']
     
     segment_stats = segment_stats.merge(segment_cv, on=segment_name, how='left').fillna(0)
-    segment_stats['コンバージョン率'] = (segment_stats['コンバージョン数'] / segment_stats['セッション数'] * 100)
+    segment_stats['コンバージョン率'] = segment_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
     # エンゲージメント率（滞在時間30秒以上）
     engaged_sessions = filtered_df[filtered_df['stay_ms'] >= 30000].groupby(segment_col)['session_id'].nunique().reset_index()
@@ -1673,7 +1682,7 @@ elif selected_analysis == "セグメント分析":
     
     segment_stats = segment_stats.merge(engaged_sessions, on=segment_name, how='left').fillna(0)
     segment_stats['エンゲージメント率'] = (segment_stats['エンゲージセッション数'] / segment_stats['セッション数'] * 100)
-    
+    segment_stats['エンゲージメント率'] = segment_stats.apply(lambda row: safe_rate(row['エンゲージセッション数'], row['セッション数']) * 100, axis=1)
     # テーブル表示
     st.markdown(f"#### {segment_type}の詳細")
     display_cols = [segment_name, 'セッション数', 'コンバージョン数', 'コンバージョン率', 'エンゲージメント率', '平均滞在時間(秒)', '平均到達ページ数']
@@ -1709,8 +1718,11 @@ elif selected_analysis == "セグメント分析":
 
     if st.button("AI分析を実行", key="segment_analysis_ai_btn", type="primary", use_container_width=True):
         with st.spinner("AIがセグメントデータを分析中..."):
-            best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
-            worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
+            if not segment_stats.empty:
+                best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
+                worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
+            else:
+                best_segment, worst_segment = (None, None)
             
             st.markdown("#### 1. 現状の評価")
             st.info(f"""
@@ -1740,9 +1752,10 @@ elif selected_analysis == "セグメント分析":
         if st.button(f"パフォーマンスが最も良い{segment_name}は？", key="faq_segment_1", use_container_width=True):
             st.session_state.segment_faq_toggle[1] = not st.session_state.segment_faq_toggle[1]
             st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False
-        if st.session_state.segment_faq_toggle[1]:
-            best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
-            st.info(f"**{best_segment[segment_name]}** です。コンバージョン率が **{best_segment['コンバージョン率']:.2f}%** と最も高いパフォーマンスを示しています。")
+        if st.session_state.segment_faq_toggle[1] and not segment_stats.empty:
+            if not segment_stats.empty:
+                best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
+                st.info(f"**{best_segment[segment_name]}** です。コンバージョン率が **{best_segment['コンバージョン率']:.2f}%** と最も高いパフォーマンスを示しています。")
         
         if st.button(f"パフォーマンスが良いセグメントに集中すべき？", key="faq_segment_3", use_container_width=True):
             st.session_state.segment_faq_toggle[3] = not st.session_state.segment_faq_toggle[3]
@@ -1753,9 +1766,10 @@ elif selected_analysis == "セグメント分析":
         if st.button(f"パフォーマンスが最も悪い{segment_name}の原因は？", key="faq_segment_2", use_container_width=True):
             st.session_state.segment_faq_toggle[2] = not st.session_state.segment_faq_toggle[2]
             st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False
-        if st.session_state.segment_faq_toggle[2]:
-            worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
-            st.info(f"**{worst_segment[segment_name]}** のパフォーマンスが低い原因として、{segment_type}が「デバイス別」なら「表示崩れや操作性の問題」、{segment_type}が「チャネル別」なら「広告ターゲティングとLP内容のミスマッチ」などが考えられます。")
+        if st.session_state.segment_faq_toggle[2] and not segment_stats.empty:
+            if not segment_stats.empty:
+                worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
+                st.info(f"**{worst_segment[segment_name]}** のパフォーマンスが低い原因として、{segment_type}が「デバイス別」なら「表示崩れや操作性の問題」、{segment_type}が「チャネル別」なら「広告ターゲティングとLP内容のミスマッチ」などが考えられます。")
         
         if st.button(f"セグメント毎にLPを変えるべき？", key="faq_segment_4", use_container_width=True):
             st.session_state.segment_faq_toggle[4] = not st.session_state.segment_faq_toggle[4]
@@ -1899,21 +1913,21 @@ elif selected_analysis == "A/Bテスト分析":
     ab_cv.columns = ['バリアント', 'コンバージョン数']
     
     ab_stats = ab_stats.merge(ab_cv, on='バリアント', how='left').fillna(0)
-    ab_stats['コンバージョン率'] = (ab_stats['コンバージョン数'] / ab_stats['セッション数'] * 100)
+    ab_stats['コンバージョン率'] = ab_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
     # FV残存率
     fv_retention = filtered_df[filtered_df['max_page_reached'] >= 2].groupby('ab_variant')['session_id'].nunique().reset_index()
     fv_retention.columns = ['バリアント', 'FV残存数']
     
     ab_stats = ab_stats.merge(fv_retention, on='バリアント', how='left').fillna(0)
-    ab_stats['FV残存率'] = (ab_stats['FV残存数'] / ab_stats['セッション数'] * 100)
+    ab_stats['FV残存率'] = ab_stats.apply(lambda row: safe_rate(row['FV残存数'], row['セッション数']) * 100, axis=1)
     
     # 最終CTA到達率
     final_cta = filtered_df[filtered_df['max_page_reached'] >= 10].groupby('ab_variant')['session_id'].nunique().reset_index()
     final_cta.columns = ['バリアント', '最終CTA到達数']
     
     ab_stats = ab_stats.merge(final_cta, on='バリアント', how='left').fillna(0)
-    ab_stats['最終CTA到達率'] = (ab_stats['最終CTA到達数'] / ab_stats['セッション数'] * 100)
+    ab_stats['最終CTA到達率'] = ab_stats.apply(lambda row: safe_rate(row['最終CTA到達数'], row['セッション数']) * 100, axis=1)
     
     # 有意差判定（カイ二乗検定）
     if chi2_contingency and len(ab_stats) >= 2:
@@ -2012,7 +2026,7 @@ elif selected_analysis == "A/Bテスト分析":
     ab_daily_cv.columns = ['日付', 'バリアント', 'コンバージョン数']
     
     ab_daily = ab_daily.merge(ab_daily_cv, on=['日付', 'バリアント'], how='left').fillna(0)
-    ab_daily['コンバージョン率'] = (ab_daily['コンバージョン数'] / ab_daily['セッション数'] * 100)
+    ab_daily['コンバージョン率'] = ab_daily.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
     fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='バリアント', markers=True)
     fig.update_layout(height=400, yaxis_title='コンバージョン率 (%)', dragmode=False)
@@ -2064,8 +2078,9 @@ elif selected_analysis == "A/Bテスト分析":
             st.session_state.ab_test_faq_toggle[1] = not st.session_state.ab_test_faq_toggle[1]
             st.session_state.ab_test_faq_toggle[2], st.session_state.ab_test_faq_toggle[3], st.session_state.ab_test_faq_toggle[4] = False, False, False
         if st.session_state.ab_test_faq_toggle[1]:
-            winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
-            st.info(f"**「{winner['バリアント']}」** がCVR {winner['コンバージョン率']:.2f}%で最も良い結果でした。")
+            if not ab_stats.empty:
+                winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
+                st.info(f"**「{winner['バリアント']}」** がCVR {winner['コンバージョン率']:.2f}%で最も良い結果でした。")
         
         if st.button("p値とは何ですか？", key="faq_ab_3", use_container_width=True):
             st.session_state.ab_test_faq_toggle[3] = not st.session_state.ab_test_faq_toggle[3]
@@ -2077,18 +2092,20 @@ elif selected_analysis == "A/Bテスト分析":
             st.session_state.ab_test_faq_toggle[2] = not st.session_state.ab_test_faq_toggle[2]
             st.session_state.ab_test_faq_toggle[1], st.session_state.ab_test_faq_toggle[3], st.session_state.ab_test_faq_toggle[4] = False, False, False
         if st.session_state.ab_test_faq_toggle[2]:
-            winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
-            if winner['p値'] < 0.05:
-                st.info(f"はい、信頼できる可能性が高いです。勝者バリアントのp値は{winner['p値']:.4f}であり、統計的有意差の基準である0.05を下回っています。")
-            else:
-                st.warning(f"まだ信頼できるとは言えません。p値が{winner['p値']:.4f}と0.05を上回っているため、この差が偶然である可能性を否定できません。もう少しテスト期間を延長してサンプルサイズを増やすことを推奨します。")
+            if not ab_stats.empty:
+                winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
+                if winner['p値'] < 0.05:
+                    st.info(f"はい、信頼できる可能性が高いです。勝者バリアントのp値は{winner['p値']:.4f}であり、統計的有意差の基準である0.05を下回っています。")
+                else:
+                    st.warning(f"まだ信頼できるとは言えません。p値が{winner['p値']:.4f}と0.05を上回っているため、この差が偶然である可能性を否定できません。もう少しテスト期間を延長してサンプルサイズを増やすことを推奨します。")
         
         if st.button("次のA/Bテストは何をすべき？", key="faq_ab_4", use_container_width=True):
             st.session_state.ab_test_faq_toggle[4] = not st.session_state.ab_test_faq_toggle[4]
             st.session_state.ab_test_faq_toggle[1], st.session_state.ab_test_faq_toggle[2], st.session_state.ab_test_faq_toggle[3] = False, False, False
         if st.session_state.ab_test_faq_toggle[4]:
-            winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
-            st.info(f"今回の勝者「{winner['バリアント']}」の要素をベースに、さらに改善できる点をテストしましょう。例えば、CTAボタンの文言を変える、フォームの項目を減らす、などの新しい仮説でテストを計画するのが良いでしょう。")
+            if not ab_stats.empty:
+                winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
+                st.info(f"今回の勝者「{winner['バリアント']}」の要素をベースに、さらに改善できる点をテストしましょう。例えば、CTAボタンの文言を変える、フォームの項目を減らす、などの新しい仮説でテストを計画するのが良いでしょう。")
 
 # タブ5: インタラクション分析
 elif selected_analysis == "インタラクション分析":
@@ -2209,7 +2226,7 @@ elif selected_analysis == "インタラクション分析":
     }
     
     interaction_df = pd.DataFrame(interaction_data)
-    interaction_df['クリック率 (CTR)'] = (interaction_df['クリック数 (CTs)'] / interaction_df['表示回数'] * 100)
+    interaction_df['クリック率 (CTR)'] = interaction_df.apply(lambda row: safe_rate(row['クリック数 (CTs)'], row['表示回数']) * 100, axis=1)
     
     # インタラクション要素一覧表
     st.markdown("#### インタラクション要素一覧")
@@ -2299,8 +2316,9 @@ elif selected_analysis == "インタラクション分析":
             st.session_state.interaction_faq_toggle[1] = not st.session_state.interaction_faq_toggle[1]
             st.session_state.interaction_faq_toggle[2], st.session_state.interaction_faq_toggle[3], st.session_state.interaction_faq_toggle[4] = False, False, False
         if st.session_state.interaction_faq_toggle[1]:
-            best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
-            st.info(f"クリック率（CTR）が最も高いのは「**{best_ctr_element['要素']}**」で、{best_ctr_element['クリック率 (CTR)']:.2f}%です。ユーザーの関心が最も高い要素です。")
+            if not interaction_df.empty:
+                best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
+                st.info(f"クリック率（CTR）が最も高いのは「**{best_ctr_element['要素']}**」で、{best_ctr_element['クリック率 (CTR)']:.2f}%です。ユーザーの関心が最も高い要素です。")
         
         if st.button("クリック率が低い要素はどうすれば？", key="faq_interaction_3", use_container_width=True):
             st.session_state.interaction_faq_toggle[3] = not st.session_state.interaction_faq_toggle[3]
@@ -2446,7 +2464,7 @@ elif selected_analysis == "動画・スクロール分析":
         
         video_sessions = video_df['session_id'].nunique()
         total_sessions_with_video_page = filtered_df[filtered_df['video_src'].notna()]['session_id'].nunique()
-        video_view_rate = (video_sessions / total_sessions * 100) if total_sessions > 0 else 0
+        video_view_rate = safe_rate(video_sessions, total_sessions) * 100
         
         col1, col2, col3 = st.columns(3)
         
@@ -2463,11 +2481,11 @@ elif selected_analysis == "動画・スクロール分析":
         st.markdown("#### 動画視聴とコンバージョンの関係")
         
         video_cv = video_df[video_df['cv_type'].notna()]['session_id'].nunique()
-        video_cvr = (video_cv / video_sessions * 100) if video_sessions > 0 else 0
+        video_cvr = safe_rate(video_cv, video_sessions) * 100
         
         non_video_sessions = total_sessions - video_sessions
         non_video_cv = filtered_df[(filtered_df['video_src'].isna()) & (filtered_df['cv_type'].notna())]['session_id'].nunique()
-        non_video_cvr = (non_video_cv / non_video_sessions * 100) if non_video_sessions > 0 else 0
+        non_video_cvr = safe_rate(non_video_cv, non_video_sessions) * 100
         
         comparison_data = pd.DataFrame({
             'グループ': ['動画視聴あり', '動画視聴なし'],
@@ -2497,7 +2515,7 @@ elif selected_analysis == "動画・スクロール分析":
     
     scroll_range_stats = scroll_range_sessions.merge(scroll_range_cv, on='逆行率', how='left')
     scroll_range_stats['コンバージョン数'] = scroll_range_stats['コンバージョン数'].fillna(0)
-    scroll_range_stats['コンバージョン率'] = (scroll_range_stats['コンバージョン数'] / scroll_range_stats['セッション数'] * 100)
+    scroll_range_stats['コンバージョン率'] = scroll_range_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
     fig = px.bar(scroll_range_stats, x='逆行率', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
@@ -2691,8 +2709,8 @@ elif selected_analysis == "時系列分析":
     )['session_id'].nunique().reset_index()
     daily_cv.columns = ['日付', 'コンバージョン数']
     
-    daily_stats = daily_stats.merge(daily_cv, on='日付', how='left').fillna(0)
-    daily_stats['コンバージョン率'] = (daily_stats['コンバージョン数'] / daily_stats['セッション数'] * 100)
+    daily_stats = daily_stats.merge(daily_cv, on='日付', how='left').fillna(0) # type: ignore
+    daily_stats['コンバージョン率'] = daily_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
     # FV残存率
     daily_fv = filtered_df[filtered_df['max_page_reached'] >= 2].groupby(
@@ -2700,8 +2718,8 @@ elif selected_analysis == "時系列分析":
     )['session_id'].nunique().reset_index()
     daily_fv.columns = ['日付', 'FV残存数']
     
-    daily_stats = daily_stats.merge(daily_fv, on='日付', how='left').fillna(0)
-    daily_stats['FV残存率'] = (daily_stats['FV残存数'] / daily_stats['セッション数'] * 100)
+    daily_stats = daily_stats.merge(daily_fv, on='日付', how='left').fillna(0) # type: ignore
+    daily_stats['FV残存率'] = daily_stats.apply(lambda row: safe_rate(row['FV残存数'], row['セッション数']) * 100, axis=1)
     
     # 最終CTA到達率
     daily_cta = filtered_df[filtered_df['max_page_reached'] >= 10].groupby(
@@ -2710,8 +2728,8 @@ elif selected_analysis == "時系列分析":
     daily_cta.columns = ['日付', '最終CTA到達数']
     
     daily_stats = daily_stats.merge(daily_cta, on='日付', how='left').fillna(0)
-    daily_stats['最終CTA到達率'] = (daily_stats['最終CTA到達数'] / daily_stats['セッション数'] * 100)
-    
+    daily_stats['最終CTA到達率'] = daily_stats.apply(lambda row: safe_rate(row['最終CTA到達数'], row['セッション数']) * 100, axis=1)
+
     # グラフ選択
     metric_to_plot = st.selectbox("表示する指標を選択", [
         "セッション数", "コンバージョン数", "コンバージョン率", "FV残存率",
@@ -2738,8 +2756,8 @@ elif selected_analysis == "時系列分析":
         monthly_cv = filtered_df_monthly[filtered_df_monthly['cv_type'].notna()].groupby('月')['session_id'].nunique().reset_index()
         monthly_cv.columns = ['月', 'コンバージョン数']
         
-        monthly_stats = monthly_stats.merge(monthly_cv, on='月', how='left').fillna(0)
-        monthly_stats['コンバージョン率'] = (monthly_stats['コンバージョン数'] / monthly_stats['セッション数'] * 100)
+        monthly_stats = monthly_stats.merge(monthly_cv, on='月', how='left').fillna(0) # type: ignore
+        monthly_stats['コンバージョン率'] = monthly_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
         
         fig = go.Figure()
         fig.add_trace(go.Bar(name='セッション数', x=monthly_stats['月'], y=monthly_stats['セッション数'], yaxis='y'))
@@ -2770,7 +2788,7 @@ elif selected_analysis == "時系列分析":
 
     # データをマージしてCVRを計算
     heatmap_stats = pd.merge(heatmap_sessions, heatmap_cv, on=['hour', 'dow_name'], how='left').fillna(0)
-    heatmap_stats['コンバージョン率'] = (heatmap_stats['コンバージョン数'] / heatmap_stats['セッション数'] * 100).fillna(0)
+    heatmap_stats['コンバージョン率'] = heatmap_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
 
     # 曜日の順序を定義
     dow_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -2802,8 +2820,11 @@ elif selected_analysis == "時系列分析":
 
     if st.button("AI分析を実行", key="timeseries_ai_btn", type="primary", use_container_width=True):
         with st.spinner("AIが時系列データを分析中..."):
-            # ゴールデンタイムを特定
-            golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
+            if not heatmap_stats.empty:
+                # ゴールデンタイムを特定
+                golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
+            else:
+                golden_time = None
             
             st.markdown("#### 1. 現状の評価")
             st.info(f"""
@@ -2833,8 +2854,9 @@ elif selected_analysis == "時系列分析":
             st.session_state.time_faq_toggle[1] = not st.session_state.time_faq_toggle[1]
             st.session_state.time_faq_toggle[2], st.session_state.time_faq_toggle[3], st.session_state.time_faq_toggle[4] = False, False, False
         if st.session_state.time_faq_toggle[1]:
-            golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
-            st.info(f"**{dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台**です。この時間帯のCVRは{golden_time['コンバージョン率']:.2f}%と最も高くなっています。")
+            if not heatmap_stats.empty:
+                golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
+                st.info(f"**{dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台**です。この時間帯のCVRは{golden_time['コンバージョン率']:.2f}%と最も高くなっています。")
         
         if st.button("週末と平日でパフォーマンスは違う？", key="faq_time_3", use_container_width=True):
             st.session_state.time_faq_toggle[3] = not st.session_state.time_faq_toggle[3]
@@ -2866,7 +2888,7 @@ elif selected_analysis == "リアルタイムビュー":
         # KPI計算
         rt_sessions = realtime_df['session_id'].nunique()
         rt_avg_pages = realtime_df.groupby('session_id')['max_page_reached'].max().mean()
-        rt_avg_stay = realtime_df['stay_ms'].mean() / 1000
+        rt_avg_stay = realtime_df['stay_ms'].mean() / 1000 if not realtime_df['stay_ms'].isnull().all() else 0
         rt_fv_retention = (realtime_df[realtime_df['max_page_reached'] >= 2]['session_id'].nunique() / rt_sessions * 100) if rt_sessions > 0 else 0
         rt_avg_load = realtime_df['load_time_ms'].mean()
 
@@ -3089,12 +3111,12 @@ elif selected_analysis == "デモグラフィック情報":
         age_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('age_group')['session_id'].nunique()
         age_stay = filtered_df.groupby('age_group')['stay_ms'].mean() / 1000
 
-        age_demo_df = pd.DataFrame({
+        age_demo_df = pd.DataFrame({ # type: ignore
             'セッション数': age_sessions,
             'CV数': age_cv,
             '平均滞在時間 (秒)': age_stay
-        }).fillna(0).reset_index().rename(columns={'age_group': '年齢層'})
-        age_demo_df['CVR (%)'] = (age_demo_df['CV数'] / age_demo_df['セッション数'] * 100).fillna(0)
+        }).fillna(0).reset_index().rename(columns={'age_group': '年齢層'}) # type: ignore
+        age_demo_df['CVR (%)'] = age_demo_df.apply(lambda row: safe_rate(row['CV数'], row['セッション数']) * 100, axis=1)
 
         st.dataframe(age_demo_df.style.format({
             'セッション数': '{:,.0f}',
@@ -3119,12 +3141,12 @@ elif selected_analysis == "デモグラフィック情報":
         gender_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('gender')['session_id'].nunique()
         gender_stay = filtered_df.groupby('gender')['stay_ms'].mean() / 1000
 
-        gender_demo_df = pd.DataFrame({
+        gender_demo_df = pd.DataFrame({ # type: ignore
             'セッション数': gender_sessions,
             'CV数': gender_cv,
             '平均滞在時間 (秒)': gender_stay
-        }).fillna(0).reset_index().rename(columns={'gender': '性別'})
-        gender_demo_df['CVR (%)'] = (gender_demo_df['CV数'] / gender_demo_df['セッション数'] * 100).fillna(0)
+        }).fillna(0).reset_index().rename(columns={'gender': '性別'}) # type: ignore
+        gender_demo_df['CVR (%)'] = gender_demo_df.apply(lambda row: safe_rate(row['CV数'], row['セッション数']) * 100, axis=1)
 
         st.dataframe(gender_demo_df.style.format({
             'セッション数': '{:,.0f}',
@@ -3240,12 +3262,12 @@ elif selected_analysis == "デモグラフィック情報":
         device_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('device_type')['session_id'].nunique()
         device_stay = filtered_df.groupby('device_type')['stay_ms'].mean() / 1000
 
-        device_demo_df = pd.DataFrame({
+        device_demo_df = pd.DataFrame({ # type: ignore
             'セッション数': device_sessions,
             'CV数': device_cv,
             '平均滞在時間 (秒)': device_stay
-        }).fillna(0).reset_index().rename(columns={'device_type': 'デバイス'})
-        device_demo_df['CVR (%)'] = (device_demo_df['CV数'] / device_demo_df['セッション数'] * 100).fillna(0)
+        }).fillna(0).reset_index().rename(columns={'device_type': 'デバイス'}) # type: ignore
+        device_demo_df['CVR (%)'] = device_demo_df.apply(lambda row: safe_rate(row['CV数'], row['セッション数']) * 100, axis=1)
 
         st.dataframe(device_demo_df.style.format({
             'セッション数': '{:,.0f}',
@@ -3273,8 +3295,11 @@ elif selected_analysis == "デモグラフィック情報":
 
     if st.button("AI分析を実行", key="demographic_ai_btn", type="primary", use_container_width=True):
         with st.spinner("AIがデモグラフィックデータを分析中..."):
-            # パフォーマンスの高い年齢層を特定
-            best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
+            if not age_demo_df.empty:
+                # パフォーマンスの高い年齢層を特定
+                best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
+            else:
+                best_age_group = None
             
             st.markdown("#### 1. 現状の評価")
             st.info(f"""
@@ -3303,8 +3328,9 @@ elif selected_analysis == "デモグラフィック情報":
             st.session_state.demographic_faq_toggle[1] = not st.session_state.demographic_faq_toggle[1]
             st.session_state.demographic_faq_toggle[2], st.session_state.demographic_faq_toggle[3], st.session_state.demographic_faq_toggle[4] = False, False, False
         if st.session_state.demographic_faq_toggle[1]:
-            best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
-            st.info(f"**{best_age_group['年齢層']}** です。この年齢層のCVRは{best_age_group['CVR (%)']:.1f}%と最も高くなっています。")
+            if not age_demo_df.empty:
+                best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
+                st.info(f"**{best_age_group['年齢層']}** です。この年齢層のCVRは{best_age_group['CVR (%)']:.1f}%と最も高くなっています。")
         
         if st.button("特定の地域だけCVRが高い理由は？", key="faq_demo_3", use_container_width=True):
             st.session_state.demographic_faq_toggle[3] = not st.session_state.demographic_faq_toggle[3]
@@ -3316,8 +3342,9 @@ elif selected_analysis == "デモグラフィック情報":
             st.session_state.demographic_faq_toggle[2] = not st.session_state.demographic_faq_toggle[2]
             st.session_state.demographic_faq_toggle[1], st.session_state.demographic_faq_toggle[3], st.session_state.demographic_faq_toggle[4] = False, False, False
         if st.session_state.demographic_faq_toggle[2]:
-            best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
-            st.info(f"CVRが高い **{best_age_group['年齢層']}** や特定の性別・地域に広告のターゲティングを絞り込む、または予算を重点的に配分することで、広告の費用対効果を高めることができます。")
+            if not age_demo_df.empty:
+                best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
+                st.info(f"CVRが高い **{best_age_group['年齢層']}** や特定の性別・地域に広告のターゲティングを絞り込む、または予算を重点的に配分することで、広告の費用対効果を高めることができます。")
         
         if st.button("男女でLPの訴求を変えるべき？", key="faq_demo_4", use_container_width=True):
             st.session_state.demographic_faq_toggle[4] = not st.session_state.demographic_faq_toggle[4]
@@ -3437,23 +3464,23 @@ elif selected_analysis == "AIによる分析・考察":
     # 基本メトリクス計算
     total_sessions = filtered_df['session_id'].nunique()
     total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
+    conversion_rate = safe_rate(total_conversions, total_sessions) * 100
     total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
+    click_rate = safe_rate(total_clicks, total_sessions) * 100
     avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
     avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
+    fv_retention_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique(), total_sessions) * 100
+    final_cta_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique(), total_sessions) * 100
     avg_load_time = filtered_df['load_time_ms'].mean()
 
     # 比較データのKPI計算
     comp_kpis = {}
     if comparison_df is not None and len(comparison_df) > 0:
         comp_total_sessions = comparison_df['session_id'].nunique()
-        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
-        comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
-        comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
+        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique() # type: ignore
+        comp_conversion_rate = safe_rate(comp_total_conversions, comp_total_sessions) * 100
+        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click']) # type: ignore
+        comp_click_rate = safe_rate(comp_total_clicks, comp_total_sessions) * 100
         comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
         comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
         comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
@@ -3479,10 +3506,10 @@ elif selected_analysis == "AIによる分析・考察":
     # KPIカード表示 (他のページからコピー)
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    with col1:
+    with col1: # type: ignore
         # セッション数
         delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
-        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None)
+        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None) # type: ignore
         
         # FV残存率
         delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
@@ -3491,7 +3518,7 @@ elif selected_analysis == "AIによる分析・考察":
     with col2:
         # コンバージョン数
         delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
-        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None)
+        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None) # type: ignore
 
         # 最終CTA到達率
         delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
@@ -3500,7 +3527,7 @@ elif selected_analysis == "AIによる分析・考察":
     with col3:
         # コンバージョン率
         delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
-        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None)
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None) # type: ignore
 
         # 平均到達ページ数
         delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
@@ -3509,7 +3536,7 @@ elif selected_analysis == "AIによる分析・考察":
     with col4:
         # クリック数
         delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
-        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None)
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None) # type: ignore
 
         # 平均滞在時間
         delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
@@ -3518,7 +3545,7 @@ elif selected_analysis == "AIによる分析・考察":
     with col5:
         # クリック率
         delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
-        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None)
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None) # type: ignore
 
         # 平均読込時間
         delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
@@ -3567,22 +3594,22 @@ elif selected_analysis == "AIによる分析・考察":
             page_stats.rename(columns={'max_page_reached': 'ページ番号'}, inplace=True)
             max_exit_page = page_stats.loc[page_stats['離脱率'].idxmax()]
 
-            # デバイス別統計
+            # デバイス別統計（修正）
             device_stats = filtered_df.groupby('device_type').agg(
                 セッション数=('session_id', 'nunique'),
                 コンバージョン数=('cv_type', lambda x: x.notna().sum())
-            ).reset_index()
+            ).reset_index().rename(columns={'device_type': 'デバイス'})
             device_stats['コンバージョン率'] = (device_stats['コンバージョン数'] / device_stats['セッション数'] * 100).fillna(0)
             worst_device = device_stats.loc[device_stats['コンバージョン率'].idxmin()]
 
-            # チャネル別統計
+            # チャネル別統計（修正）
             channel_stats = filtered_df.groupby('channel').agg(
                 セッション数=('session_id', 'nunique'),
                 コンバージョン数=('cv_type', lambda x: x.notna().sum())
-            ).reset_index()
+            ).reset_index().rename(columns={'channel': 'チャネル'})
             channel_stats['コンバージョン率'] = (channel_stats['コンバージョン数'] / channel_stats['セッション数'] * 100).fillna(0)
             best_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmax()]
-            worst_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmin()]
+            worst_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmin()] # type: ignore
             
             # AIによる訴求ポイントの推察（簡易版）
             # 本来はLLMで要約するが、ここではキーワードで代用
@@ -3781,10 +3808,10 @@ elif selected_analysis == "AIによる分析・考察":
     # 質問ボタンにトグル機能を追加
     st.markdown("---")
     st.markdown("### よくある質問")
-
+    
     # FAQ用のデータ計算を事前に初期化
     page_stats_global = pd.DataFrame(columns=['ページ番号', '離脱セッション数', '平均滞在時間_ms', '離脱率', '平均滞在時間_秒'])
-    ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数', 'コンバージョン率'])
+    ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数', 'コンバージョン率']) # type: ignore
     device_stats_global = pd.DataFrame(columns=['デバイス', 'セッション数', 'コンバージョン数', 'コンバージョン率'])
 
     if not filtered_df.empty and total_sessions > 0:
@@ -3801,23 +3828,23 @@ elif selected_analysis == "AIによる分析・考察":
         if 'ab_variant' in filtered_df.columns and filtered_df['ab_variant'].notna().any():
             ab_stats_global = filtered_df.groupby('ab_variant').agg(
                 セッション数=('session_id', 'nunique')
-            ).reset_index()
-            ab_cv_stats = filtered_df[filtered_df['is_conversion'] == 1].groupby('ab_variant')['session_id'].nunique().reset_index(name='コンバージョン数')
-            ab_stats_global = pd.merge(ab_stats_global, ab_cv_stats, on='ab_variant', how='left').fillna(0)
+            ).reset_index().rename(columns={'ab_variant': 'バリアント'})
+            ab_cv_stats = filtered_df[filtered_df['is_conversion'] == 1].groupby('ab_variant')['session_id'].nunique().reset_index(name='コンバージョン数').rename(columns={'ab_variant': 'バリアント'})
+            ab_stats_global = pd.merge(ab_stats_global, ab_cv_stats, on='バリアント', how='left').fillna(0)
         else:
             ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数'])
         
-        if 'セッション数' in ab_stats_global.columns and ab_stats_global['セッション数'].sum() > 0:
-            ab_stats_global['コンバージョン率'] = (ab_stats_global['コンバージョン数'] / ab_stats_global['セッション数']) * 100
+        if not ab_stats_global.empty and 'セッション数' in ab_stats_global.columns and ab_stats_global['セッション数'].sum() > 0:
+            ab_stats_global['コンバージョン率'] = ab_stats_global.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
         
         # デバイス別統計
         device_stats_global = filtered_df.groupby('device_type').agg(
             セッション数=('session_id', 'nunique')
         ).reset_index()
         device_cv_stats = filtered_df[filtered_df['is_conversion'] == 1].groupby('device_type')['session_id'].nunique().reset_index(name='コンバージョン数')
-        device_stats_global = pd.merge(device_stats_global, device_cv_stats, on='device_type', how='left').fillna(0)
-        if 'セッション数' in device_stats_global.columns and device_stats_global['セッション数'].sum() > 0:
-            device_stats_global['コンバージョン率'] = (device_stats_global['コンバージョン数'] / device_stats_global['セッション数']) * 100
+        device_stats_global = pd.merge(device_stats_global, device_cv_stats, on='device_type', how='left').fillna(0).rename(columns={'device_type': 'デバイス'})
+        if not device_stats_global.empty and 'セッション数' in device_stats_global.columns and device_stats_global['セッション数'].sum() > 0: # type: ignore
+            device_stats_global['コンバージョン率'] = device_stats_global.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
 
     # FAQボタンの表示
     col1, col2 = st.columns(2)
@@ -3838,7 +3865,7 @@ elif selected_analysis == "AIによる分析・考察":
         
         if st.session_state.faq_toggle.get(1, False):
             # 離脱率が最も高いページを特定（データがある場合のみ）
-            if not page_stats_global.empty:
+            if not page_stats_global.empty and '離脱率' in page_stats_global.columns:
                 max_exit_page = page_stats_global.loc[page_stats_global['離脱率'].idxmax()]
                 
                 st.info(f"""
@@ -3878,7 +3905,7 @@ elif selected_analysis == "AIによる分析・考察":
             pass
 
         if st.session_state.faq_toggle.get(3, False):
-            if 'コンバージョン率' in ab_stats_global.columns and not ab_stats_global.empty:
+            if not ab_stats_global.empty and 'コンバージョン率' in ab_stats_global.columns:
                 best_variant = ab_stats_global.loc[ab_stats_global['コンバージョン率'].idxmax()]
                 st.info(f"""
             **分析結果:**
@@ -4218,6 +4245,11 @@ elif selected_analysis == "専門用語解説":
             if len(comparison_df) == 0:
                 comparison_df = None
                 st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
+
+    # --- 堅牢化: 空データでの早期リターン ---
+    if filtered_df.empty:
+        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
+        st.stop()
 
     # データが空の場合の処理
     if len(filtered_df) == 0:
