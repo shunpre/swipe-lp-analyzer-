@@ -230,9 +230,11 @@ for group_name, items in menu_groups.items():
         is_selected = st.session_state.selected_analysis == item
         # 選択状態に応じてボタンのtypeを変更
         button_type = "primary" if is_selected else "secondary"
-        
+
         if st.sidebar.button(item, key=f"menu_{item}", use_container_width=True, type=button_type):
             st.session_state.selected_analysis = item
+            # ページ遷移時にトップにスクロールするJavaScriptを実行
+            st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
             st.rerun()
 
     st.sidebar.markdown("---")
@@ -3552,6 +3554,10 @@ elif selected_analysis == "AIによる分析・考察":
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f} ms" if delta_load is not None else None, delta_color="inverse")
 
     # --- ユーザー入力フォーム ---
+    # AI分析の表示状態を管理するフラグを初期化
+    if 'ai_analysis_open' not in st.session_state:
+        st.session_state.ai_analysis_open = False
+
     st.markdown("---")
     st.markdown("### 目標値・現状値の入力")
     st.markdown('<div class="graph-description">AIがデータを多角的に分析し、現状評価や改善案を提案します。分析精度向上のため、目標値と現状値を入力してください。月間目標は<br>選択期間に応じて日割り計算され、空欄でもAIが推測します。</div>', unsafe_allow_html=True)
@@ -3575,7 +3581,11 @@ elif selected_analysis == "AIによる分析・考察":
     other_info = st.text_area("その他、分析で特に重視してほしい点などがあればご記入ください", placeholder="例：競合の〇〇と比較してほしい、特定の部分のコピーを重点的に見てほしい")
 
     if st.button("AI分析を実行", key="ai_analysis_main_btn", type="primary", use_container_width=True): # type: ignore
-        with st.spinner("AIがデータを分析中..."):
+        st.session_state.ai_analysis_open = True
+        st.rerun()
+
+    if st.session_state.ai_analysis_open:
+        with st.container():
             # LPのURLからテキストコンテンツを抽出
             lp_text_content = extract_lp_text_content(selected_lp)
             main_headline = lp_text_content['headlines'][0] if lp_text_content['headlines'] else "（ヘッドライン取得不可）"
@@ -3801,6 +3811,11 @@ elif selected_analysis == "AIによる分析・考察":
                 - ROI: 20-30%向上
                 """)
             
+            # 閉じるボタン
+            if st.button("AI分析を閉じる", key="ai_analysis_close"):
+                st.session_state.ai_analysis_open = False
+                st.rerun()
+
             st.success("AI分析が完了しました！上記の提案を参考に、LPの改善を進めてください。")
     
     # 既存の質問ボタンは保持
