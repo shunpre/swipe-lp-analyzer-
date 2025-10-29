@@ -3333,30 +3333,42 @@ elif selected_analysis == "デモグラフィック情報":
     # --- AI分析と考察 ---
     st.markdown("### AIによる分析と考察")
     st.markdown('<div class="graph-description">ユーザー属性（デモグラフィック）ごとの行動の違いを分析し、ターゲットユーザーの解像度を高めます。</div>', unsafe_allow_html=True)
+    
+    # AI分析の表示状態を管理
+    if 'demographic_ai_open' not in st.session_state:
+        st.session_state.demographic_ai_open = False
 
     if st.button("AI分析を実行", key="demographic_ai_btn", type="primary", use_container_width=True):
-        with st.spinner("AIがデモグラフィックデータを分析中..."):
-            if not age_demo_df.empty:
-                # パフォーマンスの高い年齢層を特定
-                best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
-            else:
-                best_age_group = None
-            
-            st.markdown("#### 1. 現状の評価")
-            st.info(f"""
-            ユーザー属性によって、LPに対する反応が異なることが分かります。
-            - **コアターゲット層**: **{best_age_group['年齢層']}** のCVRが{best_age_group['CVR (%)']:.1f}%と最も高く、このLPの主要なターゲット層であると考えられます。
-            - **性別差**: 性別によるCVRや滞在時間に大きな差がある場合、訴求するメッセージを男女で変えるなどの施策が有効かもしれません。
-            - **地域特性**: 特定の地域からのアクセスやCVRが高い場合、その地域に特化したキャンペーンや広告展開が効果的です。
-            """)
+        st.session_state.demographic_ai_open = True
+        st.rerun()
 
-            st.markdown("#### 2. 今後の考察と改善案")
-            st.warning(f"""
-            **ペルソナの深化とターゲティングの最適化:**
-            - **ペルソナの再定義**: 最もパフォーマンスの高い「{best_age_group['年齢層']}」のユーザーが、どのようなニーズや課題を持っているのかを深く分析し、LPのメッセージングをさらに最適化します。
-            - **広告ターゲティングの改善**: パフォーマンスの高い年齢層、性別、地域に広告予算を集中させることで、広告効率（CPA）の改善が期待できます。
-            - **コンテンツのパーソナライズ**: 将来的には、アクセスしてきたユーザーの属性に応じて、表示するコンテンツ（キャッチコピーや画像）を動的に変更することで、さらなるCVR向上が見込めます。
-            """)
+    if st.session_state.demographic_ai_open:
+        with st.container():
+            with st.spinner("AIがデモグラフィックデータを分析中..."):
+                if not age_demo_df.empty:
+                    # パフォーマンスの高い年齢層を特定
+                    best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
+                else:
+                    best_age_group = None
+                
+                st.markdown("#### 1. 現状の評価")
+                st.info(f"""
+                ユーザー属性によって、LPに対する反応が異なることが分かります。
+                - **コアターゲット層**: **{best_age_group['年齢層']}** のCVRが{best_age_group['CVR (%)']:.1f}%と最も高く、このLPの主要なターゲット層であると考えられます。
+                - **性別差**: 性別によるCVRや滞在時間に大きな差がある場合、訴求するメッセージを男女で変えるなどの施策が有効かもしれません。
+                - **地域特性**: 特定の地域からのアクセスやCVRが高い場合、その地域に特化したキャンペーンや広告展開が効果的です。
+                """)
+
+                st.markdown("#### 2. 今後の考察と改善案")
+                st.warning(f"""
+                **ペルソナの深化とターゲティングの最適化:**
+                - **ペルソナの再定義**: 最もパフォーマンスの高い「{best_age_group['年齢層']}」のユーザーが、どのようなニーズや課題を持っているのかを深く分析し、LPのメッセージングをさらに最適化します。
+                - **広告ターゲティングの改善**: パフォーマンスの高い年齢層、性別、地域に広告予算を集中させることで、広告効率（CPA）の改善が期待できます。
+                - **コンテンツのパーソナライズ**: 将来的には、アクセスしてきたユーザーの属性に応じて、表示するコンテンツ（キャッチコピーや画像）を動的に変更することで、さらなるCVR向上が見込めます。
+                """)
+            if st.button("AI分析を閉じる", key="demographic_ai_close"):
+                st.session_state.demographic_ai_open = False
+                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
