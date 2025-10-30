@@ -2054,47 +2054,39 @@ elif selected_analysis == "A/Bテスト分析":
     ab_stats['平均滞在時間(秒)'] = ab_stats['平均滞在時間(ms)'] / 1000
     ab_stats['p値'] = ab_stats['p値'].fillna(1.0) # p値がない場合は1.0で埋める
     
-    # コンバージョン数
-    ab_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('ab_variant')['session_id'].nunique().reset_index()
-    ab_cv.columns = ['バリアント', 'コンバージョン数']
+    # コンバージョン数（テスト種別とバリアントでグループ化）
+    ab_cv = filtered_df[filtered_df['cv_type'].notna()].groupby(['ab_test_target', 'ab_variant'])['session_id'].nunique().reset_index()
+    ab_cv.columns = ['テスト種別', 'バリアント', 'コンバージョン数']
     
-    ab_stats = ab_stats.merge(ab_cv, on='バリアント', how='left').fillna(0)
+    ab_stats = ab_stats.merge(ab_cv, on=['テスト種別', 'バリアント'], how='left').fillna({'コンバージョン数': 0})
     ab_stats['コンバージョン率'] = ab_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
-    # FV残存率
-    fv_retention = filtered_df[filtered_df['max_page_reached'] >= 2].groupby('ab_variant')['session_id'].nunique().reset_index()
-    fv_retention.columns = ['バリアント', 'FV残存数']
+    # FV残存率（テスト種別とバリアントでグループ化）
+    fv_retention = filtered_df[filtered_df['max_page_reached'] >= 2].groupby(['ab_test_target', 'ab_variant'])['session_id'].nunique().reset_index()
+    fv_retention.columns = ['テスト種別', 'バリアント', 'FV残存数']
     
-    ab_stats = ab_stats.merge(fv_retention, on='バリアント', how='left').fillna(0)
+    ab_stats = ab_stats.merge(fv_retention, on=['テスト種別', 'バリアント'], how='left').fillna({'FV残存数': 0})
     ab_stats['FV残存率'] = ab_stats.apply(lambda row: safe_rate(row['FV残存数'], row['セッション数']) * 100, axis=1)
     
-    # 最終CTA到達率
-    final_cta = filtered_df[filtered_df['max_page_reached'] >= 10].groupby('ab_variant')['session_id'].nunique().reset_index()
-    final_cta.columns = ['バリアント', '最終CTA到達数']
+    # 最終CTA到達率（テスト種別とバリアントでグループ化）
+    final_cta = filtered_df[filtered_df['max_page_reached'] >= 10].groupby(['ab_test_target', 'ab_variant'])['session_id'].nunique().reset_index()
+    final_cta.columns = ['テスト種別', 'バリアント', '最終CTA到達数']
     
-    ab_stats = ab_stats.merge(final_cta, on='バリアント', how='left').fillna(0)
+    ab_stats = ab_stats.merge(final_cta, on=['テスト種別', 'バリアント'], how='left').fillna({'最終CTA到達数': 0})
     ab_stats['最終CTA到達率'] = ab_stats.apply(lambda row: safe_rate(row['最終CTA到達数'], row['セッション数']) * 100, axis=1)
     
-    # 'control' バリアントを除外
-    if 'control' in ab_stats['バリアント'].values:
-        ab_stats = ab_stats[ab_stats['バリアント'] != 'control'].reset_index(drop=True)
+    # テスト種別が'-'の行（テスト対象外のデータ）を除外
+    ab_stats = ab_stats[ab_stats['テスト種別'] != '-'].reset_index(drop=True)
 
     # --- A/Bテスト統計計算 ---
     ab_stats['CVR差分(pt)'] = 0.0
 
-    if len(ab_stats) >= 2:
-        # ベースライン（最初のバリアント）を決定
-        baseline = ab_stats.iloc[0]
-        
-        # CVR差分(pt)を計算
-        ab_stats['CVR差分(pt)'] = ab_stats.apply(
-            lambda row: row['コンバージョン率'] - baseline['コンバージョン率'],
-            axis=1
-        )
-
-    else:
-        # バリアントが1つの場合のデフォルト値
-        ab_stats['CVR差分(pt)'] = 0.0
+    # テスト種別ごとにCVR差分を計算
+    for test_type in ab_stats['テスト種別'].unique():
+        test_df = ab_stats[ab_stats['テスト種別'] == test_type]
+        if 'control' in test_df['バリアント'].values:
+            baseline_cvr = test_df[test_df['バリアント'] == 'control']['コンバージョン率'].iloc[0]
+            ab_stats.loc[test_df.index, 'CVR差分(pt)'] = test_df['コンバージョン率'] - baseline_cvr
 
     # p値から有意差と有意性を計算
     ab_stats['有意差'] = ab_stats['p値'].apply(lambda x: '★★★' if x < 0.01 else ('★★' if x < 0.05 else ('★' if x < 0.1 else '-')))
@@ -2103,10 +2095,13 @@ elif selected_analysis == "A/Bテスト分析":
 
     # A/Bテストマトリクス
     st.markdown("#### A/Bテストマトリクス")
-    display_cols = ['セッション数', 'コンバージョン率', 'CVR差分(pt)', '有意差', 'p値', 'FV残存率', '最終CTA到達率', '平均到達ページ数', '平均滞在時間(秒)']
+    display_cols = ['セッション数', 'コンバージョン率', 'CVR差分(pt)', '有意差', 'p値', 'FV残存率', '最終CTA到達率', '平均到達ページ数', '平均滞在時間(秒)'] # type: ignore
+    
+    # 'control' バリアントを除外して表示用のDataFrameを作成
+    ab_stats_for_display = ab_stats[ab_stats['バリアント'] != 'control'].copy()
     
     # マルチインデックスを設定して表示
-    display_df = ab_stats.set_index(['テスト種別', 'バリアント'])
+    display_df = ab_stats_for_display.set_index(['テスト種別', 'バリアント'])
     st.dataframe(display_df[display_cols].style.format({
         'セッション数': '{:,.0f}',
         'コンバージョン率': '{:.2f}%',
@@ -2122,15 +2117,16 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown("#### CVR向上率×有意性バブルチャート")
     st.markdown('<div class="graph-description">CVR差分（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR差分×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True)
 
-    if len(ab_stats) >= 2:
-        # ベースライン（1行目）を除いたバリアントでバブルチャートを作成
-        ab_bubble = ab_stats[ab_stats.index > 0].copy()
+    # 'control' バリアントを除外したデータでバブルチャートを作成
+    ab_bubble = ab_stats[ab_stats['バリアント'] != 'control'].copy()
+
+    if not ab_bubble.empty:
         
         fig = px.scatter(ab_bubble, 
                         x='CVR差分(pt)',
                         y='有意性',
                         size='セッション数',
-                        text='バリアント', # type: ignore
+                        text='バリアント',
                         hover_data=['コンバージョン率', 'p値', '有意差'],
                         title='CVR差分 vs 有意性')
         
