@@ -5,14 +5,12 @@
 
 import streamlit as st
 import pandas as pd
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
-from streamlit.components.v1 import html
 import numpy as np
 from capture_lp import extract_lp_text_content # 新しくインポート
-
+import time # ファイルの先頭でインポート
 # scipyをインポート（A/Bテストの有意差検定で使用）
 try:
     from scipy.stats import chi2_contingency
@@ -20,17 +18,6 @@ except ImportError:
     chi2_contingency = None
 
 # --- ヘルパー関数 ---
-def scroll_to_top():
-    """ページトップにスクロールするJavaScriptを実行する"""
-    html("""
-        <script>
-            // メイン領域を即座に先頭へ
-            const main = window.parent.document.querySelector('section.main');
-            if (main) { main.scrollTo({ top: 0, behavior: 'instant' }); }
-            // 念のためウィンドウ自体も先頭へ
-            window.scrollTo({ top: 0, behavior: 'instant' });
-        </script>
-    """, height=0)
 
 # ページ設定
 st.set_page_config(
@@ -39,6 +26,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ブラウザがスクロールする先の「基点」を設置
+st.markdown('<a id="top-anchor"></a>', unsafe_allow_html=True)
 
 # カスタムCSS
 st.markdown("""
@@ -168,10 +158,40 @@ st.markdown("""
         z-index: 10; /* 他の要素の上に表示 */
         box-shadow: 0 0 10px rgba(0,0,0,0.5); /* 影を追加して見やすく */
     }
+    /* サイドバーリンクの基本スタイル (非選択時 = secondary) */
+    a.sidebar-link {
+        display: block; /* ボタンのように振る舞わせる */
+        width: 100%;
+        padding: 0.5rem 0.75rem; /* st.buttonのpaddingに合わせる */
+        border-radius: 0.5rem;
+        text-decoration: none; /* 下線を消す */
+        font-weight: 400; /* 通常の太さ */
+        box-sizing: border-box; /* paddingを含めてwidth 100%にする */
+
+        /* secondaryボタンのスタイルを再現 */
+        background-color: #f0f2f6;
+        color: #333;
+        border: 1px solid #f0f2f6;
+        transition: all 0.2s;
+    }
+
+    /* ホバー時のスタイル (非選択時) */
+    a.sidebar-link:hover {
+        background-color: #e6f0ff !important;
+        color: #333 !important;
+        border: 1px solid #002060 !important;
+        text-decoration: none; /* ホバー時も下線なし */
+    }
+
+    /* 選択中のリンクのスタイル (primary) */
+    a.sidebar-link.active {
+        /* primaryボタンのスタイルを再現 */
+        background-color: #002060 !important;
+        color: white !important;
+        border: 1px solid #002060 !important;
+        font-weight: bold; /* 選択中を分かりやすく */
+    }
 </style>
-<script>
-    window.parent.document.querySelector('section.main').scrollTo(0, 0);
-</script>
 """, unsafe_allow_html=True)
 
 # --- 堅牢化のためのヘルパー関数 ---
@@ -225,9 +245,24 @@ df = load_data()
 st.sidebar.markdown('<h1 style="color: #002060; font-size: 1.8rem; font-weight: bold; margin-bottom: 1rem; line-height: 1.3;">瞬ジェネ<br>AIアナリスト</h1>', unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
-# session_stateで選択状態を管理
-if 'selected_analysis' not in st.session_state:
-    st.session_state.selected_analysis = "AIによる分析・考察"
+# デフォルトのページ（URLに何もない場合）
+DEFAULT_PAGE = "AIによる分析・考察"
+
+try:
+    # Streamlit 1.10.0以降の推奨される方法
+    query_params = st.query_params.to_dict()
+    selected_analysis = query_params.get("page", DEFAULT_PAGE)
+except AttributeError:
+    # 古いStreamlitバージョン向けのフォールバック
+    query_params = st.experimental_get_query_params()
+    # experimental_get_query_paramsは値がリストで返されるため、最初の要素を取得
+    if "page" in query_params and query_params["page"]:
+        selected_analysis = query_params["page"][0]
+    else:
+        selected_analysis = DEFAULT_PAGE
+
+# 他の処理がst.session_stateを参照している場合に備え、同期させる
+st.session_state.selected_analysis = selected_analysis
 
 # グルーピングされたメニュー項目
 menu_groups = {
@@ -238,31 +273,24 @@ menu_groups = {
     "ヘルプ": ["使用ガイド", "専門用語解説"]
 }
 
-# グループごとにメニューを表示
 for group_name, items in menu_groups.items():
     st.sidebar.markdown(f"**{group_name}**")
     for item in items: # type: ignore
-        # 現在のアイテムが選択されているかどうかを判断
-        is_selected = st.session_state.selected_analysis == item
-        # 選択状態に応じてボタンのtypeを変更
-        button_type = "primary" if is_selected else "secondary"
-
-        if st.sidebar.button(item, key=f"menu_{item}", use_container_width=True, type=button_type):
-            # 選択された項目をセッションに保存
-            st.session_state.selected_analysis = item
-            # スクロールを強制するフラグを立てる
-            st.session_state["_force_scroll_top"] = True
-            st.rerun()
+        # 現在のページ(selected_analysis)とアイテムが一致するか判定
+        if selected_analysis == item:
+            css_class = "active" # 一致すれば "active" クラスを付与
+        else:
+            css_class = ""       # 一致しなければなし
+        
+        # HTMLのアンカーリンクをst.markdownで作成
+        # href に ?page={item}#top-anchor を設定
+        # target="_self" は、iframe内で遷移を完結させるために重要
+        st.sidebar.markdown(
+            f'<a href="?page={item}#top-anchor" target="_self" class="sidebar-link {css_class}">{item}</a>',
+            unsafe_allow_html=True
+        )
 
     st.sidebar.markdown("---")
-
-# --- ページ遷移時のスクロール処理 ---
-if st.session_state.get("_force_scroll_top"):
-    scroll_to_top()
-    # フラグをリセット
-    st.session_state["_force_scroll_top"] = False
-
-selected_analysis = st.session_state.selected_analysis
 
 # チャネルマッピング（データ処理に必要）
 channel_map = { # type: ignore
