@@ -2114,34 +2114,62 @@ elif selected_analysis == "A/Bテスト分析":
     }), use_container_width=True)
     
     # CVR向上率×有意性のバブルチャート
+    # 'control' バリアントを除外し、バリアント'B'のみを対象とする
+    ab_bubble = ab_stats[ab_stats['バリアント'] == 'B'].copy()
+
+    # チャートタイトルと説明
     st.markdown("#### CVR向上率×有意性バブルチャート")
     st.markdown('<div class="graph-description">CVR差分（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR差分×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True)
 
-    # 'control' バリアントを除外したデータでバブルチャートを作成
-    ab_bubble = ab_stats[ab_stats['バリアント'] != 'control'].copy()
+    # プルダウンメニューを説明文の下、右端に配置
+    _, pulldown_col = st.columns([4, 1]) # レイアウト用の空カラムとプルダウン用カラム
+    # プルダウンで表示するテスト種別を選択
+    with pulldown_col:
+        if not ab_bubble.empty:
+            test_type_options = ["すべてのテスト"] + sorted(ab_bubble['テスト種別'].unique().tolist())
+            selected_test_type = st.selectbox(
+                "test_type_filter", # label引数はlabel_visibility="collapsed"のため不要
+                test_type_options,
+                key="bubble_chart_test_type_filter",
+                label_visibility="collapsed"
+            )
+            if selected_test_type != "すべてのテスト":
+                ab_bubble = ab_bubble[ab_bubble['テスト種別'] == selected_test_type]
 
     if not ab_bubble.empty:
-        
         fig = px.scatter(ab_bubble, 
                         x='CVR差分(pt)',
                         y='有意性',
                         size='セッション数',
-                        text='バリアント',
-                        hover_data=['コンバージョン率', 'p値', '有意差'],
-                        title='CVR差分 vs 有意性')
+                        text='バリアント', # バブルに表示するテキスト
+                        color='テスト種別', # テスト種別で色分け
+                        custom_data=['テスト種別', 'コンバージョン率', 'p値', '有意差'] # hovertemplateで使用するデータを渡す
+                        )
         
         # 有意水準の参考線を追加
         fig.add_hline(y=0.95, line_dash="dash", line_color="green", annotation_text="p<0.05 (★★)", annotation_position="bottom right")
         fig.add_hline(y=0.99, line_dash="dash", line_color="red", annotation_text="p<0.01 (★★★)", annotation_position="bottom right") # type: ignore
         fig.add_vline(x=0, line_dash="dash", line_color="gray")
 
-        fig.update_traces(textposition='top center')
+        # マウスオーバー時の表示内容とスタイルをカスタマイズ
+        fig.update_traces(
+            textposition='top center',
+            hovertemplate=(
+                "<b>%{text}</b><br>" +
+                "テスト種別: %{customdata[0]}<br>" +
+                "CVR差分(pt): %{x:+.2f}pt<br>" +
+                "有意性: %{y:.2f}<br>" +
+                "コンバージョン率: %{customdata[1]:.2f}%<br>" +
+                "p値: %{customdata[2]:.2f}<extra></extra>"
+            )
+        )
         fig.update_layout(height=500,
+                         hoverlabel=dict(bordercolor='#002060'), # ホバーの枠線色
                          xaxis_title='CVR差分 (pt)', dragmode=False,
                          yaxis_title='有意性 (1 - p値)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
-        st.info("バブルチャートを表示するには2つ以上のバリアントが必要です。")
+        st.info("バブルチャートを表示するためのバリアント「B」のデータがありません。")
     
     # A/BテストCVR比較
     st.markdown("#### A/BテストCVR比較")
