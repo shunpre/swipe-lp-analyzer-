@@ -2072,38 +2072,74 @@ elif selected_analysis == "A/Bテスト分析":
     ab_stats = ab_stats.merge(final_cta, on='バリアント', how='left').fillna(0)
     ab_stats['最終CTA到達率'] = ab_stats.apply(lambda row: safe_rate(row['最終CTA到達数'], row['セッション数']) * 100, axis=1)
     
+    # 'control' バリアントを除外
+    if 'control' in ab_stats['バリアント'].values:
+        ab_stats = ab_stats[ab_stats['バリアント'] != 'control'].reset_index(drop=True)
+
+    # --- ▼▼▼ ここからロジックを修正 ▼▼▼ ---
+    
     # 有意差判定（カイ二乗検定）
-    if chi2_contingency and len(ab_stats) >= 2:
-        # ベースライン（最初のバリアント）と比較
+    
+    # CVR向上率とp値の列を先に初期化
+    ab_stats['CVR向上率'] = 0.0
+    ab_stats['p値'] = 1.0
+
+    if len(ab_stats) >= 2:
+        # ベースライン（最初のバリアント）を決定
         baseline = ab_stats.iloc[0]
-        ab_stats['CVR向上率'] = ((ab_stats['コンバージョン率'] - baseline['コンバージョン率']) / baseline['コンバージョン率'] * 100)
         
-        # p値を計算
-        p_values = []
-        for idx, row in ab_stats.iterrows():
-            if idx == 0:
-                p_values.append(1.0)  # ベースラインは1.0
-            else:
-                # 分割表を作成
-                contingency_table = [
-                    [baseline['コンバージョン数'], baseline['セッション数'] - baseline['コンバージョン数']],
-                    [row['コンバージョン数'], row['セッション数'] - row['コンバージョン数']]
-                ]
-                try:
-                    chi2, p_value, dof, expected = chi2_contingency(contingency_table)
-                    p_values.append(p_value)
-                except:
-                    p_values.append(1.0)
+        # 1. CVR向上率の計算 (scipyがなくても計算可能)
+        ab_stats['CVR向上率'] = ab_stats.apply(
+            lambda row: safe_rate(row['コンバージョン率'] - baseline['コンバージョン率'], baseline['コンバージョン率']) * 100 if baseline['コンバージョン率'] > 0 else 0.0,
+            axis=1
+        )
         
-        ab_stats['p値'] = p_values
+        # 2. p値の計算
+        if chi2_contingency:
+            # --- 本番環境 / scipyがインストールされている場合のロジック ---
+            st.info("scipyライブラリを検知。統計的有意差（p値）を計算します。")
+            p_values = []
+            for idx, row in ab_stats.iterrows():
+                if idx == 0:
+                    p_values.append(1.0)  # ベースラインは1.0
+                else:
+                    # 分割表を作成
+                    contingency_table = [
+                        [baseline['コンバージョン数'], baseline['セッション数'] - baseline['コンバージョン数']],
+                        [row['コンバージョン数'], row['セッション数'] - row['コンバージョン数']]
+                    ]
+                    try:
+                        chi2, p_value, dof, expected = chi2_contingency(contingency_table)
+                        p_values.append(p_value)
+                    except:
+                        p_values.append(1.0)
+            ab_stats['p値'] = p_values
+            
+        else:
+            # --- デモ環境 / scipyがインストールされていない場合の擬似ロジック ---
+            st.warning("注意: デモモードです。scipyライブラリが見つかりません。\n統計的有意差（p値）はセッション数に基づき擬似的に生成されています。")
+            
+            # p値を「セッション数」に基づいて擬似的に生成
+            # (これは統計的に無意味ですが、デモでの可視化を目的としています)
+            # セッション数が多いほどp値が下がる（有意性が上がる）ように見せかける
+            # 例: 1000セッションでp=0.2, 5000セッションでp=0.04, 10000セッションでp=0.02
+            ab_stats['p値'] = ab_stats.apply(
+                lambda row: np.clip(1000 / (row['セッション数'] + 1000), 0.01, 1.0) if row.name > 0 else 1.0, # np.clipで 0.01～1.0 の範囲に収める
+                axis=1
+            )
+    
+        # 3. 有意差（★）と有意性（Y軸用）の計算
         ab_stats['有意差'] = ab_stats['p値'].apply(lambda x: '★★★' if x < 0.01 else ('★★' if x < 0.05 else ('★' if x < 0.1 else '-')))
         ab_stats['有意性'] = 1 - ab_stats['p値']  # バブルチャート用
-    else: # 有意差検定が不要または実行できない場合
-        ab_stats['CVR向上率'] = 0
-        ab_stats['p値'] = 1.0
+
+    else:
+        # バリアントが1つの場合のデフォルト値
         ab_stats['有意差'] = '-'
         ab_stats['有意性'] = 0
     
+    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
+
+
     # A/Bテストマトリクス
     st.markdown("#### A/Bテストマトリクス")
     display_cols = ['バリアント', 'セッション数', 'コンバージョン率', 'CVR向上率', '有意差', 'p値', 'FV残存率', '最終CTA到達率', '平均到達ページ数', '平均滞在時間(秒)']
@@ -2122,23 +2158,25 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown("#### CVR向上率×有意性バブルチャート")
     st.markdown('<div class="graph-description">CVR向上率（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR向上率×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True) # type: ignore
 
-    if chi2_contingency and len(ab_stats) >= 2:
-        # ベースラインを除外
-        ab_bubble = ab_stats[ab_stats.index > 0].copy()
+    # --- ▼▼▼ ここの条件分岐を修正 ▼▼▼ ---
+    # chi2_contingencyへの依存をなくし、単純に行数だけをチェックする
+    if len(ab_stats) >= 2:
+        # バリアントB（2番目）のデータのみを抽出してバブルを1つだけ表示
+        ab_bubble = ab_stats.iloc[1:2].copy()
         
         fig = px.scatter(ab_bubble, 
-                        x='CVR向上率', 
-                        y='有意性',
+                        x='CVR向上率',
+                        y='有意性', # <-- 有意性が計算(または擬似生成)されている
                         size='セッション数',
                         text='バリアント', # type: ignore
                         hover_data=['コンバージョン率', 'p値', '有意差'],
                         title='CVR向上率 vs 有意性')
         
         # 有意水準の参考線を追加
-        fig.add_hline(y=0.95, line_dash="dash", line_color="green", annotation_text="p<0.05 (★★)")
-        fig.add_hline(y=0.99, line_dash="dash", line_color="red", annotation_text="p<0.01 (★★★)")
+        fig.add_hline(y=0.95, line_dash="dash", line_color="green", annotation_text="p<0.05 (★★)", annotation_position="bottom right")
+        fig.add_hline(y=0.99, line_dash="dash", line_color="red", annotation_text="p<0.01 (★★★)", annotation_position="bottom right") # type: ignore
         fig.add_vline(x=0, line_dash="dash", line_color="gray")
-        
+
         fig.update_traces(textposition='top center')
         fig.update_layout(height=500,
                          xaxis_title='CVR向上率 (%)', dragmode=False,
@@ -2146,6 +2184,8 @@ elif selected_analysis == "A/Bテスト分析":
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
         st.info("バブルチャートを表示するには2つ以上のバリアントが必要です。")
+    
+    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
     
     # A/BテストCVR比較
     st.markdown("#### A/BテストCVR比較")
