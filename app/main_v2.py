@@ -2117,24 +2117,9 @@ elif selected_analysis == "A/Bテスト分析":
     # 'control' バリアントを除外し、バリアント'B'のみを対象とする
     ab_bubble = ab_stats[ab_stats['バリアント'] == 'B'].copy()
 
-    # チャートタイトルと説明
+    # チャートタイトルと説明 (プルダウンは削除)
     st.markdown("#### CVR向上率×有意性バブルチャート")
     st.markdown('<div class="graph-description">CVR差分（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR差分×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True)
-
-    # プルダウンメニューを説明文の下、右端に配置
-    _, pulldown_col = st.columns([4, 1]) # レイアウト用の空カラムとプルダウン用カラム
-    # プルダウンで表示するテスト種別を選択
-    with pulldown_col:
-        if not ab_bubble.empty:
-            test_type_options = ["すべてのテスト"] + sorted(ab_bubble['テスト種別'].unique().tolist())
-            selected_test_type = st.selectbox(
-                "test_type_filter", # label引数はlabel_visibility="collapsed"のため不要
-                test_type_options,
-                key="bubble_chart_test_type_filter",
-                label_visibility="collapsed"
-            )
-            if selected_test_type != "すべてのテスト":
-                ab_bubble = ab_bubble[ab_bubble['テスト種別'] == selected_test_type]
 
     if not ab_bubble.empty:
         fig = px.scatter(ab_bubble, 
@@ -2160,24 +2145,31 @@ elif selected_analysis == "A/Bテスト分析":
                 "CVR差分(pt): %{x:+.2f}pt<br>" +
                 "有意性: %{y:.2f}<br>" +
                 "コンバージョン率: %{customdata[1]:.2f}%<br>" +
-                "p値: %{customdata[2]:.2f}<extra></extra>"
+                "p値: %{customdata[2]:.4f}<extra></extra>"
             )
         )
         fig.update_layout(height=500,
                          hoverlabel=dict(bordercolor='#002060'), # ホバーの枠線色
                          xaxis_title='CVR差分 (pt)', dragmode=False,
                          yaxis_title='有意性 (1 - p値)')
+        
+        # 背景色と注釈を追加
+        fig.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
+        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="最良ゾーン<br>(CVR向上・有意差あり)", showarrow=False, font=dict(color="green", size=14))
+
+        fig.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0.5, x1=0.5, y1=1, fillcolor="rgba(255, 0, 0, 0.1)", layer="below", line_width=0)
+        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="悪化ゾーン<br>(CVR悪化・有意差あり)", showarrow=False, font=dict(color="red", size=14))
+
+        fig.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0, x1=1, y1=0.5, fillcolor="rgba(255, 165, 0, 0.1)", layer="below", line_width=0)
+        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="有望ゾーン<br>(CVR向上・有意差なし)", showarrow=False, font=dict(color="orange", size=14))
+
+        fig.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=0.5, y1=0.5, fillcolor="rgba(128, 128, 128, 0.1)", layer="below", line_width=0)
+        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="判断保留ゾーン<br>(CVR悪化・有意差なし)", showarrow=False, font=dict(color="grey", size=14))
+
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
         st.info("バブルチャートを表示するためのバリアント「B」のデータがありません。")
-    
-    # A/BテストCVR比較
-    st.markdown("#### A/BテストCVR比較")
-    fig = px.bar(ab_stats, x='バリアント', y='コンバージョン率', text='コンバージョン率')
-    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_16')
-    
+        
     # A/Bテスト時系列推移
     st.markdown("#### A/Bテスト CVR 時系列推移")
     
@@ -2945,9 +2937,26 @@ elif selected_analysis == "時系列分析":
         st.stop()
 
     # 日別推移
-    st.markdown("#### 日別推移")
-    
-    daily_stats = filtered_df.groupby(filtered_df['event_date'].dt.date).agg({
+    st.markdown("#### 日別推移") # type: ignore
+
+    # テスト種別でフィルタリングするためのプルダウンメニュー
+    # filtered_dfにab_test_target列がない場合があるため、ここでマッピングを適用
+    if 'ab_test_target' not in filtered_df.columns:
+        filtered_df['ab_test_target'] = df['ab_test_target'].map(test_type_map).fillna('-')
+
+    # プルダウンメニューを説明文の下、右端に配置
+    _, pulldown_col_timeseries = st.columns([4, 1])
+    with pulldown_col_timeseries:
+        timeseries_test_type_options = ["すべてのテスト"] + sorted(filtered_df['ab_test_target'].unique().tolist())
+        selected_timeseries_test_type = st.selectbox(
+            "timeseries_test_type_filter",
+            timeseries_test_type_options,
+            key="timeseries_test_type_filter",
+            label_visibility="collapsed"
+        )
+
+    # daily_statsの計算にab_test_targetを含める
+    daily_stats = filtered_df.groupby([filtered_df['event_date'].dt.date, 'ab_test_target']).agg({
         'session_id': 'nunique',
         'stay_ms': 'mean',
         'max_page_reached': 'mean'
@@ -2955,13 +2964,13 @@ elif selected_analysis == "時系列分析":
     daily_stats.columns = ['日付', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数']
     daily_stats['平均滞在時間(秒)'] = daily_stats['平均滞在時間(ms)'] / 1000
     
-    daily_cv = filtered_df[filtered_df['cv_type'].notna()].groupby(
-        filtered_df[filtered_df['cv_type'].notna()]['event_date'].dt.date
-    )['session_id'].nunique().reset_index()
-    daily_cv.columns = ['日付', 'コンバージョン数']
+    daily_cv = filtered_df[filtered_df['cv_type'].notna()].groupby([
+        filtered_df[filtered_df['cv_type'].notna()]['event_date'].dt.date, 'ab_test_target'
+    ])['session_id'].nunique().reset_index()
+    daily_cv.columns = ['日付', 'ab_test_target', 'コンバージョン数']
     
-    daily_stats = daily_stats.merge(daily_cv, on='日付', how='left').fillna(0) # type: ignore
-    daily_stats['コンバージョン率'] = daily_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
+    daily_stats = daily_stats.merge(daily_cv, on=['日付', 'ab_test_target'], how='left').fillna(0) # type: ignore
+    daily_stats['コンバージョン率'] = daily_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1) # type: ignore
     
     # FV残存率
     daily_fv = filtered_df[filtered_df['max_page_reached'] >= 2].groupby(
@@ -2987,7 +2996,7 @@ elif selected_analysis == "時系列分析":
         "最終CTA到達率", "平均到達ページ数", "平均滞在時間(秒)"
     ], key="timeseries_metric_select")
     
-    fig = px.line(daily_stats, x='日付', y=metric_to_plot, markers=True)
+    fig = px.line(daily_stats, x='日付', y=metric_to_plot, color='ab_test_target', markers=True) # color='ab_test_target'を追加
     fig.update_layout(height=400, yaxis_title=metric_to_plot, dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_21')
     
