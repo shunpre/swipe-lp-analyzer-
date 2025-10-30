@@ -12,12 +12,6 @@ import numpy as np
 from capture_lp import extract_lp_text_content # 新しくインポート
 import time # ファイルの先頭でインポート
 # scipyをインポート（A/Bテストの有意差検定で使用）
-try:
-    from scipy.stats import chi2_contingency
-except ImportError:
-    chi2_contingency = None
-
-# --- ヘルパー関数 ---
 
 # ページ設定
 st.set_page_config(
@@ -2019,7 +2013,7 @@ elif selected_analysis == "A/Bテスト分析":
                 st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
-    if len(filtered_df) == 0:
+    if filtered_df.empty:
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
         st.stop()
 
@@ -2027,29 +2021,38 @@ elif selected_analysis == "A/Bテスト分析":
     test_type_map = {
         'hero_image': 'FVテスト',
         'cta_button': 'CTAテスト',
+        'headline': 'ヘッドラインテスト',
         'layout': 'レイアウトテスト',
         'copy': 'コピーテスト',
         'form': 'フォームテスト',
         'video': '動画テスト'
     }
-    
-    # A/Bテスト種別を表示
     if 'ab_test_target' in filtered_df.columns:
-        test_targets = filtered_df['ab_test_target'].dropna().unique()
-        if len(test_targets) > 0:
-            test_names = [test_type_map.get(t, t) for t in test_targets]
-            st.info(f"実施中のA/Bテスト: {', '.join(test_names)}")
-    
-    # A/Bテスト統計（バリアントで統一）
-    ab_stats = filtered_df.groupby('ab_variant').agg({
+        filtered_df['ab_test_target'] = filtered_df['ab_test_target'].map(test_type_map).fillna('-')
+    else:
+        filtered_df['ab_test_target'] = '-'
+
+    # p_valueカラムが存在するかどうかでaggの内容を分岐
+    agg_dict = {
         'session_id': 'nunique',
         'stay_ms': 'mean',
         'max_page_reached': 'mean',
         'completion_rate': 'mean'
-    }).reset_index()
-    ab_stats.columns = ['バリアント', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数', '平均完了率']
+    }
+
+    if 'p_value' in filtered_df.columns:
+        agg_dict['p_value'] = 'first'
+        ab_stats = filtered_df.groupby(['ab_test_target', 'ab_variant']).agg(agg_dict).reset_index()
+        ab_stats.columns = ['テスト種別', 'バリアント', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数', '平均完了率', 'p値']
+    else:
+        ab_stats = filtered_df.groupby(['ab_test_target', 'ab_variant']).agg(agg_dict).reset_index()
+        ab_stats.columns = ['テスト種別', 'バリアント', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数', '平均完了率']
+        # p_valueカラムが存在しない場合は、1.0で初期化
+        ab_stats['p値'] = 1.0
     
+
     ab_stats['平均滞在時間(秒)'] = ab_stats['平均滞在時間(ms)'] / 1000
+    ab_stats['p値'] = ab_stats['p値'].fillna(1.0) # p値がない場合は1.0で埋める
     
     # コンバージョン数
     ab_cv = filtered_df[filtered_df['cv_type'].notna()].groupby('ab_variant')['session_id'].nunique().reset_index()
@@ -2076,77 +2079,38 @@ elif selected_analysis == "A/Bテスト分析":
     if 'control' in ab_stats['バリアント'].values:
         ab_stats = ab_stats[ab_stats['バリアント'] != 'control'].reset_index(drop=True)
 
-    # --- ▼▼▼ ここからロジックを修正 ▼▼▼ ---
-    
-    # 有意差判定（カイ二乗検定）
-    
-    # CVR向上率とp値の列を先に初期化
-    ab_stats['CVR向上率'] = 0.0
-    ab_stats['p値'] = 1.0
+    # --- A/Bテスト統計計算 ---
+    ab_stats['CVR差分(pt)'] = 0.0
 
     if len(ab_stats) >= 2:
         # ベースライン（最初のバリアント）を決定
         baseline = ab_stats.iloc[0]
         
-        # 1. CVR向上率の計算 (scipyがなくても計算可能)
-        ab_stats['CVR向上率'] = ab_stats.apply(
-            lambda row: safe_rate(row['コンバージョン率'] - baseline['コンバージョン率'], baseline['コンバージョン率']) * 100 if baseline['コンバージョン率'] > 0 else 0.0,
+        # CVR差分(pt)を計算
+        ab_stats['CVR差分(pt)'] = ab_stats.apply(
+            lambda row: row['コンバージョン率'] - baseline['コンバージョン率'],
             axis=1
         )
-        
-        # 2. p値の計算
-        if chi2_contingency:
-            # --- 本番環境 / scipyがインストールされている場合のロジック ---
-            st.info("scipyライブラリを検知。統計的有意差（p値）を計算します。")
-            p_values = []
-            for idx, row in ab_stats.iterrows():
-                if idx == 0:
-                    p_values.append(1.0)  # ベースラインは1.0
-                else:
-                    # 分割表を作成
-                    contingency_table = [
-                        [baseline['コンバージョン数'], baseline['セッション数'] - baseline['コンバージョン数']],
-                        [row['コンバージョン数'], row['セッション数'] - row['コンバージョン数']]
-                    ]
-                    try:
-                        chi2, p_value, dof, expected = chi2_contingency(contingency_table)
-                        p_values.append(p_value)
-                    except:
-                        p_values.append(1.0)
-            ab_stats['p値'] = p_values
-            
-        else:
-            # --- デモ環境 / scipyがインストールされていない場合の擬似ロジック ---
-            st.warning("注意: デモモードです。scipyライブラリが見つかりません。\n統計的有意差（p値）はセッション数に基づき擬似的に生成されています。")
-            
-            # p値を「セッション数」に基づいて擬似的に生成
-            # (これは統計的に無意味ですが、デモでの可視化を目的としています)
-            # セッション数が多いほどp値が下がる（有意性が上がる）ように見せかける
-            # 例: 1000セッションでp=0.2, 5000セッションでp=0.04, 10000セッションでp=0.02
-            ab_stats['p値'] = ab_stats.apply(
-                lambda row: np.clip(1000 / (row['セッション数'] + 1000), 0.01, 1.0) if row.name > 0 else 1.0, # np.clipで 0.01～1.0 の範囲に収める
-                axis=1
-            )
-    
-        # 3. 有意差（★）と有意性（Y軸用）の計算
-        ab_stats['有意差'] = ab_stats['p値'].apply(lambda x: '★★★' if x < 0.01 else ('★★' if x < 0.05 else ('★' if x < 0.1 else '-')))
-        ab_stats['有意性'] = 1 - ab_stats['p値']  # バブルチャート用
 
     else:
         # バリアントが1つの場合のデフォルト値
-        ab_stats['有意差'] = '-'
-        ab_stats['有意性'] = 0
-    
-    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
+        ab_stats['CVR差分(pt)'] = 0.0
+
+    # p値から有意差と有意性を計算
+    ab_stats['有意差'] = ab_stats['p値'].apply(lambda x: '★★★' if x < 0.01 else ('★★' if x < 0.05 else ('★' if x < 0.1 else '-')))
+    ab_stats['有意性'] = 1 - ab_stats['p値']  # バブルチャート用
 
 
     # A/Bテストマトリクス
     st.markdown("#### A/Bテストマトリクス")
-    display_cols = ['バリアント', 'セッション数', 'コンバージョン率', 'CVR向上率', '有意差', 'p値', 'FV残存率', '最終CTA到達率', '平均到達ページ数', '平均滞在時間(秒)']
-    st.dataframe(ab_stats[display_cols].style.format({
+    display_cols = ['セッション数', 'コンバージョン率', 'CVR差分(pt)', '有意差', 'p値', 'FV残存率', '最終CTA到達率', '平均到達ページ数', '平均滞在時間(秒)']
+    
+    # マルチインデックスを設定して表示
+    display_df = ab_stats.set_index(['テスト種別', 'バリアント'])
+    st.dataframe(display_df[display_cols].style.format({
         'セッション数': '{:,.0f}',
         'コンバージョン率': '{:.2f}%',
-        'CVR向上率': '{:+.1f}%',
+        'CVR差分(pt)': '{:+.2f}pt',
         'p値': '{:.4f}',
         'FV残存率': '{:.2f}%',
         '最終CTA到達率': '{:.2f}%',
@@ -2156,21 +2120,19 @@ elif selected_analysis == "A/Bテスト分析":
     
     # CVR向上率×有意性のバブルチャート
     st.markdown("#### CVR向上率×有意性バブルチャート")
-    st.markdown('<div class="graph-description">CVR向上率（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR向上率×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True) # type: ignore
+    st.markdown('<div class="graph-description">CVR差分（X軸）と有意性（Y軸）を可視化。バブルサイズはサンプルサイズを表します。右上（高CVR差分×高有意性）が最も優れたバリアントです。</div>', unsafe_allow_html=True)
 
-    # --- ▼▼▼ ここの条件分岐を修正 ▼▼▼ ---
-    # chi2_contingencyへの依存をなくし、単純に行数だけをチェックする
     if len(ab_stats) >= 2:
-        # バリアントB（2番目）のデータのみを抽出してバブルを1つだけ表示
-        ab_bubble = ab_stats.iloc[1:2].copy()
+        # ベースライン（1行目）を除いたバリアントでバブルチャートを作成
+        ab_bubble = ab_stats[ab_stats.index > 0].copy()
         
         fig = px.scatter(ab_bubble, 
-                        x='CVR向上率',
-                        y='有意性', # <-- 有意性が計算(または擬似生成)されている
+                        x='CVR差分(pt)',
+                        y='有意性',
                         size='セッション数',
                         text='バリアント', # type: ignore
                         hover_data=['コンバージョン率', 'p値', '有意差'],
-                        title='CVR向上率 vs 有意性')
+                        title='CVR差分 vs 有意性')
         
         # 有意水準の参考線を追加
         fig.add_hline(y=0.95, line_dash="dash", line_color="green", annotation_text="p<0.05 (★★)", annotation_position="bottom right")
@@ -2179,13 +2141,11 @@ elif selected_analysis == "A/Bテスト分析":
 
         fig.update_traces(textposition='top center')
         fig.update_layout(height=500,
-                         xaxis_title='CVR向上率 (%)', dragmode=False,
+                         xaxis_title='CVR差分 (pt)', dragmode=False,
                          yaxis_title='有意性 (1 - p値)')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
         st.info("バブルチャートを表示するには2つ以上のバリアントが必要です。")
-    
-    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
     
     # A/BテストCVR比較
     st.markdown("#### A/BテストCVR比較")
@@ -2241,7 +2201,7 @@ elif selected_analysis == "A/Bテスト分析":
                     今回のA/Bテストの結果、**「{winner['バリアント']}」** が最も高いパフォーマンスを示しました。
                     - **勝者**: {winner['バリアント']} (CVR: {winner['コンバージョン率']:.2f}%)
                     - **ベースライン**: {baseline['バリアント']} (CVR: {baseline['コンバージョン率']:.2f}%)
-                    - **CVR向上率**: {winner['CVR向上率']:.1f}%
+                    - **CVR差分**: {winner['CVR差分(pt)']:.2f}pt
                     - **統計的有意差**: {winner['有意差']} (p値: {winner['p値']:.4f})
                     
                     p値が0.05未満の場合、この結果が偶然である可能性は低く、信頼性が高いと判断できます。
