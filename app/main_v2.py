@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from streamlit.components.v1 import html
 import numpy as np
 from capture_lp import extract_lp_text_content # 新しくインポート
 
@@ -17,6 +18,19 @@ try:
     from scipy.stats import chi2_contingency
 except ImportError:
     chi2_contingency = None
+
+# --- ヘルパー関数 ---
+def scroll_to_top():
+    """ページトップにスクロールするJavaScriptを実行する"""
+    html("""
+        <script>
+            // メイン領域を即座に先頭へ
+            const main = window.parent.document.querySelector('section.main');
+            if (main) { main.scrollTo({ top: 0, behavior: 'instant' }); }
+            // 念のためウィンドウ自体も先頭へ
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        </script>
+    """, height=0)
 
 # ページ設定
 st.set_page_config(
@@ -234,12 +248,19 @@ for group_name, items in menu_groups.items():
         button_type = "primary" if is_selected else "secondary"
 
         if st.sidebar.button(item, key=f"menu_{item}", use_container_width=True, type=button_type):
+            # 選択された項目をセッションに保存
             st.session_state.selected_analysis = item
-            # ページ遷移時にトップにスクロールするJavaScriptを実行
-            st.components.v1.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
+            # スクロールを強制するフラグを立てる
+            st.session_state["_force_scroll_top"] = True
             st.rerun()
 
     st.sidebar.markdown("---")
+
+# --- ページ遷移時のスクロール処理 ---
+if st.session_state.get("_force_scroll_top"):
+    scroll_to_top()
+    # フラグをリセット
+    st.session_state["_force_scroll_top"] = False
 
 selected_analysis = st.session_state.selected_analysis
 
@@ -4093,20 +4114,18 @@ elif selected_analysis == "AIによる分析・考察":
     col1, col2 = st.columns(2)
     
     # session_stateの初期化
-    if 'faq_toggle' not in st.session_state: # type: ignore
-        st.session_state.faq_toggle = {1: False, 2: False, 3: False, 4: False}
-
-    def toggle_faq(faq_id):
-        # 現在の状態を反転させ、他はすべて閉じる
-        current_state = st.session_state.faq_toggle.get(faq_id, False)
-        st.session_state.faq_toggle = {key: False for key in st.session_state.faq_toggle}
-        st.session_state.faq_toggle[faq_id] = not current_state
+    if 'ai_faq_toggle' not in st.session_state: # type: ignore
+        st.session_state.ai_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
     with col1:
-        if st.button("このLPの最大のボトルネックは？", key="faq_btn_1", use_container_width=True, on_click=toggle_faq, args=(1,)):
-            pass # on_clickで処理するため、ここは空で良い
+        if st.button("このLPの最大のボトルネックは？", key="faq_btn_1", use_container_width=True):
+            # ボタンが押されたら状態をトグルし、他を閉じる
+            st.session_state.ai_faq_toggle[1] = not st.session_state.ai_faq_toggle[1]
+            st.session_state.ai_faq_toggle[2] = False
+            st.session_state.ai_faq_toggle[3] = False
+            st.session_state.ai_faq_toggle[4] = False
         
-        if st.session_state.faq_toggle.get(1, False):
+        if st.session_state.ai_faq_toggle.get(1, False): # type: ignore
             # 離脱率が最も高いページを特定（データがある場合のみ）
             if not page_stats_global.empty and '離脱率' in page_stats_global.columns:
                 max_exit_page = page_stats_global.loc[page_stats_global['離脱率'].idxmax()]
@@ -4127,10 +4146,13 @@ elif selected_analysis == "AIによる分析・考察":
             else:
                 st.warning("分析データがありません。")
         
-        if st.button("コンバージョン率を改善するには？", key="faq_btn_2", use_container_width=True, on_click=toggle_faq, args=(2,)):
-            pass
+        if st.button("コンバージョン率を改善するには？", key="faq_btn_2", use_container_width=True):
+            st.session_state.ai_faq_toggle[2] = not st.session_state.ai_faq_toggle[2]
+            st.session_state.ai_faq_toggle[1] = False
+            st.session_state.ai_faq_toggle[3] = False
+            st.session_state.ai_faq_toggle[4] = False
         
-        if st.session_state.faq_toggle.get(2, False):
+        if st.session_state.ai_faq_toggle.get(2, False): # type: ignore
             st.info(f"""
             **分析結果:**
             
@@ -4143,11 +4165,14 @@ elif selected_analysis == "AIによる分析・考察":
             4. 高パフォーマンスのチャネルに予算を集中
             """)
     
-    with col2:
-        if st.button("A/Bテストの結果、どちらが優れている？", key="faq_btn_3", use_container_width=True, on_click=toggle_faq, args=(3,)):
-            pass
+    with col2: # type: ignore
+        if st.button("A/Bテストの結果、どちらが優れている？", key="faq_btn_3", use_container_width=True):
+            st.session_state.ai_faq_toggle[3] = not st.session_state.ai_faq_toggle[3]
+            st.session_state.ai_faq_toggle[1] = False
+            st.session_state.ai_faq_toggle[2] = False
+            st.session_state.ai_faq_toggle[4] = False
 
-        if st.session_state.faq_toggle.get(3, False):
+        if st.session_state.ai_faq_toggle.get(3, False): # type: ignore
             if not ab_stats_global.empty and 'コンバージョン率' in ab_stats_global.columns:
                 best_variant = ab_stats_global.loc[ab_stats_global['コンバージョン率'].idxmax()]
                 st.info(f"""
@@ -4165,10 +4190,13 @@ elif selected_analysis == "AIによる分析・考察":
             else:
                 st.warning("A/Bテストの分析データがありません。")
         
-        if st.button("デバイス別のパフォーマンス差は？", key="faq_btn_4", use_container_width=True, on_click=toggle_faq, args=(4,)):
-            pass
+        if st.button("デバイス別のパフォーマンス差は？", key="faq_btn_4", use_container_width=True):
+            st.session_state.ai_faq_toggle[4] = not st.session_state.ai_faq_toggle[4]
+            st.session_state.ai_faq_toggle[1] = False
+            st.session_state.ai_faq_toggle[2] = False
+            st.session_state.ai_faq_toggle[3] = False
 
-        if st.session_state.faq_toggle.get(4, False):
+        if st.session_state.ai_faq_toggle.get(4, False): # type: ignore
             if not device_stats_global.empty and 'コンバージョン率' in device_stats_global.columns:
                 best_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmax()]
                 worst_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmin()]
