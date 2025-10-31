@@ -3037,7 +3037,7 @@ elif selected_analysis == "時系列分析":
 
     # 曜日・時間帯別 CVRヒートマップ
     st.markdown("#### 曜日・時間帯別 CVRヒートマップ")
-    st.markdown('<div class="graph-description">曜日と時間帯をクロス集計し、コンバージョン率（CVR）をヒートマップで表示します。色が濃い部分がCVRの高い「ゴールデンタイム」です。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">曜日と時間帯をクロス集計し、コンバージョン率（CVR）をヒートマップで表示します。色が濃い部分がCVRの高い曜日と時間帯です。</div>', unsafe_allow_html=True)
 
     # 曜日と時間の列を追加
     heatmap_df = filtered_df.copy()
@@ -3381,7 +3381,7 @@ elif selected_analysis == "デモグラフィック情報":
     st.markdown("ユーザーの属性情報（年齢、性別、地域、デバイス）を分析します。")
 
     # 年齢層別分析
-    with st.expander("年齢層別分析", expanded=True):
+    with st.expander("年齢層別分析", expanded=False):
         st.markdown('<div class="graph-description">年齢層ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
         # 年齢層のダミーデータを 'age_group' 列として追加（BigQueryに実データがあればこの処理は不要）
         if 'age_group' not in filtered_df.columns:
@@ -3416,7 +3416,7 @@ elif selected_analysis == "デモグラフィック情報":
         fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
 
-    with st.expander("性別分析", expanded=True):
+    with st.expander("性別分析", expanded=False):
         st.markdown('<div class="graph-description">性別ごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
         # 性別のダミーデータを 'gender' 列として追加（BigQueryに実データがあればこの処理は不要）
         if 'gender' not in filtered_df.columns:
@@ -3453,7 +3453,7 @@ elif selected_analysis == "デモグラフィック情報":
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
     
     # 地域別分析
-    with st.expander("地域別分析", expanded=True):
+    with st.expander("地域別分析", expanded=False):
         st.markdown('<div class="graph-description">都道府県ごとのセッション数、コンバージョン率を表示します。</div>', unsafe_allow_html=True)
         
         # 地域別ダミーデータ（サマリー表用） - これはBigQueryに地域データがない場合の代替として残します
@@ -3541,7 +3541,7 @@ elif selected_analysis == "デモグラフィック情報":
             st.error(f"地図の描画に失敗しました: {e}")
     
     # デバイス別分析
-    with st.expander("デバイス別分析", expanded=True):
+    with st.expander("デバイス別分析", expanded=False):
         st.markdown('<div class="graph-description">デバイスごとのセッション数、コンバージョン率、平均滞在時間を表示します。</div>', unsafe_allow_html=True)
         # デバイス別に集計
         device_sessions = filtered_df.groupby('device_type')['session_id'].nunique()
