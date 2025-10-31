@@ -56,7 +56,7 @@ def generate_dummy_data(num_events=5000, num_days=30):
     channels = ["Direct", "Organic Social", "Referral", "Organic Search", "Paid Search"]
     
     # A/Bテストバリアント
-    ab_variants = ["A", "B", "control"]
+    ab_variants = ["A", "B"]
     
     # ナビゲーション方法
     navigation_methods = ["swipe", "click", "scroll", "button"]
@@ -131,8 +131,8 @@ def generate_dummy_data(num_events=5000, num_days=30):
         
         # A/Bテスト
         session_variant = random.choice(ab_variants)
-        presence_test_variant = random.choice(ab_variants + [None])
-        creative_test_variant = random.choice(ab_variants + [None])
+        presence_test_variant = random.choice(ab_variants + [None]) # type: ignore
+        creative_test_variant = random.choice(ab_variants + [None]) # type: ignore
         ab_variant = session_variant
         ab_test_target = random.choice(["cta_button", "hero_image", "headline", None])
         ab_test_type = random.choice(["presence", "creative", "layout", None])
