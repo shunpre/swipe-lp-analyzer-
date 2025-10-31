@@ -159,7 +159,14 @@ def generate_dummy_data(num_events=5000, num_days=30):
         
         # 前ページパス
         if page_num_dom > 1:
-            prev_page_path = f"{page_path}#page-{page_num_dom - 1}"
+            # 5%の確率で逆行を発生させる
+            if random.random() < 0.05 and page_num_dom < total_pages:
+                # 逆行: 現在のページより後のページから来たことにする
+                # 例: 現在がpage-3なら、前のページはpage-4やpage-5
+                prev_page_num = random.randint(page_num_dom + 1, total_pages)
+                prev_page_path = f"{page_path}#page-{prev_page_num}"
+            else:
+                prev_page_path = f"{page_path}#page-{page_num_dom - 1}"
         else:
             prev_page_path = None
         

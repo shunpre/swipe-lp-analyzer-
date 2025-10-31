@@ -1257,13 +1257,19 @@ elif selected_analysis == "ページ分析":
 
     # ページ別メトリクス計算
     page_stats = filtered_df.groupby('page_num_dom').agg({
-        'session_id': 'nunique',
-        'stay_ms': 'mean',
-        'scroll_pct': 'mean',
-        'load_time_ms': 'mean'
+        'session_id': 'nunique'
     }).reset_index()
-    page_stats.columns = ['ページ番号', 'ビュー数', '平均滞在時間(ms)', '平均逆行率', '平均読込時間(ms)']
-    page_stats['平均滞在時間(秒)'] = page_stats['平均滞在時間(ms)'] / 1000
+    page_stats.rename(columns={'page_num_dom': 'ページ番号', 'session_id': 'ビュー数'}, inplace=True)
+
+    # 逆行回数を計算
+    df_with_prev_num = filtered_df.copy()
+    df_with_prev_num['prev_page_num'] = df_with_prev_num['prev_page_path'].str.extract(r'#page-(\d+)').fillna(0).astype(int)
+    backward_events = df_with_prev_num[df_with_prev_num['prev_page_num'] > df_with_prev_num['page_num_dom']]
+    backward_counts_per_session = backward_events.groupby('session_id').size()
+    avg_backward_count = backward_counts_per_session.mean() if not backward_counts_per_session.empty else 0
+
+    # 平均逆行回数をpage_statsに追加（全ページで同じ値）
+    page_stats['平均逆行回数'] = avg_backward_count
     
     # LPの実際のページ数を取得（画像取得が成功した場合はそれを使用、失敗した場合は推測値）
     actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 10
@@ -1278,22 +1284,23 @@ elif selected_analysis == "ページ分析":
     
     page_exit_df = pd.DataFrame(page_exit)
     page_stats = page_stats.merge(page_exit_df, on='ページ番号', how='left')
+
+    # 平均滞在時間(秒)を計算して列を追加
+    stay_time_df = filtered_df.groupby('page_num_dom')['stay_ms'].mean().reset_index()
+    stay_time_df.rename(columns={'page_num_dom': 'ページ番号', 'stay_ms': '平均滞在時間(秒)'}, inplace=True)
+    stay_time_df['平均滞在時間(秒)'] /= 1000
+    page_stats = page_stats.merge(stay_time_df, on='ページ番号', how='left')
     
     # ダミーデータにないページを追加（ダミーデータが10ページまでしかない場合）
-    import random
     for page_num in range(1, actual_page_count + 1):
         if page_num not in page_stats['ページ番号'].values:
             # ダミーデータがないページはランダムなダミー値で追加
             # ページが進むほどビュー数が減少するパターン
-            base_views = 500
-            page_views = int(base_views * (0.8 ** (page_num - 1)) + random.randint(-20, 20))
             new_row = pd.DataFrame([{
                 'ページ番号': page_num,
-                'ビュー数': max(page_views, 10),  # 最低10
-                '平均滞在時間(ms)': random.randint(5000, 200000), # 3分以上のデータも生成
-                '平均逆行率': random.uniform(5, 15),
-                '平均読込時間(ms)': random.randint(800, 1500),
-                '平均滞在時間(秒)': random.randint(5000, 200000) / 1000,
+                'ビュー数': 0,
+                '平均逆行回数': 0,
+                '平均滞在時間(秒)': 0,
                 '離脱率': 0  # 離脱率は別途計算
             }])
             page_stats = pd.concat([page_stats, new_row], ignore_index=True)
@@ -1342,15 +1349,16 @@ elif selected_analysis == "ページ分析":
         if len(page_data) > 0:
             sessions = int(page_data['ビュー数'].values[0])
             bounce_rate = page_data['離脱率'].values[0]
-            dwell_time = page_data['平均滞在時間(秒)'].values[0]
-            backflow_rate = page_data['平均逆行率'].values[0] * 100
-            load_time = page_data['平均読込時間(ms)'].values[0]
+            # dwell_time, load_time は filtered_df から直接計算
+            dwell_time = filtered_df[filtered_df['page_num_dom'] == page_num]['stay_ms'].mean() / 1000
+            load_time = filtered_df[filtered_df['page_num_dom'] == page_num]['load_time_ms'].mean()
+            backflow_count = page_data['平均逆行回数'].values[0]
         else:
             sessions = 0
             bounce_rate = 0
-            dwell_time = 0
-            backflow_rate = 0
-            load_time = 0
+            dwell_time = np.nan
+            load_time = np.nan
+            backflow_count = 0
         
         # PV数（ページビュー数）
         pv = len(filtered_df[filtered_df['page_num_dom'] == page_num])
@@ -1399,7 +1407,7 @@ elif selected_analysis == "ページ分析":
             'PV': format_metric(pv),
             '離脱率': format_metric(bounce_rate, is_percentage=True),
             '滞在時間': format_metric(dwell_time, is_time=True),
-            '逆行率': format_metric(backflow_rate, is_percentage=True),
+            '平均逆行回数': f"{backflow_count:.2f}回",
             'フローティングバナーCTR': format_metric(floating_banner_ctr, is_percentage=True),
             'CTA CTR': format_metric(cta_ctr, is_percentage=True),
             '離脱防止ポップアップCTR': format_metric(exit_popup_ctr, is_percentage=True),
@@ -1412,7 +1420,8 @@ elif selected_analysis == "ページ分析":
     # 列名を短縮
     comprehensive_df.rename(columns={
         'フローティングバナーCTR': 'FB CTR',
-        '離脱防止ポップアップCTR': '離脱POP CTR'
+        '離脱防止ポップアップCTR': '離脱POP CTR',
+        '平均逆行回数': '逆行回数/セッション'
     }, inplace=True)
 
     # データフレームで表示（画像列付き）
@@ -1448,7 +1457,8 @@ elif selected_analysis == "ページ分析":
     if len(page_stats) > 1:
         # 平均値を計算
         avg_exit_rate = page_stats['離脱率'].mean()
-        avg_stay_time = page_stats['平均滞在時間(秒)'].mean()
+        # 滞在時間はfiltered_dfから直接計算
+        avg_stay_time = filtered_df['stay_ms'].mean() / 1000
 
         # 散布図を作成
         fig_scatter = px.scatter(
@@ -1463,7 +1473,7 @@ elif selected_analysis == "ページ分析":
         )
 
         # 平均線を追加
-        fig_scatter.add_vline(x=avg_exit_rate, line_dash="dash", line_color="gray", annotation_text=f"全ページ平均離脱率: {avg_exit_rate:.1f}%")
+        fig_scatter.add_vline(x=avg_exit_rate, line_dash="dash", line_color="gray", annotation_text=f"平均離脱率: {avg_exit_rate:.1f}%")
         fig_scatter.add_hline(y=avg_stay_time, line_dash="dash", line_color="gray", annotation_text=f"全ページ平均滞在時間: {avg_stay_time:.1f}秒")
 
         # ゾーンの背景色と注釈を追加
@@ -1489,13 +1499,7 @@ elif selected_analysis == "ページ分析":
             xaxis_title='離脱率 (%)',
             yaxis_title='平均滞在時間 (秒)',
             showlegend=False,
-            dragmode=False,
-            xaxis=dict(
-                range=[0, max(50, page_stats['離脱率'].max() * 1.1)]
-            ),
-            yaxis=dict(
-                range=[0, page_stats['平均滞在時間(秒)'].max() * 1.1]
-            )
+            dragmode=False
         )
         st.plotly_chart(fig_scatter, use_container_width=True, key='plotly_chart_scatter_exit_stay')
     else:
@@ -1510,15 +1514,16 @@ elif selected_analysis == "ページ分析":
         st.markdown('##### 滞在時間が短いページ TOP5')
         st.markdown('<div class="graph-description">コンテンツが魅力的でない、または読みづらい可能性があります。</div>', unsafe_allow_html=True)
         
-        # データがあるページのみを対象（0値を除外）
-        valid_pages = page_stats[page_stats['平均滞在時間(秒)'] > 0]
-        if len(valid_pages) >= 5:
-            short_stay_pages = valid_pages.nsmallest(5, '平均滞在時間(秒)')
-        else:
-            short_stay_pages = valid_pages
+        # ページごとの平均滞在時間を計算
+        stay_time_per_page = filtered_df.groupby('page_num_dom')['stay_ms'].mean().reset_index()
+        stay_time_per_page.columns = ['ページ番号', '平均滞在時間(秒)']
+        stay_time_per_page['平均滞在時間(秒)'] /= 1000
         
-        if len(short_stay_pages) > 0:
-            display_df = short_stay_pages[['ページ番号', '平均滞在時間(秒)']].copy()
+        # 上位5件を取得
+        short_stay_pages = stay_time_per_page.nsmallest(5, '平均滞在時間(秒)')
+        
+        if not short_stay_pages.empty:
+            display_df = short_stay_pages.copy()
             display_df['ページ番号'] = display_df['ページ番号'].astype(int)
             st.dataframe(display_df.style.format({'平均滞在時間(秒)': '{:.1f}秒'}), use_container_width=True, hide_index=True, height=212) # 高さを固定
         else:
@@ -1534,19 +1539,21 @@ elif selected_analysis == "ページ分析":
     with col3:
         st.markdown('##### 逆行が多いページ TOP5')
         st.markdown('<div class="graph-description">逆行の回数が多い場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True)
-        backward_df = filtered_df[filtered_df['direction'] == 'backward']
         
-        if len(backward_df) > 0:
-            # prev_page_pathからページ番号を抽出する
-            backward_df_copy = backward_df.copy()
-            backward_df_copy['prev_page_num'] = backward_df_copy['prev_page_path'].str.extract(r'page-(\d+)').fillna(0).astype(int)
+        # prev_page_pathからページ番号を抽出
+        df_with_prev_num = filtered_df.copy()
+        df_with_prev_num['prev_page_num'] = df_with_prev_num['prev_page_path'].str.extract(r'#page-(\d+)').fillna(0).astype(int)
+        
+        # 逆行の定義（遷移元 > 遷移先）に合致するデータのみをフィルタリング
+        backward_df = df_with_prev_num[df_with_prev_num['prev_page_num'] > df_with_prev_num['page_num_dom']]
 
-            # page_num_dom と prev_page_num でグループ化
-            backward_pattern = backward_df_copy.groupby(['page_num_dom', 'prev_page_num']).size().reset_index(name='回数')
+        if not backward_df.empty:
+            # 遷移元と遷移先でグループ化して回数をカウント
+            backward_pattern = backward_df.groupby(['prev_page_num', 'page_num_dom']).size().reset_index(name='回数')
+            backward_pattern.columns = ['遷移元ページ番号', '遷移先ページ番号', '回数'] # type: ignore
+            
+            # 回数が多い順にソートして上位5件を取得
             backward_pattern = backward_pattern.sort_values('回数', ascending=False).head(5)
-            backward_pattern.columns = ['遷移先ページ番号', '遷移元ページ番号', '回数']
-            # 遷移元が0（不明）のものは除外
-            backward_pattern = backward_pattern[backward_pattern['遷移元ページ番号'] > 0]
             
             st.dataframe(backward_pattern[['遷移元ページ番号', '遷移先ページ番号', '回数']], use_container_width=True, hide_index=True, height=212) # 高さを固定
         else:
@@ -1572,8 +1579,8 @@ elif selected_analysis == "ページ分析":
                 # ボトルネックページを特定
                 bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
                 
-                st.markdown("#### 1. 現状の評価")
-                st.info(f"""
+                st.markdown("#### 1. 現状の評価") # type: ignore
+                st.info(f""" # type: ignore
                 ポジショニングマップと各指標から、**ページ{int(bottleneck_page['ページ番号'])}** が最も重要な改善候補（ボトルネック）であると判断されます。
                 - **離脱率**: {bottleneck_page['離脱率']:.1f}% と高く、多くのユーザーがここでLPから離れています。
                 - **平均滞在時間**: {bottleneck_page['平均滞在時間(秒)']:.1f}秒 と短く、コンテンツが十分に読まれていない可能性があります。
@@ -1581,8 +1588,8 @@ elif selected_analysis == "ページ分析":
                 """)
 
                 st.markdown("#### 2. 今後の考察と改善案")
-                st.warning(f"""
-                **ページ{int(bottleneck_page['ページ番号'])}** の改善が急務です。滞在時間が短く離脱率が高いことから、以下の可能性が考えられます。
+                st.warning(f""" # type: ignore
+                **ページ{int(bottleneck_page['ページ番号'])}** の改善が急務です。滞在時間が短く離脱率が高いことから、以下の可能性が考えられます。 # type: ignore
                 - **コンテンツのミスマッチ**: 前のページからの期待と、このページの内容が合っていない。
                 - **魅力の欠如**: ユーザーの興味を引く情報やビジュアルが不足している。
                 - **次のアクションが不明確**: ユーザーが次に何をすべきか分からず離脱している。
@@ -1609,7 +1616,7 @@ elif selected_analysis == "ページ分析":
             st.session_state.page_faq_toggle[2], st.session_state.page_faq_toggle[3], st.session_state.page_faq_toggle[4] = False, False, False
         if st.session_state.page_faq_toggle[1]:
             if not page_stats.empty:
-                bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
+                bottleneck_page = page_stats.loc[page_stats['離脱率'].idxmax()]
                 st.info(f"**ページ{int(bottleneck_page['ページ番号'])}** です。離脱率が{bottleneck_page['離脱率']:.1f}%と高く、平均滞在時間が{bottleneck_page['平均滞在時間(秒)']:.1f}秒と短いため、最優先で改善すべきボトルネックです。")
         
         if st.button("滞在時間が短いページの共通点は？", key="faq_page_3", use_container_width=True):
