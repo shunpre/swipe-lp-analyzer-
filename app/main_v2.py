@@ -2960,7 +2960,9 @@ elif selected_analysis == "時系列分析":
     # プルダウンメニューを説明文の下、右端に配置
     _, pulldown_col_timeseries = st.columns([4, 1])
     with pulldown_col_timeseries:
-        timeseries_test_type_options = ["すべてのテスト"] + sorted(filtered_df['ab_test_target'].unique().tolist())
+        # 型が混在している可能性があるため、ソート前にすべてを文字列に変換する
+        unique_targets = [str(item) for item in filtered_df['ab_test_target'].unique()]
+        timeseries_test_type_options = ["すべてのテスト"] + sorted(unique_targets)
         selected_timeseries_test_type = st.selectbox(
             "timeseries_test_type_filter",
             timeseries_test_type_options,
@@ -2974,7 +2976,7 @@ elif selected_analysis == "時系列分析":
         'stay_ms': 'mean',
         'max_page_reached': 'mean'
     }).reset_index()
-    daily_stats.columns = ['日付', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数']
+    daily_stats.columns = ['日付', 'ab_test_target', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数']
     daily_stats['平均滞在時間(秒)'] = daily_stats['平均滞在時間(ms)'] / 1000
     
     daily_cv = filtered_df[filtered_df['cv_type'].notna()].groupby([
