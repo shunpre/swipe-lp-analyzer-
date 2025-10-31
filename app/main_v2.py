@@ -1262,14 +1262,18 @@ elif selected_analysis == "ページ分析":
     page_stats.rename(columns={'page_num_dom': 'ページ番号', 'session_id': 'ビュー数'}, inplace=True)
 
     # 逆行回数を計算
-    df_with_prev_num = filtered_df.copy()
-    df_with_prev_num['prev_page_num'] = df_with_prev_num['prev_page_path'].str.extract(r'#page-(\d+)').fillna(0).astype(int)
-    backward_events = df_with_prev_num[df_with_prev_num['prev_page_num'] > df_with_prev_num['page_num_dom']]
-    backward_counts_per_session = backward_events.groupby('session_id').size()
-    avg_backward_count = backward_counts_per_session.mean() if not backward_counts_per_session.empty else 0
-
-    # 平均逆行回数をpage_statsに追加（全ページで同じ値）
-    page_stats['平均逆行回数'] = avg_backward_count
+    # セッションごと、ページごとに逆行イベントをカウント
+    backflow_df = filtered_df[filtered_df['direction'] == 'backward'].copy()
+    if not backflow_df.empty:
+        # ページごとの逆行イベントが発生したセッションのユニーク数をカウント
+        backflow_counts = backflow_df.groupby('page_num_dom')['session_id'].nunique().reset_index()
+        backflow_counts.rename(columns={'page_num_dom': 'ページ番号', 'session_id': '逆行セッション数'}, inplace=True)
+        
+        # page_statsにマージ
+        page_stats = pd.merge(page_stats, backflow_counts, on='ページ番号', how='left').fillna(0)
+        page_stats['逆行率'] = page_stats.apply(lambda row: safe_rate(row['逆行セッション数'], row['ビュー数']) * 100, axis=1)
+    else:
+        page_stats['逆行率'] = 0
     
     # LPの実際のページ数を取得（画像取得が成功した場合はそれを使用、失敗した場合は推測値）
     actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 10
@@ -1350,15 +1354,15 @@ elif selected_analysis == "ページ分析":
             sessions = int(page_data['ビュー数'].values[0])
             bounce_rate = page_data['離脱率'].values[0]
             # dwell_time, load_time は filtered_df から直接計算
-            dwell_time = filtered_df[filtered_df['page_num_dom'] == page_num]['stay_ms'].mean() / 1000
+            dwell_time = page_data['平均滞在時間(秒)'].values[0] if '平均滞在時間(秒)' in page_data and not pd.isna(page_data['平均滞在時間(秒)'].values[0]) else 0
             load_time = filtered_df[filtered_df['page_num_dom'] == page_num]['load_time_ms'].mean()
-            backflow_count = page_data['平均逆行回数'].values[0]
+            backflow_rate = page_data['逆行率'].values[0] if '逆行率' in page_data.columns else 0
         else:
             sessions = 0
             bounce_rate = 0
-            dwell_time = np.nan
+            dwell_time = 0
             load_time = np.nan
-            backflow_count = 0
+            backflow_rate = 0
         
         # PV数（ページビュー数）
         pv = len(filtered_df[filtered_df['page_num_dom'] == page_num])
@@ -1406,8 +1410,8 @@ elif selected_analysis == "ページ分析":
             'セッション数': format_metric(sessions),
             'PV': format_metric(pv),
             '離脱率': format_metric(bounce_rate, is_percentage=True),
+            '逆行率': format_metric(backflow_rate, is_percentage=True),
             '滞在時間': format_metric(dwell_time, is_time=True),
-            '平均逆行回数': f"{backflow_count:.2f}回",
             'フローティングバナーCTR': format_metric(floating_banner_ctr, is_percentage=True),
             'CTA CTR': format_metric(cta_ctr, is_percentage=True),
             '離脱防止ポップアップCTR': format_metric(exit_popup_ctr, is_percentage=True),
@@ -1420,8 +1424,7 @@ elif selected_analysis == "ページ分析":
     # 列名を短縮
     comprehensive_df.rename(columns={
         'フローティングバナーCTR': 'FB CTR',
-        '離脱防止ポップアップCTR': '離脱POP CTR',
-        '平均逆行回数': '逆行回数/セッション'
+        '離脱防止ポップアップCTR': '離脱POP CTR'
     }, inplace=True)
 
     # データフレームで表示（画像列付き）
@@ -1537,27 +1540,16 @@ elif selected_analysis == "ページ分析":
         st.dataframe(high_exit_pages.style.format({'離脱率': '{:.1f}%'}), use_container_width=True, hide_index=True, height=212) # 高さを固定
 
     with col3:
-        st.markdown('##### 逆行が多いページ TOP5')
-        st.markdown('<div class="graph-description">逆行の回数が多い場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True)
+        st.markdown('##### 逆行率が高いページ TOP5')
+        st.markdown('<div class="graph-description">逆行率が高い場合、コンテンツの流れに問題がある可能性があります。</div>', unsafe_allow_html=True)
         
-        # prev_page_pathからページ番号を抽出
-        df_with_prev_num = filtered_df.copy()
-        df_with_prev_num['prev_page_num'] = df_with_prev_num['prev_page_path'].str.extract(r'#page-(\d+)').fillna(0).astype(int)
-        
-        # 逆行の定義（遷移元 > 遷移先）に合致するデータのみをフィルタリング
-        backward_df = df_with_prev_num[df_with_prev_num['prev_page_num'] > df_with_prev_num['page_num_dom']]
-
-        if not backward_df.empty:
-            # 遷移元と遷移先でグループ化して回数をカウント
-            backward_pattern = backward_df.groupby(['prev_page_num', 'page_num_dom']).size().reset_index(name='回数')
-            backward_pattern.columns = ['遷移元ページ番号', '遷移先ページ番号', '回数'] # type: ignore
-            
-            # 回数が多い順にソートして上位5件を取得
-            backward_pattern = backward_pattern.sort_values('回数', ascending=False).head(5)
-            
-            st.dataframe(backward_pattern[['遷移元ページ番号', '遷移先ページ番号', '回数']], use_container_width=True, hide_index=True, height=212) # 高さを固定
+        # page_statsから逆行率が高いページTOP5を取得
+        if '逆行率' in page_stats.columns and not page_stats.empty:
+            high_backflow_pages = page_stats.nlargest(5, '逆行率')[['ページ番号', '逆行率']]
+            high_backflow_pages['ページ番号'] = high_backflow_pages['ページ番号'].astype(int)
+            st.dataframe(high_backflow_pages.style.format({'逆行率': '{:.1f}%'}), use_container_width=True, hide_index=True, height=212)
         else:
-            st.info("逆行パターンのデータがありません")
+            st.info("逆行率のデータがありません。")
     
     st.markdown("---")
 
