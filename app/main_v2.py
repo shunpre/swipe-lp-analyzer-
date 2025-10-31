@@ -2173,22 +2173,31 @@ elif selected_analysis == "A/Bテスト分析":
     # A/Bテスト時系列推移
     st.markdown("#### A/Bテスト CVR 時系列推移")
     
-    ab_daily = filtered_df.groupby([filtered_df['event_date'].dt.date, 'ab_variant']).agg({
+    # 'control'バリアントを除外
+    ab_daily_df = filtered_df[filtered_df['ab_variant'] != 'control'].copy()
+    # テスト種別が'-'のデータを除外
+    ab_daily_df = ab_daily_df[ab_daily_df['ab_test_target'] != '-']
+
+    # 日付、テスト種別、バリアントでグループ化
+    ab_daily = ab_daily_df.groupby([ab_daily_df['event_date'].dt.date, 'ab_test_target', 'ab_variant']).agg({
         'session_id': 'nunique'
     }).reset_index()
-    ab_daily.columns = ['日付', 'バリアント', 'セッション数']
+    ab_daily.columns = ['日付', 'テスト種別', 'バリアント', 'セッション数']
     
-    ab_daily_cv = filtered_df[filtered_df['cv_type'].notna()].groupby([
-        filtered_df[filtered_df['cv_type'].notna()]['event_date'].dt.date,
+    ab_daily_cv = ab_daily_df[ab_daily_df['cv_type'].notna()].groupby([
+        ab_daily_df[ab_daily_df['cv_type'].notna()]['event_date'].dt.date,
+        'ab_test_target',
         'ab_variant'
     ])['session_id'].nunique().reset_index()
-    ab_daily_cv.columns = ['日付', 'バリアント', 'コンバージョン数']
+    ab_daily_cv.columns = ['日付', 'テスト種別', 'バリアント', 'コンバージョン数']
     
-    ab_daily = ab_daily.merge(ab_daily_cv, on=['日付', 'バリアント'], how='left').fillna(0)
+    ab_daily = ab_daily.merge(ab_daily_cv, on=['日付', 'テスト種別', 'バリアント'], how='left').fillna(0)
     ab_daily['コンバージョン率'] = ab_daily.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
-    fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='バリアント', markers=True)
-    fig.update_layout(height=400, yaxis_title='コンバージョン率 (%)', dragmode=False)
+    # テスト種別ごとにグラフを描画
+    fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='バリアント', facet_row='テスト種別', markers=True,
+                  labels={'コンバージョン率': 'CVR (%)'}, height=300 * ab_daily['テスト種別'].nunique())
+    fig.update_layout(yaxis_title='コンバージョン率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_17')
 
     st.markdown("---")
