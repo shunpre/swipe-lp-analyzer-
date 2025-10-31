@@ -2078,14 +2078,22 @@ elif selected_analysis == "A/Bテスト分析":
     ab_stats = ab_stats[ab_stats['テスト種別'] != '-'].reset_index(drop=True)
 
     # --- A/Bテスト統計計算 ---
-    ab_stats['CVR差分(pt)'] = 0.0
+    ab_stats['CVR差分(pt)'] = np.nan # デフォルトをNaNに
 
     # テスト種別ごとにCVR差分を計算
     for test_type in ab_stats['テスト種別'].unique():
         test_df = ab_stats[ab_stats['テスト種別'] == test_type]
-        if 'control' in test_df['バリアント'].values:
-            baseline_cvr = test_df[test_df['バリアント'] == 'control']['コンバージョン率'].iloc[0]
-            ab_stats.loc[test_df.index, 'CVR差分(pt)'] = test_df['コンバージョン率'] - baseline_cvr
+        # バリアントAを基準とする
+        if 'A' in test_df['バリアント'].values:
+            baseline_cvr = test_df[test_df['バリアント'] == 'A']['コンバージョン率'].iloc[0]
+            
+            # バリアントAの差分は0
+            a_index = test_df[test_df['バリアント'] == 'A'].index
+            ab_stats.loc[a_index, 'CVR差分(pt)'] = 0.0
+
+            # 他のバリアントの差分を計算
+            other_variants_index = test_df[test_df['バリアント'] != 'A'].index
+            ab_stats.loc[other_variants_index, 'CVR差分(pt)'] = test_df.loc[other_variants_index, 'コンバージョン率'] - baseline_cvr
 
     # p値から有意差と有意性を計算
     ab_stats['有意差'] = ab_stats['p値'].apply(lambda x: '★★★' if x < 0.01 else ('★★' if x < 0.05 else ('★' if x < 0.1 else '-')))
@@ -2110,7 +2118,7 @@ elif selected_analysis == "A/Bテスト分析":
         st.dataframe(display_df[display_cols].style.format({
             'セッション数': '{:,.0f}',
             'コンバージョン率': '{:.2f}%',
-            'CVR差分(pt)': '{:+.2f}pt',
+            'CVR差分(pt)': lambda x: f'{x:+.2f}pt' if pd.notna(x) and x != 0 else '---',
             'p値': '{:.4f}',
             'FV残存率': '{:.2f}%',
             '最終CTA到達率': '{:.2f}%',
