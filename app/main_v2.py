@@ -3872,20 +3872,20 @@ elif selected_analysis == "AIによる分析・考察":
 
     st.markdown("---")
     st.markdown("### 目標値・現状値の入力")
-    st.markdown('<div class="graph-description">AIがデータを多角的に分析し、現状評価や改善案を提案します。分析精度向上のため、目標値と現状値を入力してください。月間目標は<br>選択期間に応じて日割り計算され、空欄でもAIが推測します。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">AIが選択されたLPの内容とデータを多角的に分析し、現状評価や改善案を提案します。分析精度向上のため、目標値と現状値を入力してください。月間目標は<br>選択期間に応じて日割り計算され、空欄でもAIが推測します。</div>', unsafe_allow_html=True)
 
     form_cols = st.columns(2)
     with form_cols[0]:
         st.markdown("##### **月間目標値**")
-        target_cvr = st.number_input("目標CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=0.0)
-        target_cv = st.number_input("目標CV数", min_value=0, step=1, value=0)
-        target_cpa = st.number_input("目標CPA", min_value=0, step=100, value=0)
+        target_cvr = st.number_input("目標CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=None)
+        target_cv = st.number_input("目標CV数", min_value=0, step=1, value=None)
+        target_cpa = st.number_input("目標CPA", min_value=0, step=100, value=None)
     
     with form_cols[1]:
         st.markdown("##### **現状値**")
-        current_cvr = st.number_input("現状CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=0.0)
-        current_cv = st.number_input("現状CV数", min_value=0, step=1, value=0)
-        current_cpa = st.number_input("現状CPA", min_value=0, step=100, value=0)
+        current_cvr = st.number_input("現状CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=None)
+        current_cv = st.number_input("現状CV数", min_value=0, step=1, value=None)
+        current_cpa = st.number_input("現状CPA", min_value=0, step=100, value=None)
 
     st.markdown("---")
     st.markdown("### ターゲット顧客・その他の情報")
@@ -3948,9 +3948,9 @@ elif selected_analysis == "AIによる分析・考察":
             analysis_days = (pd.to_datetime(end_date) - pd.to_datetime(start_date)).days + 1
             
             # 月間目標を日割り計算
-            daily_target_cv = (target_cv / 30) * analysis_days if target_cv > 0 else 0
-            daily_target_cvr = target_cvr # CVRは期間によらないのでそのまま
-            daily_target_cpa = target_cpa # CPAも期間によらないのでそのまま
+            daily_target_cv = (target_cv / 30) * analysis_days if target_cv is not None and target_cv > 0 else 0
+            daily_target_cvr = target_cvr if target_cvr is not None else 0 # CVRは期間によらないのでそのまま
+            daily_target_cpa = target_cpa if target_cpa is not None else 0 # CPAも期間によらないのでそのまま
 
             # セクション1: 客観的かつ詳細な現状分析
             st.markdown("---")
@@ -3959,8 +3959,8 @@ elif selected_analysis == "AIによる分析・考察":
             with st.expander("全体パフォーマンス評価", expanded=True):
                 st.markdown(f"""
                 **総合評価:**  
-                - **現状のCVR**: **{current_cvr:.2f}%** （期間目標: {daily_target_cvr if daily_target_cvr > 0 else '未設定'}%）
-                - **現状のCV数**: **{current_cv}** （期間目標: {daily_target_cv:.0f}件）
+                - **現状のCVR**: **{current_cvr or 0:.2f}%** （期間目標: {daily_target_cvr if daily_target_cvr > 0 else '未設定'}%）
+                - **現状のCV数**: **{current_cv or 0}** （期間目標: {daily_target_cv:.0f}件）
                 - **ファーストビュー(FV)残存率**: **{fv_retention_rate:.1f}%** が最初のページで離脱せずに次に進んでいます。
                 - **最終CTA到達率**: **{final_cta_rate:.1f}%** が最終ページまで到達しています。
                 
@@ -3977,7 +3977,7 @@ elif selected_analysis == "AIによる分析・考察":
             with st.expander("トレンド予測と潜在的リスク", expanded=True):
                 st.markdown(f"""
                 **考察:**
-                - **目標達成状況**: 現状のCV数({current_cv}件)は、分析期間({analysis_days}日間)における日割り目標({daily_target_cv:.0f}件)に対して **{current_cv - daily_target_cv:.0f}件** の差があります。
+                - **目標達成状況**: 現状のCV数({current_cv or 0}件)は、分析期間({analysis_days}日間)における日割り目標({daily_target_cv:.0f}件)に対して **{(current_cv or 0) - daily_target_cv:.0f}件** の差があります。
                 - **最大の課題**: FV残存率が **{fv_retention_rate:.1f}%** と低いことが、全体のCVRを押し下げる最大の要因と考えられます。多くのユーザーがLPの第一印象で興味を失い、離脱している可能性があります。
                 - **機会**: 最終CTA到達率が **{final_cta_rate:.1f}%** あるため、LPの中盤以降のコンテンツは比較的読まれているようです。FVを突破したユーザーを確実にCVに繋げることができれば、パフォーマンスは大きく改善する可能性があります。
                 """)
