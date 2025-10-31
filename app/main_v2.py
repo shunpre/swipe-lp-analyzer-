@@ -2192,12 +2192,16 @@ elif selected_analysis == "A/Bテスト分析":
     ab_daily_cv.columns = ['日付', 'テスト種別', 'バリアント', 'コンバージョン数']
     
     ab_daily = ab_daily.merge(ab_daily_cv, on=['日付', 'テスト種別', 'バリアント'], how='left').fillna(0)
-    ab_daily['コンバージョン率'] = ab_daily.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
+    ab_daily['コンバージョン率'] = ab_daily.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1) # type: ignore
     
-    # テスト種別ごとにグラフを描画
-    fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='バリアント', facet_row='テスト種別', markers=True,
-                  labels={'コンバージョン率': 'CVR (%)'}, height=300 * ab_daily['テスト種別'].nunique())
-    fig.update_layout(yaxis_title='コンバージョン率 (%)', dragmode=False)
+    # 凡例用の列を作成
+    ab_daily['凡例'] = ab_daily['テスト種別'] + ' - ' + ab_daily['バリアント']
+
+    # 1つのグラフに統合して描画
+    fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='凡例', markers=True,
+                  labels={'コンバージョン率': 'CVR (%)', '凡例': 'テスト - バリアント'})
+    fig.update_layout(height=500, yaxis_title='コンバージョン率 (%)', dragmode=False)
+
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_17')
 
     st.markdown("---")
