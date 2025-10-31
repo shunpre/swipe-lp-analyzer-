@@ -2187,37 +2187,65 @@ elif selected_analysis == "A/Bテスト分析":
         
     # A/Bテスト時系列推移
     st.markdown("#### A/Bテスト CVR 時系列推移")
-    
-    # 'control'バリアントを除外
-    ab_daily_df = filtered_df[filtered_df['ab_variant'] != 'control'].copy()
-    # テスト種別が'-'のデータを除外
-    ab_daily_df = ab_daily_df[ab_daily_df['ab_test_target'] != '-']
+    st.markdown('<div class="graph-description">各A/Bテストのバリアントごとの日次のコンバージョン率（CVR）の推移を可視化します。</div>', unsafe_allow_html=True)
 
-    # 日付、テスト種別、バリアントでグループ化
-    ab_daily = ab_daily_df.groupby([ab_daily_df['event_date'].dt.date, 'ab_test_target', 'ab_variant']).agg({
-        'session_id': 'nunique'
-    }).reset_index()
-    ab_daily.columns = ['日付', 'テスト種別', 'バリアント', 'セッション数']
-    
-    ab_daily_cv = ab_daily_df[ab_daily_df['cv_type'].notna()].groupby([
-        ab_daily_df[ab_daily_df['cv_type'].notna()]['event_date'].dt.date,
-        'ab_test_target',
-        'ab_variant'
-    ])['session_id'].nunique().reset_index()
-    ab_daily_cv.columns = ['日付', 'テスト種別', 'バリアント', 'コンバージョン数']
-    
-    ab_daily = ab_daily.merge(ab_daily_cv, on=['日付', 'テスト種別', 'バリアント'], how='left').fillna(0)
-    ab_daily['コンバージョン率'] = ab_daily.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1) # type: ignore
-    
-    # 凡例用の列を作成
-    ab_daily['凡例'] = ab_daily['テスト種別'] + ' - ' + ab_daily['バリアント']
+    # A/Bテスト関連のデータをフィルタリング
+    # 'control'バリアントとテスト種別'-'を除外
+    ab_test_data = filtered_df[
+        filtered_df['event_name'].isin(['conversion', 'session_start']) & 
+        (filtered_df['ab_test_target'] != '-') &
+        (filtered_df['ab_variant'] != 'control')
+    ].copy()
+    ab_test_data['event_date'] = pd.to_datetime(ab_test_data['event_date']).dt.date
 
-    # 1つのグラフに統合して描画
-    fig = px.line(ab_daily, x='日付', y='コンバージョン率', color='凡例', markers=True,
-                  labels={'コンバージョン率': 'CVR (%)', '凡例': 'テスト - バリアント'})
-    fig.update_layout(height=500, yaxis_title='コンバージョン率 (%)', dragmode=False)
+    # 各テストタイプとバリアントごとに日次のセッション数とコンバージョン数を計算
+    session_counts = ab_test_data[ab_test_data['event_name'] == 'session_start'].groupby(['event_date', 'ab_test_target', 'ab_variant']).size().reset_index(name='sessions')
+    conversion_counts = ab_test_data[ab_test_data['event_name'] == 'conversion'].groupby(['event_date', 'ab_test_target', 'ab_variant']).size().reset_index(name='conversions')
 
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_17')
+    # データをマージ
+    cvr_data = pd.merge(session_counts, conversion_counts, on=['event_date', 'ab_test_target', 'ab_variant'], how='left').fillna(0)
+    cvr_data['cvr'] = (cvr_data['conversions'] / cvr_data['sessions']) * 100
+
+    # テスト種別選択
+    test_types = cvr_data['ab_test_target'].unique().tolist()
+    
+    _, col2 = st.columns([5, 1])
+    with col2:
+        selected_test_type = st.selectbox('テスト種別を選択', test_types, key="ab_test_cvr_ts_select")
+    
+    # グラフの作成
+    fig_cvr_timeseries = go.Figure()
+
+    # カラーパレット
+    color_map = {
+        'control': 'grey',
+        'A': 'blue',
+        'B': 'red'
+    }
+
+    filtered_cvr_data = cvr_data[cvr_data['ab_test_target'] == selected_test_type]
+
+    for test_type, group in filtered_cvr_data.groupby('ab_test_target'):
+        for variant in group['ab_variant'].unique():
+            variant_data = group[group['ab_variant'] == variant]
+            fig_cvr_timeseries.add_trace(go.Scatter(
+                x=variant_data['event_date'],
+                y=variant_data['cvr'],
+                mode='lines+markers',
+                name=f"{test_type} - {variant}",
+                line=dict(color=color_map.get(variant, 'black'))
+            ))
+
+    fig_cvr_timeseries.update_layout(
+        title="日次CVR時系列推移",
+        xaxis_title="日付",
+        yaxis_title="コンバージョン率 (%)",
+        legend_title="A/Bテスト",
+        hovermode="x unified",
+        height=500,
+        dragmode=False
+    )
+    st.plotly_chart(fig_cvr_timeseries, use_container_width=True)
 
     st.markdown("---")
 

@@ -64,6 +64,9 @@ def generate_dummy_data(num_events=5000, num_days=30):
     # 方向
     directions = ["forward", "backward"]
     
+    # A/Bテストごとのp値を保持する辞書
+    test_p_values = {}
+
     # データ生成
     data = []
     
@@ -136,6 +139,23 @@ def generate_dummy_data(num_events=5000, num_days=30):
         ab_variant = session_variant
         ab_test_target = random.choice(["cta_button", "hero_image", "headline", None])
         ab_test_type = random.choice(["presence", "creative", "layout", None])
+
+        # p値の生成ロジック（ab_test_targetが存在する場合に限定）
+        p_value = None
+        if ab_test_target:
+            # テスト種別とバリアントの組み合わせでp値を決定
+            test_key = (ab_test_target, ab_variant)
+            if test_key not in test_p_values:
+                # 0.01, 0.05, 0.1の周辺に偏らせつつ、ランダムなp値を生成
+                p_value_options = [
+                    random.uniform(0.005, 0.02),  # ★★★
+                    random.uniform(0.04, 0.06),   # ★★
+                    random.uniform(0.09, 0.11),   # ★
+                    random.uniform(0.1, 1.0)      # -
+                ]
+                # バリアントAはp値1.0（基準）、Bにランダムなp値を割り当て
+                test_p_values[test_key] = 1.0 if ab_variant == 'A' else random.choices(p_value_options, weights=[0.1, 0.2, 0.2, 0.5])[0]
+            p_value = test_p_values[test_key]
         
         # コンバージョン（5%の確率）
         is_conversion = random.random() < 0.05
@@ -214,6 +234,7 @@ def generate_dummy_data(num_events=5000, num_days=30):
             "ab_test_target": ab_test_target,
             "ab_test_type": ab_test_type,
             "cv_type": cv_type,
+            "p_value": p_value,
             "cv_value": cv_value,
             "value": value,
         })
