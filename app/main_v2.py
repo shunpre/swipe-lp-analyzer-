@@ -2092,25 +2092,33 @@ elif selected_analysis == "A/Bテスト分析":
     ab_stats['有意性'] = 1 - ab_stats['p値']  # バブルチャート用
 
 
-    # A/Bテストマトリクス
-    st.markdown("#### A/Bテストマトリクス")
+    # A/Bテスト比較
+    st.markdown("#### A/Bテスト比較")
+    st.markdown('<div class="graph-description">各バリアント（AとB）の主要な指標を比較し、どちらが優れているかを評価します。</div>', unsafe_allow_html=True)
     display_cols = ['セッション数', 'コンバージョン率', 'CVR差分(pt)', '有意差', 'p値', 'FV残存率', '最終CTA到達率', '平均到達ページ数', '平均滞在時間(秒)'] # type: ignore
     
     # 'control' バリアントを除外して表示用のDataFrameを作成
     ab_stats_for_display = ab_stats[ab_stats['バリアント'] != 'control'].copy()
     
+    # バリアントBの行をハイライトする関数
+    def highlight_variant_b(row):
+        return ['background-color: #fffbe6'] * len(row) if row.name[1] == 'B' else [''] * len(row)
+
     # マルチインデックスを設定して表示
     display_df = ab_stats_for_display.set_index(['テスト種別', 'バリアント'])
-    st.dataframe(display_df[display_cols].style.format({
-        'セッション数': '{:,.0f}',
-        'コンバージョン率': '{:.2f}%',
-        'CVR差分(pt)': '{:+.2f}pt',
-        'p値': '{:.4f}',
-        'FV残存率': '{:.2f}%',
-        '最終CTA到達率': '{:.2f}%',
-        '平均到達ページ数': '{:.1f}',
-        '平均滞在時間(秒)': '{:.1f}'
-    }), use_container_width=True)
+    if not display_df.empty:
+        st.dataframe(display_df[display_cols].style.format({
+            'セッション数': '{:,.0f}',
+            'コンバージョン率': '{:.2f}%',
+            'CVR差分(pt)': '{:+.2f}pt',
+            'p値': '{:.4f}',
+            'FV残存率': '{:.2f}%',
+            '最終CTA到達率': '{:.2f}%',
+            '平均到達ページ数': '{:.1f}',
+            '平均滞在時間(秒)': '{:.1f}'
+        }).apply(highlight_variant_b, axis=1), use_container_width=True)
+    else:
+        st.info("表示するA/Bテストのデータがありません。")
     
     # CVR向上率×有意性のバブルチャート
     # 'control' バリアントを除外し、バリアント'B'のみを対象とする
