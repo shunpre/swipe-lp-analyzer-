@@ -2957,34 +2957,21 @@ elif selected_analysis == "時系列分析":
     if 'ab_test_target' not in filtered_df.columns:
         filtered_df['ab_test_target'] = df['ab_test_target'].map(test_type_map).fillna('-')
 
-    # プルダウンメニューを説明文の下、右端に配置
-    _, pulldown_col_timeseries = st.columns([4, 1])
-    with pulldown_col_timeseries:
-        # 型が混在している可能性があるため、ソート前にすべてを文字列に変換する
-        unique_targets = [str(item) for item in filtered_df['ab_test_target'].unique()]
-        timeseries_test_type_options = ["すべてのテスト"] + sorted(unique_targets)
-        selected_timeseries_test_type = st.selectbox(
-            "timeseries_test_type_filter",
-            timeseries_test_type_options,
-            key="timeseries_test_type_filter",
-            label_visibility="collapsed"
-        )
-
-    # daily_statsの計算にab_test_targetを含める
-    daily_stats = filtered_df.groupby([filtered_df['event_date'].dt.date, 'ab_test_target']).agg({
+    # daily_statsの計算
+    daily_stats = filtered_df.groupby(filtered_df['event_date'].dt.date).agg({
         'session_id': 'nunique',
         'stay_ms': 'mean',
         'max_page_reached': 'mean'
     }).reset_index()
-    daily_stats.columns = ['日付', 'ab_test_target', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数']
+    daily_stats.columns = ['日付', 'セッション数', '平均滞在時間(ms)', '平均到達ページ数']
     daily_stats['平均滞在時間(秒)'] = daily_stats['平均滞在時間(ms)'] / 1000
     
-    daily_cv = filtered_df[filtered_df['cv_type'].notna()].groupby([
-        filtered_df[filtered_df['cv_type'].notna()]['event_date'].dt.date, 'ab_test_target'
-    ])['session_id'].nunique().reset_index()
-    daily_cv.columns = ['日付', 'ab_test_target', 'コンバージョン数']
+    daily_cv = filtered_df[filtered_df['cv_type'].notna()].groupby(
+        filtered_df[filtered_df['cv_type'].notna()]['event_date'].dt.date
+    )['session_id'].nunique().reset_index()
+    daily_cv.columns = ['日付', 'コンバージョン数']
     
-    daily_stats = daily_stats.merge(daily_cv, on=['日付', 'ab_test_target'], how='left').fillna(0) # type: ignore
+    daily_stats = daily_stats.merge(daily_cv, on='日付', how='left').fillna(0) # type: ignore
     daily_stats['コンバージョン率'] = daily_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1) # type: ignore
     
     # FV残存率
@@ -3011,7 +2998,7 @@ elif selected_analysis == "時系列分析":
         "最終CTA到達率", "平均到達ページ数", "平均滞在時間(秒)"
     ], key="timeseries_metric_select")
     
-    fig = px.line(daily_stats, x='日付', y=metric_to_plot, color='ab_test_target', markers=True) # color='ab_test_target'を追加
+    fig = px.line(daily_stats, x='日付', y=metric_to_plot, markers=True)
     fig.update_layout(height=400, yaxis_title=metric_to_plot, dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_21')
     
