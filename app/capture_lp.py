@@ -11,7 +11,7 @@ import re
 import json
 
 @st.cache_data(ttl=3600)  # 1時間キャッシュ
-def capture_lp_screenshot(url: str, width: int = 1200, height: int = 3000) -> Image.Image:
+def capture_lp_screenshot(url: str, width: int = 1200, height: int = 1500) -> Image.Image:
     """
     URLからスクリーンショットを取得
     

@@ -1314,32 +1314,26 @@ elif selected_analysis == "ページ分析":
     st.markdown("#### ページごとのパフォーマンス詳細")
     st.markdown('<div class="graph-description">各ページのプレビューと主要指標を一覧で確認できます。</div>', unsafe_allow_html=True)
 
-    # 1行に表示するカードの数
-    cards_per_row = 4
-
     # 18ページ分のカードを表示
     for page_num in range(1, 19): # 1から18まで
-        # 行の開始
-        if (page_num - 1) % cards_per_row == 0:
-            cols = st.columns(cards_per_row)
+        with st.container():
+            col1, col2 = st.columns([1, 4]) # キャプチャ用に1、データ用に4の比率
 
-        # 現在のカードを表示する列
-        col_index = (page_num - 1) % cards_per_row
-        with cols[col_index]:
-            with st.container():
+            with col1:
                 st.markdown(f"**ページ {page_num}**")
-
                 # コンテンツ情報を取得
                 content_info = get_lp_content_info(selected_lp, page_num)
-                content_type = content_info['content_type']
-                content_source = content_info['content_source']
+                content_type = content_info.get('content_type', 'image')
+                content_source = content_info.get('content_source')
 
                 # プレビューを表示
-                if content_type == 'video':
-                    st.video(content_source)
-                else:
-                    st.image(content_source)
+                if content_source:
+                    if content_type == 'video':
+                        st.video(content_source)
+                    else:
+                        st.image(content_source)
 
+            with col2:
                 # メトリクスを取得
                 page_data = page_stats[page_stats['ページ番号'] == page_num]
                 views = int(page_data['ビュー数'].iloc[0]) if not page_data.empty and 'ビュー数' in page_data.columns else 0
@@ -1347,12 +1341,13 @@ elif selected_analysis == "ページ分析":
                 stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
                 backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
 
-                # メトリクスを表示
-                metric_cols = st.columns(2)
+                # メトリクスを横に並べて表示
+                metric_cols = st.columns(4)
                 metric_cols[0].metric("ビュー数", f"{views:,}")
                 metric_cols[1].metric("離脱率", f"{exit_rate:.1f}%")
-                metric_cols[0].metric("滞在時間", f"{stay_time:.1f}秒")
-                metric_cols[1].metric("逆行率", f"{backflow_rate:.1f}%")
+                metric_cols[2].metric("滞在時間", f"{stay_time:.1f}秒")
+                metric_cols[3].metric("逆行率", f"{backflow_rate:.1f}%")
+        st.markdown("---") # 各ページ間に区切り線を追加
     
     st.markdown("---")
     
