@@ -1365,10 +1365,11 @@ elif selected_analysis == "ページ分析":
         
         with row_cols[1]:
             if content_type == 'video':
-                # 動画はクリック可能なプレースホルダー画像
-                st.markdown(f'<a href="{content_source}" target="_blank"><img src="{VIDEO_PLACEHOLDER_IMAGE}" style="height: 120px; object-fit: cover;"></a>', unsafe_allow_html=True)
+                # HTMLのvideoタグを使用してサイズを制御
+                st.markdown(f'<video controls style="height: 200px;"><source src="{content_source}" type="video/mp4"></video>', unsafe_allow_html=True)
             else:
-                st.image(content_source, width=72) # 高さを約120pxにするため幅を調整
+                # HTMLのimgタグを使用してサイズを制御
+                st.markdown(f'<img src="{content_source}" style="height: 200px;">', unsafe_allow_html=True)
 
         row_cols[2].write(f"{views:,}")
         row_cols[3].write(f"{exit_rate:.1f}%")
