@@ -1314,8 +1314,21 @@ elif selected_analysis == "ページ分析":
     st.markdown("#### ページごとのパフォーマンス詳細")
     st.markdown('<div class="graph-description">各ページのプレビューと主要指標を一覧で確認できます。</div>', unsafe_allow_html=True)
 
+    # 表示件数選択プルダウン
+    _, pulldown_col = st.columns([5, 1]) # 右端6分の1のレイアウト
+    with pulldown_col:
+        num_to_display_str = st.selectbox(
+            "表示件数",
+            ["すべて"] + list(range(5, 51, 5)),
+            index=0,
+            label_visibility="collapsed" # ラベルを非表示にしてコンパクトに
+        )
+
+    # 表示するページ数を決定
+    num_to_display = 18 if num_to_display_str == "すべて" else int(num_to_display_str)
+
     # 18ページ分のカードを表示
-    for page_num in range(1, 19): # 1から18まで
+    for page_num in range(1, num_to_display + 1):
         with st.container():
             col1, col2 = st.columns([1, 6], gap="large") # キャプチャ用に1、データ用に6の比率。間にスペースを追加
 
