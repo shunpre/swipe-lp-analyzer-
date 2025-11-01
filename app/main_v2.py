@@ -1317,7 +1317,7 @@ elif selected_analysis == "ページ分析":
     # 18ページ分のカードを表示
     for page_num in range(1, 19): # 1から18まで
         with st.container():
-            col1, col2 = st.columns([1, 4]) # キャプチャ用に1、データ用に4の比率
+            col1, col2 = st.columns([1, 6], gap="large") # キャプチャ用に1、データ用に6の比率。間にスペースを追加
 
             with col1:
                 st.markdown(f"**ページ {page_num}**")
@@ -1340,13 +1340,25 @@ elif selected_analysis == "ページ分析":
                 exit_rate = page_data['離脱率'].iloc[0] if not page_data.empty and '離脱率' in page_data.columns else 0
                 stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
                 backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
+                # 新しいメトリクスを取得（ダミーデータ）
+                cta_click_rate = np.random.uniform(5, 15) if views > 0 else 0
+                fb_click_rate = np.random.uniform(1, 5) if views > 0 else 0
+                exit_pop_click_rate = np.random.uniform(0.5, 3) if views > 0 else 0
+                load_time = filtered_df[filtered_df['page_num_dom'] == page_num]['load_time_ms'].mean() if not filtered_df[filtered_df['page_num_dom'] == page_num].empty else 0
 
-                # メトリクスを横に並べて表示
-                metric_cols = st.columns(4)
-                metric_cols[0].metric("ビュー数", f"{views:,}")
-                metric_cols[1].metric("離脱率", f"{exit_rate:.1f}%")
-                metric_cols[2].metric("滞在時間", f"{stay_time:.1f}秒")
-                metric_cols[3].metric("逆行率", f"{backflow_rate:.1f}%")
+                # 上段メトリクス
+                metric_cols_top = st.columns(4)
+                metric_cols_top[0].metric("ビュー数", f"{views:,}")
+                metric_cols_top[1].metric("離脱率", f"{exit_rate:.1f}%")
+                metric_cols_top[2].metric("滞在時間", f"{stay_time:.1f}秒")
+                metric_cols_top[3].metric("逆行率", f"{backflow_rate:.1f}%")
+
+                # 下段メトリクス
+                metric_cols_bottom = st.columns(4)
+                metric_cols_bottom[0].metric("CTAクリック率", f"{cta_click_rate:.1f}%")
+                metric_cols_bottom[1].metric("FBクリック率", f"{fb_click_rate:.1f}%")
+                metric_cols_bottom[2].metric("離脱POPクリック率", f"{exit_pop_click_rate:.1f}%")
+                metric_cols_bottom[3].metric("読み込み時間", f"{load_time:.0f}ms")
         st.markdown("---") # 各ページ間に区切り線を追加
     
     st.markdown("---")
