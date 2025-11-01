@@ -458,7 +458,7 @@ elif selected_tab == "📄 ページ分析":
             with col1:
                 # プレースホルダー画像
                 st.image(f"https://via.placeholder.com/400x600/3b82f6/ffffff?text=Page+{int(row['ページ番号'])}", 
-                        caption=f"ページ {int(row['ページ番号'])}", use_container_width=True)
+                        caption=f"ページ {int(row['ページ番号'])}")
             
             with col2:
                 metric_cols = st.columns(3)
@@ -840,4 +840,3 @@ elif selected_tab == "💡 AI提案":
 # フッター
 st.markdown("---")
 st.markdown("**瞬ジェネ AIアナリスト** - Powered by Streamlit & Gemini 2.5 Pro")
-

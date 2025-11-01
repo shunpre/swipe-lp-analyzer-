@@ -433,7 +433,7 @@ with tab2:
             col1, col2 = st.columns([1, 2])
             
             with col1:
-                st.image(row['画像URL'], caption=f"ページ {int(row['ページ番号'])}", use_container_width=True)
+                st.image(row['画像URL'], caption=f"ページ {int(row['ページ番号'])}")
             
             with col2:
                 metric_col1, metric_col2, metric_col3 = st.columns(3)

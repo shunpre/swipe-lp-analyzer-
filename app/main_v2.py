@@ -1312,46 +1312,13 @@ elif selected_analysis == "ページ分析":
     
     # 包括的なページメトリクステーブル
     st.markdown("#### ページごとのパフォーマンス詳細")
-    st.markdown('<div class="graph-description">項目名をクリックすると並べ替えができます。表示個数は右のプルダウンから選択してください</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">各ページのプレビューと主要指標を一覧で確認できます。</div>', unsafe_allow_html=True)
 
-    # プルダウンメニューを独立した狭いカラムに配置し、右端に寄せる
-    # _, pulldown_col_right = st.columns([0.85, 0.15]) # 左に広い空のカラム、右に狭いプルダウン用のカラム
+    # 1行に表示するカードの数
+    cards_per_row = 4
 
-    # with pulldown_col_right:
-    #     num_to_display_str = st.selectbox(
-    #         "表示件数",
-    #         ["すべて"] + list(range(5, 51, 5)),
-    #         index=0,
-    #         label_visibility="collapsed", # ラベルを非表示にしてコンパクトに
-    #         key="page_analysis_display_count"
-    #     )
-
-    # テーブル表示用のデータを作成
-    table_data = []
-    # --- テーブルヘッダー ---
-    header_cols = st.columns([1.5, 1, 1, 1, 1])
-    header_cols[0].markdown("<div style='text-align: center;'><b>プレビュー</b></div>", unsafe_allow_html=True)
-    header_cols[1].markdown("**ビュー数**")
-    header_cols[2].markdown("**離脱率**")
-    header_cols[3].markdown("**平均滞在時間**")
-    header_cols[4].markdown("**逆行率**")
-    st.markdown("---")
-
-    # --- テーブルボディ ---
-    for page_num in range(1, 19):
-        content_info = get_lp_content_info(selected_lp, page_num)
-        content_type = content_info['content_type']
-        content_source = content_info['content_source']
-
-        page_data = page_stats[page_stats['ページ番号'] == page_num]
-        views = int(page_data['ビュー数'].iloc[0]) if not page_data.empty else 0
-        exit_rate = page_data['離脱率'].iloc[0] if not page_data.empty else 0
-        stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty else 0
-        views = int(page_data['ビュー数'].iloc[0]) if not page_data.empty and 'ビュー数' in page_data.columns else 0
-        exit_rate = page_data['離脱率'].iloc[0] if not page_data.empty and '離脱率' in page_data.columns else 0
-        stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
-        backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
-
+    # 18ページ分のカードを表示
+    for page_num in range(1, 19): # 1から18まで
         # 行の開始
         if (page_num - 1) % cards_per_row == 0:
             cols = st.columns(cards_per_row)
@@ -1359,13 +1326,28 @@ elif selected_analysis == "ページ分析":
         # 現在のカードを表示する列
         col_index = (page_num - 1) % cards_per_row
         with cols[col_index]:
-            with st.container(border=True):
+            with st.container():
                 st.markdown(f"**ページ {page_num}**")
+
+                # コンテンツ情報を取得
+                content_info = get_lp_content_info(selected_lp, page_num)
+                content_type = content_info['content_type']
+                content_source = content_info['content_source']
+
+                # プレビューを表示
                 if content_type == 'video':
                     st.video(content_source)
                 else:
-                    st.image(content_source, use_container_width=True)
-                
+                    st.image(content_source)
+
+                # メトリクスを取得
+                page_data = page_stats[page_stats['ページ番号'] == page_num]
+                views = int(page_data['ビュー数'].iloc[0]) if not page_data.empty and 'ビュー数' in page_data.columns else 0
+                exit_rate = page_data['離脱率'].iloc[0] if not page_data.empty and '離脱率' in page_data.columns else 0
+                stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
+                backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
+
+                # メトリクスを表示
                 metric_cols = st.columns(2)
                 metric_cols[0].metric("ビュー数", f"{views:,}")
                 metric_cols[1].metric("離脱率", f"{exit_rate:.1f}%")
