@@ -1329,13 +1329,12 @@ elif selected_analysis == "ページ分析":
     # テーブル表示用のデータを作成
     table_data = []
     # --- テーブルヘッダー ---
-    header_cols = st.columns([1, 1, 1, 1, 1, 1])
-    header_cols[0].markdown("**ページ**")
-    header_cols[1].markdown("**プレビュー**")
-    header_cols[2].markdown("**ビュー数**")
-    header_cols[3].markdown("**離脱率**")
-    header_cols[4].markdown("**平均滞在時間**")
-    header_cols[5].markdown("**逆行率**")
+    header_cols = st.columns([1.5, 1, 1, 1, 1])
+    header_cols[0].markdown("<div style='text-align: center;'><b>プレビュー</b></div>", unsafe_allow_html=True)
+    header_cols[1].markdown("**ビュー数**")
+    header_cols[2].markdown("**離脱率**")
+    header_cols[3].markdown("**平均滞在時間**")
+    header_cols[4].markdown("**逆行率**")
     st.markdown("---")
 
     # --- テーブルボディ ---
@@ -1360,21 +1359,20 @@ elif selected_analysis == "ページ分析":
         else:
             # 画像はそのままURL
             preview_content = content_source
-        row_cols = st.columns([1, 1, 1, 1, 1, 1])
-        row_cols[0].write(f"ページ {page_num}")
+        row_cols = st.columns([1.5, 1, 1, 1, 1])
         
-        with row_cols[1]:
+        with row_cols[0]:
+            st.markdown(f"<div style='text-align: center;'>ページ {page_num}</div>", unsafe_allow_html=True)
             if content_type == 'video':
                 # HTMLのvideoタグを使用してサイズを制御
                 st.markdown(f'<video controls style="height: 200px;"><source src="{content_source}" type="video/mp4"></video>', unsafe_allow_html=True)
             else:
                 # HTMLのimgタグを使用してサイズを制御
                 st.markdown(f'<img src="{content_source}" style="height: 200px;">', unsafe_allow_html=True)
-
-        row_cols[2].write(f"{views:,}")
-        row_cols[3].write(f"{exit_rate:.1f}%")
-        row_cols[4].write(f"{stay_time:.1f} 秒")
-        row_cols[5].write(f"{backflow_rate:.1f}%")
+        row_cols[1].write(f"{views:,}")
+        row_cols[2].write(f"{exit_rate:.1f}%")
+        row_cols[3].write(f"{stay_time:.1f} 秒")
+        row_cols[4].write(f"{backflow_rate:.1f}%")
         st.markdown("---")
     
     st.markdown("---")
