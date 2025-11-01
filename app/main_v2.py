@@ -1352,28 +1352,25 @@ elif selected_analysis == "ページ分析":
         stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
         backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
 
-        # プレビュー部分のHTMLを生成
-        if content_type == 'video':
-            # 動画はクリック可能なプレースホルダー画像
-            preview_content = f'<a href="{content_source}" target="_blank"><img src="{VIDEO_PLACEHOLDER_IMAGE}" style="height: 120px; object-fit: cover;"></a>'
-        else:
-            # 画像はそのままURL
-            preview_content = content_source
-        row_cols = st.columns([1.5, 1, 1, 1, 1])
-        
-        with row_cols[0]:
-            st.markdown(f"<div style='text-align: center;'>ページ {page_num}</div>", unsafe_allow_html=True)
-            if content_type == 'video':
-                # HTMLのvideoタグを使用してサイズを制御
-                st.markdown(f'<video controls style="height: 200px;"><source src="{content_source}" type="video/mp4"></video>', unsafe_allow_html=True)
-            else:
-                # HTMLのimgタグを使用してサイズを制御
-                st.markdown(f'<img src="{content_source}" style="height: 200px;">', unsafe_allow_html=True)
-        row_cols[1].write(f"{views:,}")
-        row_cols[2].write(f"{exit_rate:.1f}%")
-        row_cols[3].write(f"{stay_time:.1f} 秒")
-        row_cols[4].write(f"{backflow_rate:.1f}%")
-        st.markdown("---")
+        # 行の開始
+        if (page_num - 1) % cards_per_row == 0:
+            cols = st.columns(cards_per_row)
+
+        # 現在のカードを表示する列
+        col_index = (page_num - 1) % cards_per_row
+        with cols[col_index]:
+            with st.container(border=True):
+                st.markdown(f"**ページ {page_num}**")
+                if content_type == 'video':
+                    st.video(content_source)
+                else:
+                    st.image(content_source, use_container_width=True)
+                
+                metric_cols = st.columns(2)
+                metric_cols[0].metric("ビュー数", f"{views:,}")
+                metric_cols[1].metric("離脱率", f"{exit_rate:.1f}%")
+                metric_cols[0].metric("滞在時間", f"{stay_time:.1f}秒")
+                metric_cols[1].metric("逆行率", f"{backflow_rate:.1f}%")
     
     st.markdown("---")
     
