@@ -1208,45 +1208,43 @@ elif selected_analysis == "ページ分析":
         st.stop()
     
     # --- BigQueryデータシミュレーション ---
-    # 実際のBigQueryデータから取得されるコンテンツ情報（LPのURL、ページ番号、コンテンツタイプ、コンテンツソース）
-    # ここではダミーデータとして定義します。
-    # 実際には、selected_lpに基づいてBigQueryからデータをクエリするロジックに置き換わります。
-    dummy_lp_content_data_store = {
-        "https://example.com/lp/product-a": [
-            {'page_number': 1, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page1_Image'},
-            {'page_number': 2, 'content_type': 'video', 'content_source': 'https://www.w3schools.com/html/mov_bbb.mp4'}, # 例: 動画URL
-            {'page_number': 3, 'content_type': 'html', 'content_source': '<h1>Page 3 Custom HTML</h1><p>これはカスタムHTMLコンテンツです。</p><p>BigQueryから取得したHTMLを直接表示します。</p>'},
-            {'page_number': 4, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page4_Image'},
-            {'page_number': 5, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page5_Image'},
-            {'page_number': 6, 'content_type': 'video', 'content_source': 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4'}, # 例: 別の動画URL
-            {'page_number': 7, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page7_Image'},
-            {'page_number': 8, 'content_type': 'html', 'content_source': '<h2>Page 8 Info</h2><p>詳細情報がここに表示されます。</p><ul><li>項目1</li><li>項目2</li></ul>'},
-            {'page_number': 9, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page9_Image'},
-            {'page_number': 10, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=Page10_Image'},
-        ],
-        "https://example.com/lp/product-b": [ # 別のLPのダミーデータ
-            {'page_number': 1, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=B_Page1_Image'},
-            {'page_number': 2, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=B_Page2_Image'},
-            {'page_number': 3, 'content_type': 'video', 'content_source': 'https://www.w3schools.com/html/mov_bbb.mp4'},
-            {'page_number': 4, 'content_type': 'image', 'content_source': 'https://via.placeholder.com/300x500.png?text=B_Page4_Image'},
-        ]
+    # --- コンテンツ情報取得ロジック ---
+    # ご指定のURLリストをここに定義します。
+    lp_content_urls = {
+        1: "https://shungene.lm-c.jp/tst08/01.mp4", # P1
+        2: "https://shungene.lm-c.jp/tst08/01.jpg",
+        3: "https://shungene.lm-c.jp/tst08/02.jpg",
+        4: "https://shungene.lm-c.jp/tst08/03.jpg",
+        5: "https://shungene.lm-c.jp/tst08/04.jpg",
+        6: "https://shungene.lm-c.jp/tst08/05.jpg",
+        7: "https://shungene.lm-c.jp/tst08/06.jpg",
+        8: "https://shungene.lm-c.jp/tst08/06.mp4",
+        9: "https://shungene.lm-c.jp/tst08/07.jpg", # P9
+        10: "https://shungene.lm-c.jp/tst08/08.jpg",
+        11: "https://shungene.lm-c.jp/tst08/09.jpg",
+        12: "https://shungene.lm-c.jp/tst08/10.jpg",
+        13: "https://shungene.lm-c.jp/tst08/11.jpg",
+        14: "https://shungene.lm-c.jp/tst08/12.jpg",
+        15: "https://shungene.lm-c.jp/tst08/13.jpg", # P15
+        16: "https://shungene.lm-c.jp/tst08/14.jpg",
+        17: "https://shungene.lm-c.jp/tst08/15.jpg",
+        18: "https://shungene.lm-c.jp/tst08/16.jpg",
     }
 
     # BigQueryからコンテンツ情報を取得する関数をシミュレート
     def get_lp_content_info(lp_url, page_num):
         """
-        指定されたLPのURLとページ番号に基づいて、コンテンツのタイプとソースを返します。
-        実際にはBigQueryからデータを取得するロジックに置き換わります。
+        指定されたページ番号に基づいて、コンテンツのタイプとソースを返します。
+        現在はハードコードされたURLリストを使用します。
         """
-        if lp_url in dummy_lp_content_data_store:
-            for item in dummy_lp_content_data_store[lp_url]:
-                if item['page_number'] == page_num:
-                    return item
-        # データが見つからない場合や、ダミーデータを超えるページの場合のデフォルト
-        # 拡張子で判別するロジックをここに組み込むことも可能
-        # 例: if content_source.endswith(('.mp4', '.webm')): return 'video'
-        # 今回はcontent_typeがデータに含まれる前提で進めます。
-        return {'page_number': page_num, 'content_type': 'image', 'content_source': f"https://via.placeholder.com/300x500.png?text=ダミー{page_num}"}
+        url = lp_content_urls.get(page_num)
+        if url:
+            if url.endswith(('.mp4', '.webm', '.mov')):
+                return {'page_number': page_num, 'content_type': 'video', 'content_source': url}
+            else:
+                return {'page_number': page_num, 'content_type': 'image', 'content_source': url}
+        # リストにないページ番号の場合はデフォルトのプレースホルダーを返す
+        return {'page_number': page_num, 'content_type': 'image', 'content_source': f"https://via.placeholder.com/150x250.png?text=Page{page_num}"}
 
     # テーブル表示用のプレースホルダー画像
     VIDEO_PLACEHOLDER_IMAGE = "https://via.placeholder.com/150x250.png?text=動画コンテンツ"
@@ -1290,7 +1288,7 @@ elif selected_analysis == "ページ分析":
     page_stats = page_stats.merge(page_exit_df, on='ページ番号', how='left')
 
     # 平均滞在時間(秒)を計算して列を追加
-    stay_time_df = filtered_df.groupby('page_num_dom')['stay_ms'].mean().reset_index()
+    stay_time_df = filtered_df.groupby('page_num_dom')['stay_ms'].mean().reset_index() # type: ignore
     stay_time_df.rename(columns={'page_num_dom': 'ページ番号', 'stay_ms': '平均滞在時間(秒)'}, inplace=True)
     stay_time_df['平均滞在時間(秒)'] /= 1000
     page_stats = page_stats.merge(stay_time_df, on='ページ番号', how='left')
@@ -1317,139 +1315,66 @@ elif selected_analysis == "ページ分析":
     st.markdown('<div class="graph-description">項目名をクリックすると並べ替えができます。表示個数は右のプルダウンから選択してください</div>', unsafe_allow_html=True)
 
     # プルダウンメニューを独立した狭いカラムに配置し、右端に寄せる
-    _, pulldown_col_right = st.columns([0.85, 0.15]) # 左に広い空のカラム、右に狭いプルダウン用のカラム
+    # _, pulldown_col_right = st.columns([0.85, 0.15]) # 左に広い空のカラム、右に狭いプルダウン用のカラム
 
-    with pulldown_col_right:
-        num_to_display_str = st.selectbox(
-            "表示件数",
-            ["すべて"] + list(range(5, 51, 5)),
-            index=0,
-            label_visibility="collapsed", # ラベルを非表示にしてコンパクトに
-            key="page_analysis_display_count"
-        )
-    # 各ページのインタラクション要素のメトリクスを計算
-    comprehensive_metrics = []
-    
-    for page_num in range(1, actual_page_count + 1):
-        # 画像URLを取得
-        # BigQueryからコンテンツ情報を取得（シミュレーション）
+    # with pulldown_col_right:
+    #     num_to_display_str = st.selectbox(
+    #         "表示件数",
+    #         ["すべて"] + list(range(5, 51, 5)),
+    #         index=0,
+    #         label_visibility="collapsed", # ラベルを非表示にしてコンパクトに
+    #         key="page_analysis_display_count"
+    #     )
+
+    # テーブル表示用のデータを作成
+    table_data = []
+    # --- テーブルヘッダー ---
+    header_cols = st.columns([1, 1, 1, 1, 1, 1])
+    header_cols[0].markdown("**ページ**")
+    header_cols[1].markdown("**プレビュー**")
+    header_cols[2].markdown("**ビュー数**")
+    header_cols[3].markdown("**離脱率**")
+    header_cols[4].markdown("**平均滞在時間**")
+    header_cols[5].markdown("**逆行率**")
+    st.markdown("---")
+
+    # --- テーブルボディ ---
+    for page_num in range(1, 19):
         content_info = get_lp_content_info(selected_lp, page_num)
         content_type = content_info['content_type']
         content_source = content_info['content_source']
 
-        # テーブル表示用の画像URLを決定
-        display_image_for_table = ""
-        if content_type == 'image':
-            display_image_for_table = content_source
-        elif content_type == 'video':
-            display_image_for_table = VIDEO_PLACEHOLDER_IMAGE
-        elif content_type == 'html':
-            display_image_for_table = HTML_PLACEHOLDER_IMAGE
-        # その他のタイプがあればここに追加
-
-        # 基本メトリクス
         page_data = page_stats[page_stats['ページ番号'] == page_num]
-        
-        if len(page_data) > 0:
-            sessions = int(page_data['ビュー数'].values[0])
-            bounce_rate = page_data['離脱率'].values[0]
-            # dwell_time, load_time は filtered_df から直接計算
-            dwell_time = page_data['平均滞在時間(秒)'].values[0] if '平均滞在時間(秒)' in page_data and not pd.isna(page_data['平均滞在時間(秒)'].values[0]) else 0
-            load_time = filtered_df[filtered_df['page_num_dom'] == page_num]['load_time_ms'].mean()
-            backflow_rate = page_data['逆行率'].values[0] if '逆行率' in page_data.columns else 0
+        views = int(page_data['ビュー数'].iloc[0]) if not page_data.empty else 0
+        exit_rate = page_data['離脱率'].iloc[0] if not page_data.empty else 0
+        stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty else 0
+        views = int(page_data['ビュー数'].iloc[0]) if not page_data.empty and 'ビュー数' in page_data.columns else 0
+        exit_rate = page_data['離脱率'].iloc[0] if not page_data.empty and '離脱率' in page_data.columns else 0
+        stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
+        backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
+
+        # プレビュー部分のHTMLを生成
+        if content_type == 'video':
+            # 動画はクリック可能なプレースホルダー画像
+            preview_content = f'<a href="{content_source}" target="_blank"><img src="{VIDEO_PLACEHOLDER_IMAGE}" style="height: 120px; object-fit: cover;"></a>'
         else:
-            sessions = 0
-            bounce_rate = 0
-            dwell_time = 0
-            load_time = np.nan
-            backflow_rate = 0
+            # 画像はそのままURL
+            preview_content = content_source
+        row_cols = st.columns([1, 1, 1, 1, 1, 1])
+        row_cols[0].write(f"ページ {page_num}")
         
-        # PV数（ページビュー数）
-        pv = len(filtered_df[filtered_df['page_num_dom'] == page_num])
-        
-        # インタラクション要素のメトリクス計算
-        page_events = filtered_df[filtered_df['page_num_dom'] == page_num]
-        
-        # フローティングバナークリック（elem_classesに'floating-banner'を含むクリック）
-        floating_banner_clicks = len(page_events[(page_events['event_name'] == 'click') & 
-                                                  (page_events['elem_classes'].str.contains('floating', na=False))])
-        floating_banner_displays = sessions  # ページビュー数と同じと仮定
-        floating_banner_ctr = (floating_banner_clicks / floating_banner_displays * 100) if floating_banner_displays > 0 else None
-        
-        # CTAクリック（elem_classesに'cta'や'btn-primary'を含むクリック）
-        cta_clicks = len(page_events[(page_events['event_name'] == 'click') & 
-                                     ((page_events['elem_classes'].str.contains('cta', na=False)) | 
-                                      (page_events['elem_classes'].str.contains('btn-primary', na=False)))])
-        cta_displays = sessions
-        cta_ctr = (cta_clicks / cta_displays * 100) if cta_displays > 0 else None
-        
-        # 離脱防止ポップアップクリック（elem_classesに'exit-popup'を含むクリック）
-        exit_popup_clicks = len(page_events[(page_events['event_name'] == 'click') & 
-                                            (page_events['elem_classes'].str.contains('exit', na=False))])
-        exit_popup_displays = int(sessions * 0.3)  # 仮定: 30%のセッションでポップアップが表示される
-        exit_popup_ctr = (exit_popup_clicks / exit_popup_displays * 100) if exit_popup_displays > 0 else None
-        
-        # 表示時間（平均滞在時間と同じ）
-        display_time = dwell_time
-        
-        # メトリクスをフォーマット
-        def format_metric(value, is_percentage=False, is_time=False):
-            if value is None:
-                return "---"
-            elif is_percentage:
-                return f"{value:.1f}%" if value > 0 else "0%"
-            elif is_time:
-                return f"{value:.1f}秒"
+        with row_cols[1]:
+            if content_type == 'video':
+                # 動画はクリック可能なプレースホルダー画像
+                st.markdown(f'<a href="{content_source}" target="_blank"><img src="{VIDEO_PLACEHOLDER_IMAGE}" style="height: 120px; object-fit: cover;"></a>', unsafe_allow_html=True)
             else:
-                return f"{int(value):,}"
-        
-        comprehensive_metrics.append({
-            'ページ': f"ページ{page_num}",
-            'コンテンツタイプ': content_type, # 新しい列
-            'ページ画像': display_image_for_table, # テーブル表示用の画像URL
-            'セッション数': format_metric(sessions),
-            'PV': format_metric(pv),
-            '離脱率': format_metric(bounce_rate, is_percentage=True),
-            '逆行率': format_metric(backflow_rate, is_percentage=True),
-            '滞在時間': format_metric(dwell_time, is_time=True),
-            'フローティングバナーCTR': format_metric(floating_banner_ctr, is_percentage=True),
-            'CTA CTR': format_metric(cta_ctr, is_percentage=True),
-            '離脱防止ポップアップCTR': format_metric(exit_popup_ctr, is_percentage=True),
-            '表示時間': format_metric(display_time, is_time=True)
-        })
-    
-    comprehensive_df = pd.DataFrame(comprehensive_metrics)
-    
-    
-    # 列名を短縮
-    comprehensive_df.rename(columns={
-        'フローティングバナーCTR': 'FB CTR',
-        '離脱防止ポップアップCTR': '離脱POP CTR'
-    }, inplace=True)
+                st.image(content_source, width=72) # 高さを約120pxにするため幅を調整
 
-    # データフレームで表示（画像列付き）
-    if not comprehensive_df.empty:
-        # 表示件数に応じてデータをスライス
-        if num_to_display_str != "すべて":
-            num_to_display = int(num_to_display_str)
-            display_df = comprehensive_df.head(num_to_display)
-        else:
-            display_df = comprehensive_df
-
-        # st.containerでラップして再描画時のバグを回避
-        df_container = st.container()
-        with df_container:
-            st.dataframe(
-                display_df,
-                column_config={
-                    "ページ画像": st.column_config.ImageColumn("プレビュー", help="ページのコンテンツプレビュー"), # ラベルを変更
-                    "ページ": None, # ページ列を非表示にする
-                },
-                hide_index=True,
-                use_container_width=True
-            )
-    else:
-        st.warning("テーブルデータが空です。")
+        row_cols[2].write(f"{views:,}")
+        row_cols[3].write(f"{exit_rate:.1f}%")
+        row_cols[4].write(f"{stay_time:.1f} 秒")
+        row_cols[5].write(f"{backflow_rate:.1f}%")
+        st.markdown("---")
     
     st.markdown("---")
     
