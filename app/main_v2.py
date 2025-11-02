@@ -4504,11 +4504,11 @@ elif selected_analysis == "アラート":
     st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">パフォーマンスの急な変化や異常を自動で検知し、お知らせします。</div>', unsafe_allow_html=True)
 
-    st.markdown("#### 🚨 重要度：高")
+    st.markdown("#### 重要度：高")
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1.5])
         with col1:
-            st.error("CVR 急落", icon="📉")
+            st.error("CVR 急落")
         with col2:
             st.markdown("**全体のコンバージョン率が過去7日間の平均より50%低下しました。**")
             st.markdown("発生日時: 2023年10月26日 15:00頃")
@@ -4520,7 +4520,7 @@ elif selected_analysis == "アラート":
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1.5])
         with col1:
-            st.error("流入停止", icon="🛑")
+            st.error("流入停止")
         with col2:
             st.markdown("**「Facebook広告」チャネルからのセッションが停止している可能性があります。**")
             st.markdown("最終検知: 2023年10月27日 09:30")
@@ -4530,11 +4530,11 @@ elif selected_analysis == "アラート":
 
     st.markdown("---")
 
-    st.markdown("#### ⚠️ 重要度：中")
+    st.markdown("#### 重要度：中")
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1.5])
         with col1:
-            st.warning("読込悪化", icon="⏳")
+            st.warning("読込悪化")
         with col2:
             st.markdown("**ページ5の平均読込時間が4秒を超え、通常より70%悪化しています。**")
             st.markdown("対象デバイス: スマートフォン")
@@ -4545,7 +4545,7 @@ elif selected_analysis == "アラート":
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1.5])
         with col1:
-            st.warning("離脱率増", icon="🚪")
+            st.warning("離脱率増")
         with col2:
             st.markdown("**ページ2の離脱率が過去30日間で最も高くなっています。**")
             st.metric("現在の離脱率", "65.2%", delta="15.8%", delta_color="inverse")
@@ -4555,11 +4555,11 @@ elif selected_analysis == "アラート":
 
     st.markdown("---")
 
-    st.markdown("#### ℹ️ 重要度：低")
+    st.markdown("#### 重要度：低")
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1.5])
         with col1:
-            st.info("A/Bテスト", icon="🧪")
+            st.info("A/Bテスト")
         with col2:
             st.markdown("**CTAテストでバリアントBのCVRが有意に低い可能性があります。**")
             st.markdown("p値が0.1を上回り、統計的有意差が見られない状態が続いています。")
@@ -4570,7 +4570,7 @@ elif selected_analysis == "アラート":
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1.5])
         with col1:
-            st.info("新規流入", icon="📈")
+            st.info("新規流入")
         with col2:
             st.markdown("**「note.com」からのリファラル流入が急増しています。**")
             st.markdown("メディア掲載や記事で紹介された可能性があります。")
