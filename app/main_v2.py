@@ -197,6 +197,11 @@ def safe_rate(numerator, denominator):
     # denominatorが単一の数値の場合
     return numerator / denominator if denominator != 0 else 0.0
 
+# --- ページ遷移関数 ---
+def navigate_to(page_name):
+    """指定されたページに遷移する"""
+    st.experimental_set_query_params(page=page_name)
+
 # データ読み込み
 @st.cache_data
 def load_data():
@@ -4502,81 +4507,105 @@ elif selected_analysis == "専門用語解説":
 # タブ12: アラート
 elif selected_analysis == "アラート":
     st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
-    st.markdown('<div class="graph-description">パフォーマンスの急な変化や異常を自動で検知し、お知らせします。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">主要指標の急な変化や異常を自動で検知し、お知らせします。この分析は、日次の全体パフォーマンスに基づいています。</div>', unsafe_allow_html=True)
 
-    st.markdown("#### 重要度：高")
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.error("CVR 急落")
-        with col2:
-            st.markdown("**全体のコンバージョン率が過去7日間の平均より50%低下しました。**")
-            st.markdown("発生日時: 2023年10月26日 15:00頃")
-        with col3:
-            if st.button("時系列分析で確認", key="alert_cvr_decline", use_container_width=True):
-                # 本来は該当ページに遷移するロジック
-                st.toast("時系列分析ページに移動します...")
+    # BigQueryのv_alertsビューと同様の計算をpandasで実行
+    # 1. 日次KPIサマリーを作成 (v_kpi_daily相当)
+    daily_kpi = df.groupby(df['event_date'].dt.date).agg(
+        sessions=('session_id', 'nunique'),
+        conversions=('cv_type', lambda x: x.notna().sum())
+    ).reset_index()
+    daily_kpi['cvr'] = safe_rate(daily_kpi['conversions'], daily_kpi['sessions'])
 
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.error("流入停止")
-        with col2:
-            st.markdown("**「Facebook広告」チャネルからのセッションが停止している可能性があります。**")
-            st.markdown("最終検知: 2023年10月27日 09:30")
-        with col3:
-            if st.button("リアルタイムビューで確認", key="alert_traffic_stop", use_container_width=True):
-                st.toast("リアルタイムビューに移動します...")
+    # 2. 移動平均と前日比を計算 (ma相当)
+    if len(daily_kpi) > 7:
+        daily_kpi = daily_kpi.sort_values('event_date').reset_index(drop=True)
+        daily_kpi['sessions_ma7'] = daily_kpi['sessions'].rolling(window=7, min_periods=1).mean().shift(1)
+        daily_kpi['cvr_ma7'] = daily_kpi['cvr'].rolling(window=7, min_periods=1).mean().shift(1)
+        daily_kpi['sessions_prev'] = daily_kpi['sessions'].shift(1)
+        daily_kpi['cvr_prev'] = daily_kpi['cvr'].shift(1)
 
-    st.markdown("---")
+        # 3. 変化率を計算
+        daily_kpi['sessions_dod'] = safe_rate(daily_kpi['sessions'] - daily_kpi['sessions_prev'], daily_kpi['sessions_prev'])
+        daily_kpi['cvr_dod'] = safe_rate(daily_kpi['cvr'] - daily_kpi['cvr_prev'], daily_kpi['cvr_prev'])
+        daily_kpi['sessions_vs_ma7'] = safe_rate(daily_kpi['sessions'] - daily_kpi['sessions_ma7'], daily_kpi['sessions_ma7'])
+        daily_kpi['cvr_vs_ma7'] = safe_rate(daily_kpi['cvr'] - daily_kpi['cvr_ma7'], daily_kpi['cvr_ma7'])
 
-    st.markdown("#### 重要度：中")
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.warning("読込悪化")
-        with col2:
-            st.markdown("**ページ5の平均読込時間が4秒を超え、通常より70%悪化しています。**")
-            st.markdown("対象デバイス: スマートフォン")
-        with col3:
-            if st.button("ページ分析で確認", key="alert_load_time", use_container_width=True):
-                st.toast("ページ分析に移動します...")
+        # 最新日のデータを取得
+        latest_alert_data = daily_kpi.iloc[-1]
 
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.warning("離脱率増")
-        with col2:
-            st.markdown("**ページ2の離脱率が過去30日間で最も高くなっています。**")
-            st.metric("現在の離脱率", "65.2%", delta="15.8%", delta_color="inverse")
-        with col3:
-            if st.button("ページ分析で確認", key="alert_exit_rate", use_container_width=True):
-                st.toast("ページ分析に移動します...")
+        # アラートフラグ
+        alerts = []
 
-    st.markdown("---")
+        # --- 重要度：高 ---
+        if latest_alert_data['cvr_dod'] < -0.5:
+            alerts.append({
+                'level': 'high', 'title': 'CVRが急落',
+                'description': f"**コンバージョン率が前日比で {abs(latest_alert_data['cvr_dod']):.1%} 大幅に低下しました。**",
+                'details': f"前日: {latest_alert_data['cvr_prev']:.2%}, 本日: {latest_alert_data['cvr']:.2%}",
+                'action': '時系列分析で確認', 'page': '時系列分析'
+            })
+        if latest_alert_data['sessions_dod'] < -0.5:
+            alerts.append({
+                'level': 'high', 'title': 'セッションが急減',
+                'description': f"**セッション数が前日比で {abs(latest_alert_data['sessions_dod']):.1%} 大幅に減少しました。**",
+                'details': f"前日: {int(latest_alert_data['sessions_prev']):,}, 本日: {int(latest_alert_data['sessions']):,}",
+                'action': 'リアルタイムビューで確認', 'page': 'リアルタイムビュー'
+            })
 
-    st.markdown("#### 重要度：低")
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.info("A/Bテスト")
-        with col2:
-            st.markdown("**CTAテストでバリアントBのCVRが有意に低い可能性があります。**")
-            st.markdown("p値が0.1を上回り、統計的有意差が見られない状態が続いています。")
-        with col3:
-            if st.button("A/Bテスト分析で確認", key="alert_ab_test", use_container_width=True):
-                st.toast("A/Bテスト分析に移動します...")
+        # --- 重要度：中 ---
+        if -0.5 <= latest_alert_data['cvr_dod'] < -0.3:
+            alerts.append({
+                'level': 'medium', 'title': 'CVRが低下',
+                'description': f"**コンバージョン率が前日比で {abs(latest_alert_data['cvr_dod']):.1%} 低下しています。**",
+                'details': f"前日: {latest_alert_data['cvr_prev']:.2%}, 本日: {latest_alert_data['cvr']:.2%}",
+                'action': '時系列分析で確認', 'page': '時系列分析'
+            })
+        if -0.5 <= latest_alert_data['sessions_dod'] < -0.3:
+            alerts.append({
+                'level': 'medium', 'title': 'セッションが減少',
+                'description': f"**セッション数が前日比で {abs(latest_alert_data['sessions_dod']):.1%} 減少しています。**",
+                'details': f"前日: {int(latest_alert_data['sessions_prev']):,}, 本日: {int(latest_alert_data['sessions']):,}",
+                'action': 'リアルタイムビューで確認', 'page': 'リアルタイムビュー'
+            })
 
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.info("新規流入")
-        with col2:
-            st.markdown("**「note.com」からのリファラル流入が急増しています。**")
-            st.markdown("メディア掲載や記事で紹介された可能性があります。")
-        with col3:
-            if st.button("セグメント分析で確認", key="alert_referral", use_container_width=True):
-                st.toast("セグメント分析に移動します...")
+        # アラートを表示
+        high_alerts = [a for a in alerts if a['level'] == 'high']
+        medium_alerts = [a for a in alerts if a['level'] == 'medium']
+
+        if not alerts:
+            st.success("✅ 現在、対応が必要なアラートはありません。")
+
+        if high_alerts:
+            st.markdown("#### 重要度：高")
+            for alert in high_alerts:
+                with st.container():
+                    col1, col2, col3 = st.columns([1, 4, 1.5])
+                    with col1:
+                        st.error(alert['title'])
+                    with col2:
+                        st.markdown(alert['description'])
+                        st.markdown(f"<small>{alert['details']}</small>", unsafe_allow_html=True)
+                    with col3:
+                        st.button(alert['action'], key=f"alert_{alert['title']}", use_container_width=True, on_click=navigate_to, args=(alert['page'],))
+            st.markdown("---")
+
+        if medium_alerts:
+            st.markdown("#### 重要度：中")
+            for alert in medium_alerts:
+                with st.container():
+                    col1, col2, col3 = st.columns([1, 4, 1.5])
+                    with col1:
+                        st.warning(alert['title'])
+                    with col2:
+                        st.markdown(alert['description'])
+                        st.markdown(f"<small>{alert['details']}</small>", unsafe_allow_html=True)
+                    with col3:
+                        st.button(alert['action'], key=f"alert_{alert['title']}", use_container_width=True, on_click=navigate_to, args=(alert['page'],))
+            st.markdown("---")
+
+    else:
+        st.info("アラートを生成するための十分なデータがありません（最低8日分のデータが必要です）。")
 
 # フッター
 st.markdown("---")
