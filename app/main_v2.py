@@ -9,7 +9,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
-from capture_lp import extract_lp_text_content # 新しくインポート
+try:
+    from capture_lp import extract_lp_text_content
+except ImportError:
+    extract_lp_text_content = None
 import time # ファイルの先頭でインポート
 # scipyをインポート（A/Bテストの有意差検定で使用）
 
@@ -23,6 +26,14 @@ st.set_page_config(
 
 # ブラウザがスクロールする先の「基点」を設置
 st.markdown('<a id="top-anchor"></a>', unsafe_allow_html=True)
+
+# --- ページ遷移関数 ---
+def navigate_to(page_name):
+    """指定されたページに遷移する"""
+    try:
+        st.query_params["page"] = page_name
+    except AttributeError:
+        st.experimental_set_query_params(page=page_name)
 
 # カスタムCSS
 st.markdown("""
@@ -190,17 +201,14 @@ st.markdown("""
 
 # --- 堅牢化のためのヘルパー関数 ---
 def safe_rate(numerator, denominator):
-    """ゼロ除算を回避して率を計算する"""
-    # denominatorがSeriesの場合でも動作するように修正
+    """ゼロ除算を回避して率を計算する (inf対応)"""
     if isinstance(denominator, pd.Series):
-        return numerator.divide(denominator, fill_value=0)
+        # 分母が0の場所をnanに置き換えてから計算し、結果のinf/nanを0で埋める
+        denominator_safe = denominator.replace(0, np.nan)
+        rate = numerator.divide(denominator_safe)
+        return rate.replace([np.inf, -np.inf], np.nan).fillna(0)
     # denominatorが単一の数値の場合
     return numerator / denominator if denominator != 0 else 0.0
-
-# --- ページ遷移関数 ---
-def navigate_to(page_name):
-    """指定されたページに遷移する"""
-    st.experimental_set_query_params(page=page_name)
 
 # データ読み込み
 @st.cache_data
@@ -217,11 +225,11 @@ def get_comparison_data(df, current_start, current_end, comparison_type):
     比較期間のデータを取得
     comparison_type: 'previous_period', 'previous_week', 'previous_month', 'previous_year'
     """
-    period_length = (current_end - current_start).days
+    period_length_days = (current_end - current_start).days + 1 # 両端含む日数
     
     if comparison_type == 'previous_period':
         comp_end = current_start - timedelta(days=1)
-        comp_start = comp_end - timedelta(days=period_length)
+        comp_start = comp_end - timedelta(days=period_length_days - 1)
     elif comparison_type == 'previous_week':
         comp_end = current_end - timedelta(weeks=1)
         comp_start = current_start - timedelta(weeks=1)
@@ -236,6 +244,15 @@ def get_comparison_data(df, current_start, current_end, comparison_type):
     
     comparison_df = df[(df['event_date'] >= comp_start) & (df['event_date'] <= comp_end)]
     return comparison_df, comp_start, comp_end
+
+def safe_extract_lp_text_content(extractor_func, url):
+    """capture_lpモジュールがなくてもクラッシュしないようにするラッパー"""
+    if extractor_func:
+        return extractor_func(url)
+    else:
+        # モジュールがない場合のデフォルトの戻り値
+        return {"headlines": [], "body_copy": [], "ctas": []}
+
 
 # データ読み込み
 df = load_data()
@@ -323,7 +340,13 @@ if selected_analysis == "全体サマリー":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1)
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None, # 選択肢がなければindexもNone
+            key="summary_lp", # キーを明示
+            disabled=not lp_options # 選択肢がなければ操作不可
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -383,24 +406,6 @@ if selected_analysis == "全体サマリー":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -1018,12 +1023,10 @@ if selected_analysis == "全体サマリー":
 
     if st.button("AI分析を実行", key="summary_ai_btn", type="primary", use_container_width=True):
         st.session_state.summary_ai_open = True
-        st.rerun()
 
     if st.session_state.summary_ai_open:
         with st.container():
             with st.spinner("AIが全体データを分析中..."):
-                st.markdown("#### 1. 現状の評価")
                 evaluation_text = f"""
                 現在のLPパフォーマンスを総合的に評価します。
                 - **強み**: 平均滞在時間({avg_stay_time:.1f}秒)や最終CTA到達率({final_cta_rate:.1f}%)は比較的良好で、一度興味を持ったユーザーはコンテンツを読み進める傾向にあります。
@@ -1031,7 +1034,6 @@ if selected_analysis == "全体サマリー":
                 """
                 st.info(evaluation_text)
 
-                st.markdown("#### 2. 今後の考察と改善案")
                 recommendation_text = """
                 **最優先課題は「ファーストビューの改善」です。**
                 多くのユーザーが最初の接点で離脱しているため、ここを改善することが全体のパフォーマンス向上に最も効果的です。
@@ -1047,7 +1049,6 @@ if selected_analysis == "全体サマリー":
 
             if st.button("AI分析を閉じる", key="summary_ai_close"):
                 st.session_state.summary_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -1106,7 +1107,13 @@ elif selected_analysis == "ページ分析":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="page_analysis_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="page_analysis_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -1160,23 +1167,6 @@ elif selected_analysis == "ページ分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -1320,17 +1310,27 @@ elif selected_analysis == "ページ分析":
     st.markdown('<div class="graph-description">各ページのプレビューと主要指標を一覧で確認できます。</div>', unsafe_allow_html=True)
 
     # 表示件数選択プルダウン
-    _, pulldown_col = st.columns([5, 1]) # 右端6分の1のレイアウト
+    actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 0
+    st.info(f"📊 このLPは {actual_page_count} ページで構成されています")
+
+    _, pulldown_col = st.columns([5, 1])
     with pulldown_col:
         num_to_display_str = st.selectbox(
             "表示件数",
-            ["すべて"] + list(range(5, 51, 5)),
+            ["すべて"] + list(range(5, min(51, actual_page_count + 1), 5)),
             index=0,
             label_visibility="collapsed" # ラベルを非表示にしてコンパクトに
         )
 
     # 表示するページ数を決定
-    num_to_display = 18 if num_to_display_str == "すべて" else int(num_to_display_str)
+    if num_to_display_str == "すべて":
+        num_to_display = actual_page_count
+    else:
+        num_to_display = int(num_to_display_str)
+
+    # 実際のページ数と表示件数のうち、小さい方（min）でループする
+    for page_num in range(1, min(num_to_display, actual_page_count) + 1):
+        page_events = filtered_df[filtered_df['page_num_dom'] == page_num]
 
     # 18ページ分のカードを表示
     for page_num in range(1, num_to_display + 1):
@@ -1359,10 +1359,19 @@ elif selected_analysis == "ページ分析":
                 stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
                 backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
                 # 新しいメトリクスを取得（ダミーデータ）
-                cta_click_rate = np.random.uniform(5, 15) if views > 0 else 0
-                fb_click_rate = np.random.uniform(1, 5) if views > 0 else 0
-                exit_pop_click_rate = np.random.uniform(0.5, 3) if views > 0 else 0
-                load_time = filtered_df[filtered_df['page_num_dom'] == page_num]['load_time_ms'].mean() if not filtered_df[filtered_df['page_num_dom'] == page_num].empty else 0
+                page_events = filtered_df[filtered_df['page_num_dom'] == page_num]
+                page_sessions = page_events['session_id'].nunique()
+
+                cta_clicks = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('cta|btn-primary', na=False))].shape[0]
+                cta_click_rate = safe_rate(cta_clicks, page_sessions) * 100
+
+                fb_clicks = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('floating', na=False))].shape[0]
+                fb_click_rate = safe_rate(fb_clicks, page_sessions) * 100
+
+                exit_pop_clicks = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('exit', na=False))].shape[0]
+                exit_pop_click_rate = safe_rate(exit_pop_clicks, page_sessions) * 100
+
+                load_time = page_events['load_time_ms'].mean() if not page_events.empty else 0
 
                 # 上段メトリクス
                 metric_cols_top = st.columns(4)
@@ -1491,12 +1500,10 @@ elif selected_analysis == "ページ分析":
 
     if st.button("AI分析を実行", key="page_analysis_ai_btn", type="primary", use_container_width=True):
         st.session_state.page_analysis_ai_open = True
-        st.rerun()
 
     if st.session_state.page_analysis_ai_open:
         with st.container():
             with st.spinner("AIがページデータを分析中..."):
-                # ボトルネックページを特定
                 bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
                 
                 st.markdown("#### 1. 現状の評価") # type: ignore
@@ -1522,7 +1529,6 @@ elif selected_analysis == "ページ分析":
 
             if st.button("AI分析を閉じる", key="page_analysis_ai_close"):
                 st.session_state.page_analysis_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -1578,7 +1584,13 @@ elif selected_analysis == "セグメント分析":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="segment_analysis_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="segment_analysis_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -1632,23 +1644,6 @@ elif selected_analysis == "セグメント分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -1758,37 +1753,37 @@ elif selected_analysis == "セグメント分析":
 
     if st.button("AI分析を実行", key="segment_analysis_ai_btn", type="primary", use_container_width=True):
         st.session_state.segment_analysis_ai_open = True
-        st.rerun()
 
     if st.session_state.segment_analysis_ai_open:
         with st.container():
             with st.spinner("AIがセグメントデータを分析中..."):
                 if not segment_stats.empty:
-                    best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
-                    worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
+                    best_segment_row = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
+                    worst_segment_row = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
+                    best_segment = {'name': best_segment_row[segment_name], 'cvr': best_segment_row['コンバージョン率']}
+                    worst_segment = {'name': worst_segment_row[segment_name], 'cvr': worst_segment_row['コンバージョン率']}
                 else:
                     best_segment, worst_segment = (None, None)
                 
                 st.markdown("#### 1. 現状の評価")
                 st.info(f"""
                 {segment_type}では、パフォーマンスに顕著な差が見られます。
-                - **最もパフォーマンスが高いセグメント**: **{best_segment[segment_name]}** (CVR: {best_segment['コンバージョン率']:.2f}%)
-                - **最もパフォーマンスが低いセグメント**: **{worst_segment[segment_name]}** (CVR: {worst_segment['コンバージョン率']:.2f}%)
+                - **最もパフォーマンスが高いセグメント**: **{best_segment['name']}** (CVR: {best_segment['cvr']:.2f}%)
+                - **最もパフォーマンスが低いセグメント**: **{worst_segment['name']}** (CVR: {worst_segment['cvr']:.2f}%)
                 
-                特に **{worst_segment[segment_name]}** のセグメントは、他のセグメントと比較してCVRが低く、改善の機会が大きい領域です。
+                特に **{worst_segment['name']}** のセグメントは、他のセグメントと比較してCVRが低く、改善の機会が大きい領域です。
                 """)
 
                 st.markdown("#### 2. 今後の考察と改善案")
                 st.warning(f"""
-                **{worst_segment[segment_name]}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。
-                - **{segment_type}が「デバイス別」の場合**: {worst_segment[segment_name]}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
-                - **{segment_type}が「チャネル別」の場合**: {worst_segment[segment_name]}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
+                **{worst_segment['name']}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。
+                - **{segment_type}が「デバイス別」の場合**: {worst_segment['name']}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
+                - **{segment_type}が「チャネル別」の場合**: {worst_segment['name']}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
                 
-                逆に、**{best_segment[segment_name]}** は非常に効果的なセグメントです。このセグメントへの広告予算の増額や、類似ユーザーへのアプローチ拡大を検討する価値があります。
+                逆に、**{best_segment['name']}** は非常に効果的なセグメントです。このセグメントへの広告予算の増額や、類似ユーザーへのアプローチ拡大を検討する価値があります。
                 """)
             if st.button("AI分析を閉じる", key="segment_analysis_ai_close"):
                 st.session_state.segment_analysis_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -1845,7 +1840,13 @@ elif selected_analysis == "A/Bテスト分析":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="ab_test_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="ab_test_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -1899,23 +1900,6 @@ elif selected_analysis == "A/Bテスト分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -2187,12 +2171,11 @@ elif selected_analysis == "A/Bテスト分析":
 
     if st.button("AI分析を実行", key="ab_test_ai_btn", type="primary", use_container_width=True):
         st.session_state.ab_test_ai_open = True
-        st.rerun()
 
     if st.session_state.ab_test_ai_open:
         with st.container():
             with st.spinner("AIがA/Bテスト結果を分析中..."):
-                if len(ab_stats) >= 2:
+                if not ab_stats.empty and len(ab_stats) >= 2:
                     winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
                     baseline = ab_stats.iloc[0]
                     
@@ -2220,7 +2203,6 @@ elif selected_analysis == "A/Bテスト分析":
                     st.warning("比較するバリアントが2つ未満のため、詳細な分析は実行できません。")
             if st.button("AI分析を閉じる", key="ab_test_ai_close"):
                 st.session_state.ab_test_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -2282,7 +2264,13 @@ elif selected_analysis == "インタラクション分析":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="interaction_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="interaction_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -2336,23 +2324,6 @@ elif selected_analysis == "インタラクション分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -2459,12 +2430,10 @@ elif selected_analysis == "インタラクション分析":
 
     if st.button("AI分析を実行", key="interaction_ai_btn", type="primary", use_container_width=True):
         st.session_state.interaction_ai_open = True
-        st.rerun()
 
     if st.session_state.interaction_ai_open:
         with st.container():
             with st.spinner("AIがインタラクションデータを分析中..."):
-                best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
                 
                 st.markdown("#### 1. 現状の評価")
                 st.info(f"""
@@ -2486,7 +2455,6 @@ elif selected_analysis == "インタラクション分析":
                 """)
             if st.button("AI分析を閉じる", key="interaction_ai_close"):
                 st.session_state.interaction_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -2541,7 +2509,13 @@ elif selected_analysis == "動画・スクロール分析":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="video_scroll_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="video_scroll_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -2595,23 +2569,6 @@ elif selected_analysis == "動画・スクロール分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -2733,7 +2690,6 @@ elif selected_analysis == "動画・スクロール分析":
 
     if st.button("AI分析を実行", key="video_scroll_ai_btn", type="primary", use_container_width=True):
         st.session_state.video_scroll_ai_open = True
-        st.rerun()
 
     if st.session_state.video_scroll_ai_open:
         with st.container():
@@ -2763,7 +2719,6 @@ elif selected_analysis == "動画・スクロール分析":
                 """)
             if st.button("AI分析を閉じる", key="video_scroll_ai_close"):
                 st.session_state.video_scroll_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -2821,7 +2776,13 @@ elif selected_analysis == "時系列分析":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="timeseries_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="timeseries_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -2875,23 +2836,6 @@ elif selected_analysis == "時系列分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -3057,7 +3001,6 @@ elif selected_analysis == "時系列分析":
 
     if st.button("AI分析を実行", key="timeseries_ai_btn", type="primary", use_container_width=True):
         st.session_state.timeseries_ai_open = True
-        st.rerun()
 
     if st.session_state.timeseries_ai_open:
         with st.container():
@@ -3086,7 +3029,6 @@ elif selected_analysis == "時系列分析":
                 """)
             if st.button("AI分析を閉じる", key="timeseries_ai_close"):
                 st.session_state.timeseries_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -3175,7 +3117,6 @@ elif selected_analysis == "リアルタイムビュー":
 
     if st.button("AI分析を実行", key="realtime_ai_btn", type="primary", use_container_width=True):
         st.session_state.realtime_ai_open = True
-        st.rerun()
 
     if st.session_state.realtime_ai_open:
         with st.container():
@@ -3194,7 +3135,6 @@ elif selected_analysis == "リアルタイムビュー":
                 """)
             if st.button("AI分析を閉じる", key="realtime_ai_close"):
                 st.session_state.realtime_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -3241,7 +3181,13 @@ elif selected_analysis == "デモグラフィック情報":
 
     with filter_cols[1]:
         lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="demographic_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="demographic_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -3302,24 +3248,6 @@ elif selected_analysis == "デモグラフィック情報":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -3556,16 +3484,11 @@ elif selected_analysis == "デモグラフィック情報":
 
     if st.button("AI分析を実行", key="demographic_ai_btn", type="primary", use_container_width=True):
         st.session_state.demographic_ai_open = True
-        st.rerun()
 
     if st.session_state.demographic_ai_open:
         with st.container():
             with st.spinner("AIがデモグラフィックデータを分析中..."):
-                if not age_demo_df.empty:
-                    # パフォーマンスの高い年齢層を特定
-                    best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()]
-                else:
-                    best_age_group = None
+                best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()] if not age_demo_df.empty else {'年齢層': '不明', 'CVR (%)': 0}
                 
                 st.markdown("#### 1. 現状の評価")
                 st.info(f"""
@@ -3584,7 +3507,6 @@ elif selected_analysis == "デモグラフィック情報":
                 """)
             if st.button("AI分析を閉じる", key="demographic_ai_close"):
                 st.session_state.demographic_ai_open = False
-                st.rerun()
 
     # --- よくある質問 ---
     st.markdown("#### よくある質問")
@@ -3644,7 +3566,13 @@ elif selected_analysis == "AIによる分析・考察":
     with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else -1, key="ai_analysis_lp")
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="ai_analysis_lp",
+            disabled=not lp_options
+        )
 
     with filter_cols[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
@@ -3701,23 +3629,6 @@ elif selected_analysis == "AIによる分析・考察":
 
     # is_conversion列を作成
     filtered_df['is_conversion'] = filtered_df['cv_type'].notna().astype(int)
-
-    # ==============================================================================
-    #  デバッグ用: 3分以上の滞在時間データを強制的に生成
-    #  目的: 「3分以上」セグメントがグラフに表示されることを確認するため。
-    #  注意: このコードは本番データでは不要です。
-    # ==============================================================================
-    if not filtered_df.empty:
-        # 'stay_ms'列が存在し、かつNaNでない行が1つ以上あることを確認
-        if 'stay_ms' in filtered_df.columns and filtered_df['stay_ms'].notna().any():
-            # 滞在時間が最も長い上位5%のインデックスを取得
-            long_stay_indices = filtered_df['stay_ms'].nlargest(int(len(filtered_df) * 0.05)).index
-            
-            # それらの滞在時間を3分〜5分のランダムな値に書き換える
-            if not long_stay_indices.empty:
-                new_stay_times = np.random.randint(180000, 300000, size=len(long_stay_indices))
-                filtered_df.loc[long_stay_indices, 'stay_ms'] = new_stay_times
-    # ==============================================================================
 
     # 比較データの取得
     comparison_df = None
@@ -3865,12 +3776,11 @@ elif selected_analysis == "AIによる分析・考察":
 
     if st.button("AI分析を実行", key="ai_analysis_main_btn", type="primary", use_container_width=True): # type: ignore
         st.session_state.ai_analysis_open = True
-        st.rerun()
 
     if st.session_state.ai_analysis_open:
         with st.container():
             # LPのURLからテキストコンテンツを抽出
-            lp_text_content = extract_lp_text_content(selected_lp)
+            lp_text_content = safe_extract_lp_text_content(extract_lp_text_content, selected_lp)
             main_headline = lp_text_content['headlines'][0] if lp_text_content['headlines'] else "（ヘッドライン取得不可）"
             # f-string内でエラーを起こさないようにトリプルクォートを別の文字に置換
             main_headline_escaped = main_headline.replace('"""', "'''")
@@ -3885,24 +3795,26 @@ elif selected_analysis == "AIによる分析・考察":
             ).reset_index()
             page_stats['離脱率'] = (page_stats['離脱セッション数'] / total_sessions * 100) if total_sessions > 0 else 0
             page_stats.rename(columns={'max_page_reached': 'ページ番号'}, inplace=True)
-            max_exit_page = page_stats.loc[page_stats['離脱率'].idxmax()]
+            max_exit_page = page_stats.loc[page_stats['離脱率'].idxmax()] if not page_stats.empty else {'ページ番号': 'N/A', '離脱率': 0}
 
             # デバイス別統計（修正）
             device_stats = filtered_df.groupby('device_type').agg(
                 セッション数=('session_id', 'nunique'),
                 コンバージョン数=('cv_type', lambda x: x.notna().sum())
             ).reset_index().rename(columns={'device_type': 'デバイス'})
-            device_stats['コンバージョン率'] = (device_stats['コンバージョン数'] / device_stats['セッション数'] * 100).fillna(0)
-            worst_device = device_stats.loc[device_stats['コンバージョン率'].idxmin()]
+            if not device_stats.empty:
+                device_stats['コンバージョン率'] = (device_stats['コンバージョン数'] / device_stats['セッション数'] * 100).fillna(0)
+                worst_device = device_stats.loc[device_stats['コンバージョン率'].idxmin()]
+            else:
+                worst_device = {'デバイス': 'N/A', 'コンバージョン率': 0}
 
             # チャネル別統計（修正）
             channel_stats = filtered_df.groupby('channel').agg(
                 セッション数=('session_id', 'nunique'),
                 コンバージョン数=('cv_type', lambda x: x.notna().sum())
             ).reset_index().rename(columns={'channel': 'チャネル'})
-            channel_stats['コンバージョン率'] = (channel_stats['コンバージョン数'] / channel_stats['セッション数'] * 100).fillna(0)
-            best_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmax()]
-            worst_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmin()] # type: ignore
+            best_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmax()] if not channel_stats.empty else {'チャネル': 'N/A'}
+            worst_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmin()] if not channel_stats.empty else {'チャネル': 'N/A'}
             
             # AIによる訴求ポイントの推察（簡易版）
             # 本来はLLMで要約するが、ここではキーワードで代用
@@ -4097,7 +4009,6 @@ elif selected_analysis == "AIによる分析・考察":
             # 閉じるボタン
             if st.button("AI分析を閉じる", key="ai_analysis_close"):
                 st.session_state.ai_analysis_open = False
-                st.rerun()
 
             st.success("AI分析が完了しました！上記の提案を参考に、LPの改善を進めてください。")
     
@@ -4161,7 +4072,7 @@ elif selected_analysis == "AIによる分析・考察":
         
         if st.session_state.ai_faq_toggle.get(1, False): # type: ignore
             # 離脱率が最も高いページを特定（データがある場合のみ）
-            if not page_stats_global.empty and '離脱率' in page_stats_global.columns:
+            if not page_stats_global.empty and '離脱率' in page_stats_global.columns and not page_stats_global['離脱率'].empty:
                 max_exit_page = page_stats_global.loc[page_stats_global['離脱率'].idxmax()]
                 
                 st.info(f"""
@@ -4207,7 +4118,7 @@ elif selected_analysis == "AIによる分析・考察":
             st.session_state.ai_faq_toggle[4] = False
 
         if st.session_state.ai_faq_toggle.get(3, False): # type: ignore
-            if not ab_stats_global.empty and 'コンバージョン率' in ab_stats_global.columns:
+            if not ab_stats_global.empty and 'コンバージョン率' in ab_stats_global.columns and not ab_stats_global['コンバージョン率'].empty:
                 best_variant = ab_stats_global.loc[ab_stats_global['コンバージョン率'].idxmax()]
                 st.info(f"""
             **分析結果:**
@@ -4231,7 +4142,7 @@ elif selected_analysis == "AIによる分析・考察":
             st.session_state.ai_faq_toggle[3] = False
 
         if st.session_state.ai_faq_toggle.get(4, False): # type: ignore
-            if not device_stats_global.empty and 'コンバージョン率' in device_stats_global.columns:
+            if not device_stats_global.empty and 'コンバージョン率' in device_stats_global.columns and not device_stats_global['コンバージョン率'].empty:
                 best_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmax()]
                 worst_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmin()]
                 st.info(f"""
