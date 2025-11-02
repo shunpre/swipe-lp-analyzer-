@@ -4420,11 +4420,57 @@ elif selected_analysis == "アラート":
     st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">主要指標の急な変化や異常を自動で検知し、お知らせします。この分析は、日次の全体パフォーマンスに基づいています。</div>', unsafe_allow_html=True)
 
+    # --- デモ用アラート（高） ---
+    st.markdown("#### 重要度：高")
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.error("CVRが急落")
+        with col2:
+            st.markdown("**【デモ】コンバージョン率が前日比で 55.2% 大幅に低下しました。**")
+            st.markdown(f"<small>前日: 3.50%, 本日: 1.57%</small>", unsafe_allow_html=True)
+        with col3:
+            st.button("時系列分析で確認", key=f"alert_demo_cvr", use_container_width=True, on_click=navigate_to, args=('時系列分析',))
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.error("セッションが急減")
+        with col2:
+            st.markdown("**【デモ】セッション数が前日比で 60.1% 大幅に減少しました。**")
+            st.markdown(f"<small>前日: 1,250, 本日: 498</small>", unsafe_allow_html=True)
+        with col3:
+            st.button("時系列分析で確認", key=f"alert_demo_session", use_container_width=True, on_click=navigate_to, args=('時系列分析',))
+    st.markdown("---")
+
+    # --- デモ用アラート（中） ---
+    st.markdown("#### 重要度：中")
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.warning("CVRが低下（モバイル）")
+        with col2:
+            st.markdown("**【デモ】モバイルデバイスのコンバージョン率が過去7日間平均より 35.8% 低下しています。**")
+            st.markdown(f"<small>過去7日平均: 2.85%, 本日: 1.83%</small>", unsafe_allow_html=True)
+        with col3:
+            st.button("セグメント分析で確認", key=f"alert_demo_mobile_cvr", use_container_width=True, on_click=navigate_to, args=('セグメント分析',))
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.warning("流入が減少（SNS）")
+        with col2:
+            st.markdown("**【デモ】Organic Socialチャネルからの流入が過去7日間平均より 42.0% 減少しています。**")
+            st.markdown(f"<small>過去7日平均: 350セッション/日, 本日: 203セッション</small>", unsafe_allow_html=True)
+        with col3:
+            st.button("セグメント分析で確認", key=f"alert_demo_social_inflow", use_container_width=True, on_click=navigate_to, args=('セグメント分析',))
+    st.markdown("---")
+    # --- デモ用アラートここまで ---
+
     # BigQueryのv_alertsビューと同様の計算をpandasで実行
     # 1. 日次KPIサマリーを作成 (v_kpi_daily相当)
     daily_kpi = df.groupby(df['event_date'].dt.date).agg(
         sessions=('session_id', 'nunique'),
-        conversions=('cv_type', lambda x: x.notna().sum())
+        # cv_typeがNaNでないセッションのユニーク数をカウント
+        conversions=('session_id', lambda x: df.loc[x.index][df.loc[x.index]['cv_type'].notna()]['session_id'].nunique())
     ).reset_index()
     daily_kpi['cvr'] = safe_rate(daily_kpi['conversions'], daily_kpi['sessions'])
 
@@ -4461,7 +4507,7 @@ elif selected_analysis == "アラート":
                 'level': 'high', 'title': 'セッションが急減',
                 'description': f"**セッション数が前日比で {abs(latest_alert_data['sessions_dod']):.1%} 大幅に減少しました。**",
                 'details': f"前日: {int(latest_alert_data['sessions_prev']):,}, 本日: {int(latest_alert_data['sessions']):,}",
-                'action': 'リアルタイムビューで確認', 'page': 'リアルタイムビュー'
+                'action': '時系列分析で確認', 'page': '時系列分析'
             })
 
         # --- 重要度：中 ---
@@ -4477,18 +4523,17 @@ elif selected_analysis == "アラート":
                 'level': 'medium', 'title': 'セッションが減少',
                 'description': f"**セッション数が前日比で {abs(latest_alert_data['sessions_dod']):.1%} 減少しています。**",
                 'details': f"前日: {int(latest_alert_data['sessions_prev']):,}, 本日: {int(latest_alert_data['sessions']):,}",
-                'action': 'リアルタイムビューで確認', 'page': 'リアルタイムビュー'
+                'action': '時系列分析で確認', 'page': '時系列分析'
             })
 
         # アラートを表示
         high_alerts = [a for a in alerts if a['level'] == 'high']
         medium_alerts = [a for a in alerts if a['level'] == 'medium']
 
-        if not alerts:
-            st.success("✅ 現在、対応が必要なアラートはありません。")
+        # デモ専用なので、実績値アラートがない場合のメッセージは不要
 
         if high_alerts:
-            st.markdown("#### 重要度：高")
+            st.markdown("#### 重要度：高（実績値）")
             for alert in high_alerts:
                 with st.container():
                     col1, col2, col3 = st.columns([1, 4, 1.5])
@@ -4502,7 +4547,7 @@ elif selected_analysis == "アラート":
             st.markdown("---")
 
         if medium_alerts:
-            st.markdown("#### 重要度：中")
+            st.markdown("#### 重要度：中（実績値）")
             for alert in medium_alerts:
                 with st.container():
                     col1, col2, col3 = st.columns([1, 4, 1.5])
