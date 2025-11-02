@@ -261,7 +261,7 @@ st.session_state.selected_analysis = selected_analysis
 # グルーピングされたメニュー項目
 menu_groups = {
     "AIアナリスト": ["AIによる分析・考察"],
-    "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報"],
+    "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報", "アラート"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
     "詳細分析": ["セグメント分析", "インタラクション分析", "動画・スクロール分析"],
     "ヘルプ": ["使用ガイド", "専門用語解説"]
@@ -4498,6 +4498,85 @@ elif selected_analysis == "専門用語解説":
     
     st.markdown("---")
     st.markdown("**ヒント**: 各用語をクリックして詳細を確認できます。")
+
+# タブ12: アラート
+elif selected_analysis == "アラート":
+    st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">パフォーマンスの急な変化や異常を自動で検知し、お知らせします。</div>', unsafe_allow_html=True)
+
+    st.markdown("#### 🚨 重要度：高")
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.error("CVR 急落", icon="📉")
+        with col2:
+            st.markdown("**全体のコンバージョン率が過去7日間の平均より50%低下しました。**")
+            st.markdown("発生日時: 2023年10月26日 15:00頃")
+        with col3:
+            if st.button("時系列分析で確認", key="alert_cvr_decline", use_container_width=True):
+                # 本来は該当ページに遷移するロジック
+                st.toast("時系列分析ページに移動します...")
+
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.error("流入停止", icon="🛑")
+        with col2:
+            st.markdown("**「Facebook広告」チャネルからのセッションが停止している可能性があります。**")
+            st.markdown("最終検知: 2023年10月27日 09:30")
+        with col3:
+            if st.button("リアルタイムビューで確認", key="alert_traffic_stop", use_container_width=True):
+                st.toast("リアルタイムビューに移動します...")
+
+    st.markdown("---")
+
+    st.markdown("#### ⚠️ 重要度：中")
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.warning("読込悪化", icon="⏳")
+        with col2:
+            st.markdown("**ページ5の平均読込時間が4秒を超え、通常より70%悪化しています。**")
+            st.markdown("対象デバイス: スマートフォン")
+        with col3:
+            if st.button("ページ分析で確認", key="alert_load_time", use_container_width=True):
+                st.toast("ページ分析に移動します...")
+
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.warning("離脱率増", icon="🚪")
+        with col2:
+            st.markdown("**ページ2の離脱率が過去30日間で最も高くなっています。**")
+            st.metric("現在の離脱率", "65.2%", delta="15.8%", delta_color="inverse")
+        with col3:
+            if st.button("ページ分析で確認", key="alert_exit_rate", use_container_width=True):
+                st.toast("ページ分析に移動します...")
+
+    st.markdown("---")
+
+    st.markdown("#### ℹ️ 重要度：低")
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.info("A/Bテスト", icon="🧪")
+        with col2:
+            st.markdown("**CTAテストでバリアントBのCVRが有意に低い可能性があります。**")
+            st.markdown("p値が0.1を上回り、統計的有意差が見られない状態が続いています。")
+        with col3:
+            if st.button("A/Bテスト分析で確認", key="alert_ab_test", use_container_width=True):
+                st.toast("A/Bテスト分析に移動します...")
+
+    with st.container():
+        col1, col2, col3 = st.columns([1, 4, 1.5])
+        with col1:
+            st.info("新規流入", icon="📈")
+        with col2:
+            st.markdown("**「note.com」からのリファラル流入が急増しています。**")
+            st.markdown("メディア掲載や記事で紹介された可能性があります。")
+        with col3:
+            if st.button("セグメント分析で確認", key="alert_referral", use_container_width=True):
+                st.toast("セグメント分析に移動します...")
 
 # フッター
 st.markdown("---")

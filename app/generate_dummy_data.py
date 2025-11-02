@@ -242,6 +242,29 @@ def generate_dummy_data(num_events=5000, num_days=30):
     # DataFrameに変換
     df = pd.DataFrame(data)
     
+    # --- 意図的なアラートデータを注入 ---
+    # 期間内にランダムな3日を「異常日」として設定
+    if num_days > 10:
+        alert_dates = random.sample(
+            [end_date - timedelta(days=i) for i in range(3, num_days - 3)], 
+            k=min(3, num_days - 6)
+        )
+        for alert_date in alert_dates:
+            alert_date_str = alert_date.strftime('%Y-%m-%d')
+            
+            # セッション数を意図的に減らす (50-80%減)
+            session_drop_rate = random.uniform(0.5, 0.8)
+            num_sessions_on_alert_date = len(df[df['event_date'] == alert_date_str])
+            sessions_to_drop = int(num_sessions_on_alert_date * session_drop_rate)
+            if sessions_to_drop > 0:
+                indices_to_drop = df[df['event_date'] == alert_date_str].sample(n=sessions_to_drop).index
+                df.drop(indices_to_drop, inplace=True)
+
+            # CVRを意図的に下げる (CVイベントを削除)
+            cv_indices_on_alert_date = df[(df['event_date'] == alert_date_str) & (df['cv_type'].notna())].index
+            if not cv_indices_on_alert_date.empty:
+                df.drop(cv_indices_on_alert_date, inplace=True)
+
     # 日付でソート
     df = df.sort_values("event_timestamp").reset_index(drop=True)
     
