@@ -24,6 +24,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 上部のオレンジ色のバーを非表示にするためのカスタムCSS
+hide_decoration_bar_style = '''
+    <style>
+        header {visibility: hidden;}
+    </style>
+'''
+st.markdown(hide_decoration_bar_style, unsafe_allow_html=True)
+
 # ブラウザがスクロールする先の「基点」を設置
 st.markdown('<a id="top-anchor"></a>', unsafe_allow_html=True)
 
