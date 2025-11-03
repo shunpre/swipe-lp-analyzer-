@@ -1485,16 +1485,16 @@ elif selected_analysis == "ページ分析":
 
         # ゾーンの背景色と注釈を追加
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0, x1=1, y1=0.5, fillcolor="rgba(255, 0, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="<b>要注意ゾーン</b><br>高離脱率・<br class='mobile-br'>低滞在時間", showarrow=False, font=dict(color="red", size=14), align="center", xanchor="center", yanchor="middle")
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="<b>要注意ゾーン</b><br>高離脱率<br class='mobile-br'>低滞在時間", showarrow=False, font=dict(color="red", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(255, 165, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="<b>改善候補</b><br>高離脱率・<br class='mobile-br'>高滞在時間", showarrow=False, font=dict(color="orange", size=14), align="center", xanchor="center", yanchor="middle")
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="<b>改善候補</b><br>高離脱率<br class='mobile-br'>高滞在時間", showarrow=False, font=dict(color="orange", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=0.5, y1=0.5, fillcolor="rgba(255, 255, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="<b>機会損失</b><br>低離脱率・<br class='mobile-br'>低滞在時間", showarrow=False, font=dict(color="goldenrod", size=14), align="center", xanchor="center", yanchor="middle")
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="<b>機会損失</b><br>低離脱率<br class='mobile-br'>低滞在時間", showarrow=False, font=dict(color="goldenrod", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0.5, x1=0.5, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="<b>良好ゾーン</b><br>低離脱率・<br class='mobile-br'>高滞在時間", showarrow=False, font=dict(color="green", size=14), align="center", xanchor="center", yanchor="middle")
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="<b>良好ゾーン</b><br>低離脱率<br class='mobile-br'>高滞在時間", showarrow=False, font=dict(color="green", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.update_traces(
             textposition='top center',
@@ -2159,16 +2159,16 @@ elif selected_analysis == "A/Bテスト分析":
         
         # 背景色と注釈を追加
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="<b>最良ゾーン</b><br>CVR向上・<br class='mobile-br'>有意差あり", showarrow=False, font=dict(color="green", size=14), align="center", xanchor="center", yanchor="middle")
+        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="<b>最良ゾーン</b><br>CVR向上<br class='mobile-br'>有意差あり", showarrow=False, font=dict(color="green", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0.5, x1=0.5, y1=1, fillcolor="rgba(255, 0, 0, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="<b>悪化ゾーン</b><br>CVR悪化・<br class='mobile-br'>有意差あり", showarrow=False, font=dict(color="red", size=14), align="center", xanchor="center", yanchor="middle")
+        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="<b>悪化ゾーン</b><br>CVR悪化<br class='mobile-br'>有意差あり", showarrow=False, font=dict(color="red", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0, x1=1, y1=0.5, fillcolor="rgba(255, 165, 0, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="<b>有望ゾーン</b><br>CVR向上・<br class='mobile-br'>有意差なし", showarrow=False, font=dict(color="orange", size=14), align="center", xanchor="center", yanchor="middle")
+        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="<b>有望ゾーン</b><br>CVR向上<br class='mobile-br'>有意差なし", showarrow=False, font=dict(color="orange", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=0.5, y1=0.5, fillcolor="rgba(128, 128, 128, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="<b>判断保留ゾーン</b><br>CVR悪化・<br class='mobile-br'>有意差なし", showarrow=False, font=dict(color="grey", size=14), align="center", xanchor="center", yanchor="middle")
+        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="<b>判断保留ゾーン</b><br>CVR悪化<br class='mobile-br'>有意差なし", showarrow=False, font=dict(color="grey", size=14), align="center", xanchor="center", yanchor="middle")
 
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
@@ -4281,13 +4281,6 @@ elif selected_analysis == "使用ガイド":
     st.markdown('<div class="sub-header">使用ガイド</div>', unsafe_allow_html=True)
 
     st.markdown("""
-    ### 瞬ジェネ AIアナリストへようこそ！
-    このツールは、あなたのスワイプLPのパフォーマンスを直感的に分析し、改善のための具体的なアクションを見つけるお手伝いをします。
-
-    ---
-
-    ### 基本的な使い方
-
     1.  **分析ページを選択する**
         - 画面左側のサイドバーから、見たい分析ページ（例：「全体サマリー」「ページ分析」など）をクリックします。
 
@@ -4305,22 +4298,23 @@ elif selected_analysis == "使用ガイド":
 
     #### AIアナリスト
     - **AIによる分析・考察**: このツールの中心機能です。目標値や現状の課題を入力すると、AIがLP全体のデータを多角的に分析し、詳細な改善戦略を提案します。
-
+    
     #### 基本分析
     - **リアルタイムビュー**: 直近1時間のサイト活動を監視し、異常検知や突発的な機会の発見をサポートします。
     - **全体サマリー**: LP全体の主要KPI（CVR、セッション数など）を一覧で確認し、健康状態を把握します。
     - **時系列分析**: 曜日・時間帯ごとのパフォーマンスを分析し、広告配信やプロモーションに最適な「ゴールデンタイム」を見つけます。
     - **デモグラフィック情報**: 年齢、性別、地域などのユーザー属性ごとの行動を分析し、ターゲット顧客の解像度を高めます。
-
+    - **アラート**: 主要指標の急な変化や異常を自動で検知し、お知らせします。問題の早期発見に役立ちます。
+    
     #### LP最適化分析
     - **ページ分析**: ユーザーがどのページで離脱しているか（ボトルネック）を特定し、改善の優先順位を判断します。
     - **A/Bテスト分析**: 実施したA/Bテストの結果を統計的に評価し、どちらのパターンが優れているかを明確にします。
-
+    
     #### 詳細分析
     - **セグメント分析**: デバイス別（PC/スマホ）、チャネル別（流入経路別）などでデータを深掘りし、パフォーマンスの差を生んでいる要因を探ります。
     - **インタラクション分析**: CTAボタンや各種リンクなど、クリック可能な要素のパフォーマンスを分析し、ユーザーの関心事を特定します。
     - **動画・スクロール分析**: 動画の視聴状況やユーザーのスクロール行動を分析し、コンテンツのエンゲージメントを評価します。
-
+    
     #### ヘルプ
     - **使用ガイド**: このページです。ツールの使い方を確認できます。
     - **専門用語解説**: 分析に使われるマーケティング用語を解説します。
