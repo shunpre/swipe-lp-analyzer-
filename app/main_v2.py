@@ -4328,15 +4328,10 @@ elif selected_analysis == "使用ガイド":
 elif selected_analysis == "専門用語解説":
     st.markdown('<div class="sub-header">専門用語解説</div>', unsafe_allow_html=True)
 
-
-    st.markdown(""" # type: ignore
-    ### マーケティング・分析用語集
-    
-    LP分析で使用される主要な用語を詳しく解説します。
-    """)
+    st.markdown("LP分析で使用される主要な用語を詳しく解説します。")
     
     # カテゴリー別に表示
-    with st.expander("基本指標（KPI）", expanded=True):
+    with st.expander("基本指標（KPI）", expanded=False):
         st.markdown("""
         **セッション（Session）**
         ユーザーがウェブサイトを訪れた1回の訪問。同じユーザーが複数回訪れた場合、それぞれ別のセッションとしてカウントされます。通常、30分間操作がないとセッションが終了します。
@@ -4503,9 +4498,6 @@ elif selected_analysis == "専門用語解説":
         - **線形**: 全ての接触に均等に貢献を割り当て
         """)
     
-    st.markdown("---")
-    st.markdown("**ヒント**: 各用語をクリックして詳細を確認できます。")
-
 # タブ12: アラート
 elif selected_analysis == "アラート":
     st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
