@@ -1397,11 +1397,9 @@ elif selected_analysis == "ページ分析":
                 # このコンテナにクラス名を付けてCSSでターゲットできるようにする
                 st.markdown('<div class="page-analysis-metrics-container">', unsafe_allow_html=True)
 
-                # メトリクスを2x2のグリッドで表示
-                metric_cols_1 = st.columns(2)
-                metric_cols_2 = st.columns(2)
-                metric_cols_3 = st.columns(2)
-                metric_cols_4 = st.columns(2)
+                # メトリクスを4x2のグリッドで表示
+                metric_cols_1 = st.columns(4)
+                metric_cols_2 = st.columns(4)
 
                 # --- このループ内で各ページの指標を計算 ---
                 page_events = filtered_df[filtered_df['page_num_dom'] == page_num]
@@ -1430,12 +1428,12 @@ elif selected_analysis == "ページ分析":
                 # メトリクスを配置
                 metric_cols_1[0].metric("ビュー数", f"{views:,}")
                 metric_cols_1[1].metric("離脱率", f"{exit_rate:.1f}%")
-                metric_cols_2[0].metric("平均滞在時間", f"{stay_time:.1f}秒")
-                metric_cols_2[1].metric("逆行率", f"{backflow_rate:.1f}%")
-                metric_cols_3[0].metric("CTAクリック率", f"{cta_click_rate:.1f}%")
-                metric_cols_3[1].metric("FBクリック率", f"{fb_click_rate:.1f}%")
-                metric_cols_4[0].metric("離脱POPクリック率", f"{exit_pop_click_rate:.1f}%")
-                metric_cols_4[1].metric("読み込み時間", f"{load_time:.0f}ms")
+                metric_cols_1[2].metric("平均滞在時間", f"{stay_time:.1f}秒")
+                metric_cols_1[3].metric("逆行率", f"{backflow_rate:.1f}%")
+                metric_cols_2[0].metric("CTAクリック率", f"{cta_click_rate:.1f}%")
+                metric_cols_2[1].metric("FBクリック率", f"{fb_click_rate:.1f}%")
+                metric_cols_2[2].metric("離脱POPクリック率", f"{exit_pop_click_rate:.1f}%")
+                metric_cols_2[3].metric("読み込み時間", f"{load_time:.0f}ms")
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
