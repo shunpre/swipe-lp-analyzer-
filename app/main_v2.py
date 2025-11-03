@@ -1514,8 +1514,8 @@ elif selected_analysis == "ページ分析":
             with st.spinner("AIがページデータを分析中..."):
                 bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
                 
-                st.markdown("#### 1. 現状の評価") # type: ignore
-                st.info(f""" # type: ignore
+                st.markdown("#### 1. 現状の評価")
+                st.info(f"""
                 ポジショニングマップと各指標から、**ページ{int(bottleneck_page['ページ番号'])}** が最も重要な改善候補（ボトルネック）であると判断されます。
                 - **離脱率**: {bottleneck_page['離脱率']:.1f}% と高く、多くのユーザーがここでLPから離れています。
                 - **平均滞在時間**: {bottleneck_page['平均滞在時間(秒)']:.1f}秒 と短く、コンテンツが十分に読まれていない可能性があります。
@@ -1523,8 +1523,8 @@ elif selected_analysis == "ページ分析":
                 """)
 
                 st.markdown("#### 2. 今後の考察と改善案")
-                st.warning(f""" # type: ignore
-                **ページ{int(bottleneck_page['ページ番号'])}** の改善が急務です。滞在時間が短く離脱率が高いことから、以下の可能性が考えられます。 # type: ignore
+                st.warning(f"""
+                **ページ{int(bottleneck_page['ページ番号'])}** の改善が急務です。滞在時間が短く離脱率が高いことから、以下の可能性が考えられます。
                 - **コンテンツのミスマッチ**: 前のページからの期待と、このページの内容が合っていない。
                 - **魅力の欠如**: ユーザーの興味を引く情報やビジュアルが不足している。
                 - **次のアクションが不明確**: ユーザーが次に何をすべきか分からず離脱している。
