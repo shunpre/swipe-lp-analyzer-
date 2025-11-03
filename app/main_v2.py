@@ -2130,6 +2130,14 @@ elif selected_analysis == "A/Bテスト分析":
         fig.add_hline(y=0.99, line_dash="dash", line_color="red", annotation_text="p<0.01 (★★★)", annotation_position="bottom right") # type: ignore
         fig.add_vline(x=0, line_dash="dash", line_color="gray")
 
+        # X軸の範囲を調整して、常にx=0の線が見えるようにする
+        x_min = ab_bubble['CVR差分(pt)'].min()
+        x_max = ab_bubble['CVR差分(pt)'].max()
+        range_x = [None, None]
+        if x_max < 0:
+            range_x[1] = 0.5 # 少し余白を持たせる
+        if x_min > 0:
+            range_x[0] = -0.5 # 少し余白を持たせる
         # マウスオーバー時の表示内容とスタイルをカスタマイズ
         fig.update_traces(
             textposition='top center',
@@ -2145,6 +2153,7 @@ elif selected_analysis == "A/Bテスト分析":
         fig.update_layout(height=500,
                          hoverlabel=dict(bordercolor='#002060'), # ホバーの枠線色
                          xaxis_title='CVR差分 (pt)', dragmode=False,
+                         xaxis_range=range_x,
                          yaxis_title='有意性 (1 - p値)',
                          legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
         
