@@ -2170,21 +2170,20 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown('<div class="graph-description">各A/Bテストのバリアントごとの日次のコンバージョン率（CVR）の推移を可視化します。</div>', unsafe_allow_html=True)
 
     # A/Bテスト関連のデータをフィルタリング
-    # 'control'バリアントとテスト種別'-'を除外
-    ab_test_data = filtered_df[
-        filtered_df['event_name'].isin(['conversion', 'session_start']) & 
-        (filtered_df['ab_test_target'] != '-') &
-        (filtered_df['ab_variant'] != 'control')
-    ].copy()
-    ab_test_data['event_date'] = pd.to_datetime(ab_test_data['event_date']).dt.date
+    ab_daily_df = filtered_df[(filtered_df['ab_test_target'] != '-') & (filtered_df['ab_variant'] != 'control')].copy()
+    ab_daily_df['event_date'] = pd.to_datetime(ab_daily_df['event_date']).dt.date
 
-    # 各テストタイプとバリアントごとに日次のセッション数とコンバージョン数を計算
-    session_counts = ab_test_data[ab_test_data['event_name'] == 'session_start'].groupby(['event_date', 'ab_test_target', 'ab_variant']).size().reset_index(name='sessions')
-    conversion_counts = ab_test_data[ab_test_data['event_name'] == 'conversion'].groupby(['event_date', 'ab_test_target', 'ab_variant']).size().reset_index(name='conversions')
+    # 日別、テスト種別、バリアント別のセッション数を計算
+    daily_sessions = ab_daily_df.groupby(['event_date', 'ab_test_target', 'ab_variant'])['session_id'].nunique().reset_index()
+    daily_sessions.rename(columns={'session_id': 'sessions'}, inplace=True)
+
+    # 日別、テスト種別、バリアント別のコンバージョン数を計算
+    daily_conversions = ab_daily_df[ab_daily_df['cv_type'].notna()].groupby(['event_date', 'ab_test_target', 'ab_variant'])['session_id'].nunique().reset_index()
+    daily_conversions.rename(columns={'session_id': 'conversions'}, inplace=True)
 
     # データをマージ
-    cvr_data = pd.merge(session_counts, conversion_counts, on=['event_date', 'ab_test_target', 'ab_variant'], how='left').fillna(0)
-    cvr_data['cvr'] = (cvr_data['conversions'] / cvr_data['sessions']) * 100
+    cvr_data = pd.merge(daily_sessions, daily_conversions, on=['event_date', 'ab_test_target', 'ab_variant'], how='left').fillna(0)
+    cvr_data['cvr'] = cvr_data.apply(lambda row: safe_rate(row['conversions'], row['sessions']) * 100, axis=1)
 
     # テスト種別選択
     test_types = cvr_data['ab_test_target'].unique().tolist()
