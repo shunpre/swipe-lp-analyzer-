@@ -1180,18 +1180,8 @@ elif selected_analysis == "ページ分析":
     with filter_cols[3]:
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="page_analysis_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="page_analysis_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="page_analysis_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
+    
+    enable_comparison = False
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
@@ -1226,27 +1216,8 @@ elif selected_analysis == "ページ分析":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
-    # 比較データの取得
+    # 比較機能は無効化
     comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # --- 比較データにもクロス分析用フィルターを適用 ---
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
     if len(filtered_df) == 0:
@@ -1666,18 +1637,8 @@ elif selected_analysis == "セグメント分析":
     with filter_cols[3]:
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="segment_analysis_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="segment_analysis_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="segment_analysis_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
+    
+    enable_comparison = False
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
@@ -1712,27 +1673,8 @@ elif selected_analysis == "セグメント分析":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
-    # 比較データの取得
+    # 比較機能は無効化
     comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # --- 比較データにもクロス分析用フィルターを適用 ---
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
     if len(filtered_df) == 0:
@@ -1922,18 +1864,8 @@ elif selected_analysis == "A/Bテスト分析":
     with filter_cols[3]:
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="ab_test_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="ab_test_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ab_test_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
+    
+    enable_comparison = False
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
@@ -1968,27 +1900,8 @@ elif selected_analysis == "A/Bテスト分析":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
-    # 比較データの取得
+    # 比較機能は無効化
     comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # --- 比較データにもクロス分析用フィルターを適用 ---
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
     if filtered_df.empty:
@@ -2355,18 +2268,8 @@ elif selected_analysis == "インタラクション分析":
     with filter_cols[3]:
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="interaction_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="interaction_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="interaction_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
+    
+    enable_comparison = False
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
@@ -2401,27 +2304,8 @@ elif selected_analysis == "インタラクション分析":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
-    # 比較データの取得
+    # 比較機能は無効化
     comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # --- 比較データにもクロス分析用フィルターを適用 ---
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
     if len(filtered_df) == 0:
@@ -2606,18 +2490,8 @@ elif selected_analysis == "動画・スクロール分析":
     with filter_cols[3]:
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="video_scroll_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="video_scroll_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="video_scroll_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
+    
+    enable_comparison = False
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
@@ -2652,27 +2526,8 @@ elif selected_analysis == "動画・スクロール分析":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
-    # 比較データの取得
+    # 比較機能は無効化
     comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # --- 比較データにもクロス分析用フィルターを適用 ---
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
     if len(filtered_df) == 0:
@@ -2885,18 +2740,8 @@ elif selected_analysis == "時系列分析":
     with filter_cols[3]:
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="timeseries_channel")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="timeseries_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="timeseries_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
+    
+    enable_comparison = False
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
@@ -2931,27 +2776,8 @@ elif selected_analysis == "時系列分析":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
-    # 比較データの取得
+    # 比較機能は無効化
     comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            # --- 比較データにもクロス分析用フィルターを適用 ---
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
     if len(filtered_df) == 0:
@@ -3291,23 +3117,7 @@ elif selected_analysis == "デモグラフィック情報":
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="demographic_channel")
 
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="demographic_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="demographic_compare_select")
-        comparison_type = comparison_options[selected_comparison]
+    enable_comparison = False
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
@@ -3343,25 +3153,8 @@ elif selected_analysis == "デモグラフィック情報":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
-    # 比較データの取得
+    # 比較機能は無効化
     comparison_df = None
-    comp_start = None
-    comp_end = None
-    if enable_comparison and comparison_type:
-        result = get_comparison_data(df, pd.to_datetime(start_date), pd.to_datetime(end_date), comparison_type)
-        if result is not None:
-            comparison_df, comp_start, comp_end = result
-            # 比較データにも同じフィルターを適用
-            if selected_lp != "すべて":
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
-            if selected_device != "すべて":
-                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
-            if selected_channel != "すべて":
-                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
-            # 比較データが空の場合は無効化
-            if len(comparison_df) == 0:
-                comparison_df = None
-                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
     # データが空の場合の処理
     if len(filtered_df) == 0:
