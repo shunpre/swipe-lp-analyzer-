@@ -1475,16 +1475,16 @@ elif selected_analysis == "ページ分析":
 
         # ゾーンの背景色と注釈を追加
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0, x1=1, y1=0.5, fillcolor="rgba(255, 0, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="要注意ゾーン<br>(離脱率が高く滞在時間が短い)", showarrow=False, font=dict(color="red", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="要注意ゾーン<br>(離脱率が高く滞在時間が短い)", showarrow=False, font=dict(color="red", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(255, 165, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="改善候補<br>(離脱率が高く滞在時間が長い)", showarrow=False, font=dict(color="orange", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="改善候補<br>(離脱率が高く滞在時間が長い)", showarrow=False, font=dict(color="orange", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=0.5, y1=0.5, fillcolor="rgba(255, 255, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="機会損失<br>(離脱率が低く滞在時間が短い)", showarrow=False, font=dict(color="goldenrod", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="機会損失<br>(離脱率が低く滞在時間が短い)", showarrow=False, font=dict(color="goldenrod", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0.5, x1=0.5, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
-        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="良好<br>(離脱率が低く滞在時間が長い)", showarrow=False, font=dict(color="green", size=14))
+        fig_scatter.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="良好<br>(離脱率が低く滞在時間が長い)", showarrow=False, font=dict(color="green", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig_scatter.update_traces(
             textposition='top center',
