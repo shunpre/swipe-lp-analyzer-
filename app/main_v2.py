@@ -837,8 +837,8 @@ if selected_analysis == "全体サマリー":
             yaxis=dict(title='セッション数 / コンバージョン数'),
             yaxis2=dict(title='コンバージョン率 (%)', overlaying='y', side='right', showgrid=False),
             height=400,
-            dragmode=False,
-            legend=dict(x=0, y=1.1, orientation='h')
+            dragmode=False, # type: ignore
+            legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
         )
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_combined')
     
@@ -864,13 +864,19 @@ if selected_analysis == "全体サマリー":
         with col1:
             fig = px.pie(channel_stats, values='セッション数', names='チャネル', title='チャネル別セッション数')
             fig.update_traces(hovertemplate='チャネル: %{label}<br>セッション数: %{value:,} (%{percent})<extra></extra>')
-            fig.update_layout(dragmode=False)
+            fig.update_layout(
+                dragmode=False,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+            )
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_4')
         
         with col2:
             fig = px.bar(channel_stats, x='チャネル', y='コンバージョン率', title='チャネル別コンバージョン率')
             fig.update_traces(hovertemplate='チャネル: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-            fig.update_layout(dragmode=False)
+            fig.update_layout(
+                dragmode=False,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+            )
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_5')
 
     # LP進行ファネルと滞在時間別ファネル
@@ -895,7 +901,7 @@ if selected_analysis == "全体サマリー":
                 x=funnel_df['セッション数'],
                 textinfo="value+percent initial",
                 hovertemplate='ページ: %{y}<br>セッション数: %{x:,}<extra></extra>'
-            ))
+            )) # type: ignore
             fig_funnel.update_layout(height=600, dragmode=False)
             st.markdown("**LP進行ファネル**")
             st.markdown('<div class="graph-description">各ページに到達したセッション数と、次のページへの遷移率です。急激に減少している箇所が大きな離脱ポイントです。</div>', unsafe_allow_html=True) # type: ignore
@@ -961,7 +967,7 @@ if selected_analysis == "全体サマリー":
 
             fig_stay_pct.update_layout(barmode='stack', height=600,
                               xaxis_title='セッションの割合 (%)', yaxis_title='ページ', dragmode=False,
-                              xaxis_ticksuffix='%', legend=dict(traceorder='normal'))
+                              xaxis_ticksuffix='%', legend=dict(traceorder='normal', orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
             st.markdown("**ページ内滞在時間の分布**")
             st.markdown('<div class="graph-description">各ページに到達し、滞在時間が計測されたセッションの行動内訳です。横軸は割合（%）を表します。</div>', unsafe_allow_html=True) # type: ignore
             st.plotly_chart(fig_stay_pct, use_container_width=True, key='plotly_chart_stay_percentage')
@@ -983,7 +989,7 @@ if selected_analysis == "全体サマリー":
         
         fig = px.bar(hourly_cvr, x='時間', y='コンバージョン率')
         fig.update_traces(hovertemplate='時間: %{x}時台<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-        fig.update_layout(height=400, xaxis_title='時間帯', dragmode=False)
+        fig.update_layout(height=400, xaxis_title='時間帯', dragmode=False, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_7')
     
     # 曜日別CVR
@@ -1008,7 +1014,7 @@ if selected_analysis == "全体サマリー":
         
         fig = px.bar(dow_cvr, x='曜日_日本語', y='コンバージョン率')
         fig.update_traces(hovertemplate='曜日: %{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-        fig.update_layout(height=400, xaxis_title='曜日', dragmode=False)
+        fig.update_layout(height=400, xaxis_title='曜日', dragmode=False, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_8')
     
     # UTM分析
@@ -1025,7 +1031,7 @@ if selected_analysis == "全体サマリー":
             utm_source_stats = utm_source_stats.sort_values('セッション数', ascending=False)
             
             fig = px.bar(utm_source_stats, x='UTMソース', y='セッション数')
-            fig.update_layout(dragmode=False)
+            fig.update_layout(dragmode=False, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
             fig.update_traces(hovertemplate='UTMソース: %{x}<br>セッション数: %{y:,}<extra></extra>')
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_9') # type: ignore
         
@@ -1036,7 +1042,7 @@ if selected_analysis == "全体サマリー":
             utm_medium_stats = utm_medium_stats.sort_values('セッション数', ascending=False)
 
             fig = px.bar(utm_medium_stats, x='UTMメディア', y='セッション数')
-            fig.update_layout(dragmode=False)
+            fig.update_layout(dragmode=False, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
             fig.update_traces(hovertemplate='UTMメディア: %{x}<br>セッション数: %{y:,}<extra></extra>')
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_10') # type: ignore
     
@@ -1050,7 +1056,7 @@ if selected_analysis == "全体サマリー":
         
         fig = px.bar(load_time_stats, x='デバイス', y='平均読込時間(ms)')
         fig.update_traces(hovertemplate='デバイス: %{x}<br>平均読込時間: %{y:.0f}ms<extra></extra>')
-        fig.update_layout(height=400, yaxis_title='平均読込時間 (ms)', dragmode=False)
+        fig.update_layout(height=400, yaxis_title='平均読込時間 (ms)', dragmode=False, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_11')
 
     st.markdown("---")
@@ -2129,7 +2135,8 @@ elif selected_analysis == "A/Bテスト分析":
         fig.update_layout(height=500,
                          hoverlabel=dict(bordercolor='#002060'), # ホバーの枠線色
                          xaxis_title='CVR差分 (pt)', dragmode=False,
-                         yaxis_title='有意性 (1 - p値)')
+                         yaxis_title='有意性 (1 - p値)',
+                         legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
         
         # 背景色と注釈を追加
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
@@ -2203,7 +2210,7 @@ elif selected_analysis == "A/Bテスト分析":
         title="日次CVR時系列推移",
         xaxis_title="日付",
         yaxis_title="コンバージョン率 (%)",
-        legend_title="A/Bテスト",
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
         hovermode="x unified",
         height=500,
         dragmode=False
@@ -2661,7 +2668,7 @@ elif selected_analysis == "動画・スクロール分析":
     fig = px.bar(scroll_stats, x='ページ番号', y='平均逆行率(%)', text='平均逆行率(%)')
     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
     fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均逆行率 (%)', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_18')
+    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_18') # This already has use_container_width=True
     
     # 動画視聴分析（動画イベントがある場合）
     video_df = filtered_df[filtered_df['video_src'].notna()]
@@ -2702,7 +2709,7 @@ elif selected_analysis == "動画・スクロール分析":
         fig = px.bar(comparison_data, x='グループ', y='コンバージョン率', text='コンバージョン率')
         fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
         fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_19')
+        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_19') # This already has use_container_width=True
     
     # 逆行率別CVR
     st.markdown("逆行率別コンバージョン率")
@@ -2727,7 +2734,7 @@ elif selected_analysis == "動画・スクロール分析":
     fig = px.bar(scroll_range_stats, x='逆行率', y='コンバージョン率', text='コンバージョン率')
     fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
     fig.update_layout(height=400, showlegend=False, xaxis_title='逆行率', yaxis_title='コンバージョン率 (%)', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_20')
+    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_20') # This already has use_container_width=True
 
     st.markdown("---")
 
