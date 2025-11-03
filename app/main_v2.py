@@ -171,6 +171,40 @@ st.markdown("""
         z-index: 10; /* 他の要素の上に表示 */
         box-shadow: 0 0 10px rgba(0,0,0,0.5); /* 影を追加して見やすく */
     }
+
+    /* --- スマートフォン向けの最適化 --- */
+    @media (max-width: 768px) {
+        /* 主要指標（KPI）カードのフォントとパディングを調整 */
+        div[data-testid="stMetric"] {
+            padding: 0.5rem !important;
+        }
+        div[data-testid="stMetricLabel"] {
+            font-size: 0.8rem !important;
+        }
+        div[data-testid="stMetricValue"] {
+            font-size: 1.6rem !important;
+        }
+        div[data-testid="stMetricDelta"] {
+            font-size: 0.8rem !important;
+        }
+
+        /* ページ分析のメトリクスを2列にする */
+        .page-analysis-metrics-container > div {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* ページ分析の各メトリックカードの調整 */
+        .page-analysis-metrics-container div[data-testid="stMetric"] {
+            padding: 0.5rem !important;
+            border-left: 3px solid #002060;
+        }
+        .page-analysis-metrics-container div[data-testid="stMetricValue"] {
+            font-size: 1.2rem !important;
+        }
+
+    }
     /* サイドバーリンクの基本スタイル (非選択時 = secondary) */
     a.sidebar-link {
         display: block; /* ボタンのように振る舞わせる */
@@ -1360,14 +1394,26 @@ elif selected_analysis == "ページ分析":
                         st.image(content_source)
 
             with col2:
-                # メトリクスを取得
+                # このコンテナにクラス名を付けてCSSでターゲットできるようにする
+                st.markdown('<div class="page-analysis-metrics-container">', unsafe_allow_html=True)
+
+                # メトリクスを2x2のグリッドで表示
+                metric_cols_1 = st.columns(2)
+                metric_cols_2 = st.columns(2)
+                metric_cols_3 = st.columns(2)
+                metric_cols_4 = st.columns(2)
+
+                # --- このループ内で各ページの指標を計算 ---
+                page_events = filtered_df[filtered_df['page_num_dom'] == page_num]
                 page_data = page_stats[page_stats['ページ番号'] == page_num]
+
                 views = int(page_data['ビュー数'].iloc[0]) if not page_data.empty and 'ビュー数' in page_data.columns else 0
                 exit_rate = page_data['離脱率'].iloc[0] if not page_data.empty and '離脱率' in page_data.columns else 0
                 stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
                 backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
-                # 新しいメトリクスを取得（ダミーデータ）
-                page_events = filtered_df[filtered_df['page_num_dom'] == page_num]
+                # --- ここまで ---
+
+                # このページに到達したユニークなセッション数を計算
                 page_sessions = page_events['session_id'].nunique()
 
                 cta_clicks = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('cta|btn-primary', na=False))].shape[0]
@@ -1380,20 +1426,19 @@ elif selected_analysis == "ページ分析":
                 exit_pop_click_rate = safe_rate(exit_pop_clicks, page_sessions) * 100
 
                 load_time = page_events['load_time_ms'].mean() if not page_events.empty else 0
+                
+                # メトリクスを配置
+                metric_cols_1[0].metric("ビュー数", f"{views:,}")
+                metric_cols_1[1].metric("離脱率", f"{exit_rate:.1f}%")
+                metric_cols_2[0].metric("平均滞在時間", f"{stay_time:.1f}秒")
+                metric_cols_2[1].metric("逆行率", f"{backflow_rate:.1f}%")
+                metric_cols_3[0].metric("CTAクリック率", f"{cta_click_rate:.1f}%")
+                metric_cols_3[1].metric("FBクリック率", f"{fb_click_rate:.1f}%")
+                metric_cols_4[0].metric("離脱POPクリック率", f"{exit_pop_click_rate:.1f}%")
+                metric_cols_4[1].metric("読み込み時間", f"{load_time:.0f}ms")
 
-                # 上段メトリクス
-                metric_cols_top = st.columns(4)
-                metric_cols_top[0].metric("ビュー数", f"{views:,}")
-                metric_cols_top[1].metric("離脱率", f"{exit_rate:.1f}%")
-                metric_cols_top[2].metric("滞在時間", f"{stay_time:.1f}秒")
-                metric_cols_top[3].metric("逆行率", f"{backflow_rate:.1f}%")
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                # 下段メトリクス
-                metric_cols_bottom = st.columns(4)
-                metric_cols_bottom[0].metric("CTAクリック率", f"{cta_click_rate:.1f}%")
-                metric_cols_bottom[1].metric("FBクリック率", f"{fb_click_rate:.1f}%")
-                metric_cols_bottom[2].metric("離脱POPクリック率", f"{exit_pop_click_rate:.1f}%")
-                metric_cols_bottom[3].metric("読み込み時間", f"{load_time:.0f}ms")
         st.markdown("---") # 各ページ間に区切り線を追加
     
     st.markdown("---")
