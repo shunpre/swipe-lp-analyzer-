@@ -2150,16 +2150,16 @@ elif selected_analysis == "A/Bテスト分析":
         
         # 背景色と注釈を追加
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0.5, x1=1, y1=1, fillcolor="rgba(0, 128, 0, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="最良ゾーン<br>(CVR向上・有意差あり)", showarrow=False, font=dict(color="green", size=14))
+        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.75, text="<b>最良ゾーン</b><br>CVR向上・<br class='mobile-br'>有意差あり", showarrow=False, font=dict(color="green", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0.5, x1=0.5, y1=1, fillcolor="rgba(255, 0, 0, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="悪化ゾーン<br>(CVR悪化・有意差あり)", showarrow=False, font=dict(color="red", size=14))
+        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.75, text="<b>悪化ゾーン</b><br>CVR悪化・<br class='mobile-br'>有意差あり", showarrow=False, font=dict(color="red", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0.5, y0=0, x1=1, y1=0.5, fillcolor="rgba(255, 165, 0, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="有望ゾーン<br>(CVR向上・有意差なし)", showarrow=False, font=dict(color="orange", size=14))
+        fig.add_annotation(xref="paper", yref="paper", x=0.75, y=0.25, text="<b>有望ゾーン</b><br>CVR向上・<br class='mobile-br'>有意差なし", showarrow=False, font=dict(color="orange", size=14), align="center", xanchor="center", yanchor="middle")
 
         fig.add_shape(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=0.5, y1=0.5, fillcolor="rgba(128, 128, 128, 0.1)", layer="below", line_width=0)
-        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="判断保留ゾーン<br>(CVR悪化・有意差なし)", showarrow=False, font=dict(color="grey", size=14))
+        fig.add_annotation(xref="paper", yref="paper", x=0.25, y=0.25, text="<b>判断保留ゾーン</b><br>CVR悪化・<br class='mobile-br'>有意差なし", showarrow=False, font=dict(color="grey", size=14), align="center", xanchor="center", yanchor="middle")
 
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_ab_bubble')
     else:
@@ -2217,9 +2217,9 @@ elif selected_analysis == "A/Bテスト分析":
             ))
 
     fig_cvr_timeseries.update_layout(
-        title="日次CVR時系列推移",
         xaxis_title="日付",
         yaxis_title="コンバージョン率 (%)",
+        yaxis_ticksuffix="%",
         legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
         hovermode="x unified",
         height=500,
