@@ -2510,6 +2510,12 @@ elif selected_analysis == "インタラクション分析":
     if st.session_state.interaction_ai_open:
         with st.container():
             with st.spinner("AIがインタラクションデータを分析中..."):
+                # クリック率が最も高い要素を特定
+                if not interaction_df.empty:
+                    best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
+                else:
+                    # データがない場合のフォールバック
+                    best_ctr_element = pd.Series({'要素': 'N/A', 'クリック率 (CTR)': 0})
                 
                 st.markdown("#### 1. 現状の評価")
                 st.info(f"""
@@ -2769,6 +2775,18 @@ elif selected_analysis == "動画・スクロール分析":
 
     if st.session_state.video_scroll_ai_open:
         with st.container():
+            # AI分析で必要な変数を事前に計算
+            video_df = filtered_df[filtered_df['video_src'].notna()]
+            video_cvr = 0
+            non_video_cvr = 0
+            if len(video_df) > 0:
+                video_sessions = video_df['session_id'].nunique()
+                video_cv = video_df[video_df['cv_type'].notna()]['session_id'].nunique()
+                video_cvr = safe_rate(video_cv, video_sessions) * 100
+                non_video_sessions = total_sessions - video_sessions
+                non_video_cv = filtered_df[(filtered_df['video_src'].isna()) & (filtered_df['cv_type'].notna())]['session_id'].nunique()
+                non_video_cvr = safe_rate(non_video_cv, non_video_sessions) * 100
+
             with st.spinner("AIがエンゲージメントデータを分析中..."):
                 st.markdown("#### 1. 現状の評価")
                 if len(video_df) > 0:
@@ -3889,6 +3907,9 @@ elif selected_analysis == "AIによる分析・考察":
                 セッション数=('session_id', 'nunique'),
                 コンバージョン数=('cv_type', lambda x: x.notna().sum())
             ).reset_index().rename(columns={'channel': 'チャネル'})
+            if not channel_stats.empty:
+                channel_stats['コンバージョン率'] = channel_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
+
             best_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmax()] if not channel_stats.empty else {'チャネル': 'N/A'}
             worst_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmin()] if not channel_stats.empty else {'チャネル': 'N/A'}
             
