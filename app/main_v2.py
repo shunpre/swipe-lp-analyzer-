@@ -21,7 +21,7 @@ st.set_page_config(
     page_title="瞬ジェネ AIアナリスト",
     page_icon=None,
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
 
 # 上部のオレンジ色のバーを非表示にするためのカスタムCSS
