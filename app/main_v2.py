@@ -390,6 +390,14 @@ if selected_analysis == "全体サマリー":
         selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="summary_period_selector")
 
     with filter_cols[1]:
+        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="summary_device_selector")
+
+    with filter_cols[3]:
+        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="summary_channel_selector")
+
+    with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
         selected_lp = st.selectbox(
@@ -399,25 +407,6 @@ if selected_analysis == "全体サマリー":
             key="summary_lp", # キーを明示
             disabled=not lp_options # 選択肢がなければ操作不可
         )
-
-    with filter_cols[2]:
-        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="summary_device_selector")
-
-    with filter_cols[3]:
-        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="summary_channel_selector")
-
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="summary_comparison_checkbox")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="summary_comparison_selector")
-        comparison_type = comparison_options[selected_comparison]
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
@@ -433,6 +422,7 @@ if selected_analysis == "全体サマリー":
 
     st.markdown("---")
 
+    comparison_type = None # 初期化
     # 期間フィルターのみを適用したDataFrame（テーブル表示用）
     period_filtered_df = df[
         (df['event_date'] >= pd.to_datetime(start_date)) &
@@ -459,6 +449,38 @@ if selected_analysis == "全体サマリー":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
+    # データが空の場合の処理
+    if len(filtered_df) == 0:
+        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
+        st.stop()
+
+    # 基本メトリクス計算
+    total_sessions = filtered_df['session_id'].nunique()
+    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
+    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
+    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
+    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
+    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
+    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
+    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
+    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
+    avg_load_time = filtered_df['load_time_ms'].mean()
+
+    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
+
+    # 比較機能をKPIヘッダーの下に配置
+    comp_cols = st.columns([1, 1, 4]) # チェックボックス、選択ボックス、スペーサー
+    with comp_cols[0]:
+        enable_comparison = st.checkbox("比較機能を有効化", value=False, key="summary_comparison_checkbox")
+    with comp_cols[1]:
+        if enable_comparison:
+            comparison_options = {
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
+            }
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="summary_comparison_selector", label_visibility="collapsed")
+            comparison_type = comparison_options[selected_comparison]
+
     # 比較データの取得
     comparison_df = None
     comp_start = None
@@ -481,22 +503,6 @@ if selected_analysis == "全体サマリー":
                 comparison_df = None
                 st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = (filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    final_cta_rate = (filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique() / total_sessions * 100) if total_sessions > 0 else 0
-    avg_load_time = filtered_df['load_time_ms'].mean()
 
     # 比較データのKPI計算
     comp_kpis = {}
@@ -524,9 +530,6 @@ if selected_analysis == "全体サマリー":
             'final_cta_rate': comp_final_cta_rate,
             'avg_load_time': comp_avg_load_time
         }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
 
     # KPIカード表示
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -1339,7 +1342,7 @@ elif selected_analysis == "ページ分析":
     st.markdown('<div class="graph-description">各ページのプレビューと主要指標を一覧で確認できます。</div>', unsafe_allow_html=True)
 
     # 表示件数選択プルダウン
-    actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 0
+    actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty and not filtered_df['page_num_dom'].isnull().all() else 0
     st.info(f"📊 このLPは {actual_page_count} ページで構成されています")
 
     _, pulldown_col = st.columns([5, 1])
@@ -3469,17 +3472,6 @@ elif selected_analysis == "AIによる分析・考察":
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="ai_analysis_channel")
 
-    # 比較機能はチェックボックスでシンプルに
-    enable_comparison = st.checkbox("比較機能を有効化", value=False, key="ai_analysis_compare_check")
-    comparison_type = None
-    if enable_comparison:
-        comparison_options = {
-            "前期間": "previous_period", "前週": "previous_week",
-            "前月": "previous_month", "前年": "previous_year"
-        }
-        selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ai_analysis_compare_select")
-        comparison_type = comparison_options[selected_comparison]
-
     # カスタム期間の場合
     if selected_period == "カスタム期間":
         col1, col2 = st.columns(2)
@@ -3494,6 +3486,7 @@ elif selected_analysis == "AIによる分析・考察":
 
     st.markdown("---")
 
+    comparison_type = None # 初期化
     # データフィルタリング
     filtered_df = df.copy()
 
@@ -3517,6 +3510,38 @@ elif selected_analysis == "AIによる分析・考察":
     # is_conversion列を作成
     filtered_df['is_conversion'] = filtered_df['cv_type'].notna().astype(int)
 
+    # データが空の場合の処理
+    if len(filtered_df) == 0:
+        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
+        st.stop()
+
+    # 基本メトリクス計算
+    total_sessions = filtered_df['session_id'].nunique()
+    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
+    conversion_rate = safe_rate(total_conversions, total_sessions) * 100
+    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
+    click_rate = safe_rate(total_clicks, total_sessions) * 100
+    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
+    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
+    fv_retention_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique(), total_sessions) * 100
+    final_cta_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique(), total_sessions) * 100
+    avg_load_time = filtered_df['load_time_ms'].mean()
+
+    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
+
+    # 比較機能をKPIヘッダーの下に配置
+    comp_cols = st.columns([1, 1, 4]) # チェックボックス、選択ボックス、スペーサー
+    with comp_cols[0]:
+        enable_comparison = st.checkbox("比較機能を有効化", value=False, key="ai_analysis_compare_check")
+    with comp_cols[1]:
+        if enable_comparison:
+            comparison_options = {
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
+            }
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ai_analysis_compare_select", label_visibility="collapsed")
+            comparison_type = comparison_options[selected_comparison]
+
     # 比較データの取得
     comparison_df = None
     comp_start = None
@@ -3539,22 +3564,6 @@ elif selected_analysis == "AIによる分析・考察":
                 comparison_df = None
                 st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
 
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # 基本メトリクス計算
-    total_sessions = filtered_df['session_id'].nunique()
-    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = safe_rate(total_conversions, total_sessions) * 100
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
-    click_rate = safe_rate(total_clicks, total_sessions) * 100
-    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
-    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
-    fv_retention_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique(), total_sessions) * 100
-    final_cta_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique(), total_sessions) * 100
-    avg_load_time = filtered_df['load_time_ms'].mean()
 
     # 比較データのKPI計算
     comp_kpis = {}
@@ -3582,9 +3591,6 @@ elif selected_analysis == "AIによる分析・考察":
             'final_cta_rate': comp_final_cta_rate,
             'avg_load_time': comp_avg_load_time
         }
-
-    # KPI表示
-    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
 
     # KPIカード表示 (他のページからコピー)
     col1, col2, col3, col4, col5 = st.columns(5)
