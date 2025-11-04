@@ -1900,32 +1900,51 @@ elif selected_analysis == "広告分析":
         'FV残存率', '最終CTA到達率', '平均到達ページ', '平均滞在時間', 'エンゲージメント率'
     ]
     st.dataframe(segment_stats[display_cols].style.format({
-        'セッション数': '{:,.0f}',
-        'CV数': '{:,.0f}',
-        'CVR': '{:.2f}%',
-        'クリック数': '{:,.0f}',
-        'CTR': '{:.2f}%',
-        'FV残存率': '{:.2f}%',
-        '最終CTA到達率': '{:.2f}%',
-        '平均到達ページ': '{:.1f}',
-        '平均滞在時間': '{:.1f}秒',
-        'エンゲージメント率': '{:.2f}%',
+        'セッション数': '{:,.0f}', 'CV数': '{:,.0f}', 'CVR': '{:.2f}%',
+        'クリック数': '{:,.0f}', 'CTR': '{:.2f}%', 'FV残存率': '{:.2f}%',
+        '最終CTA到達率': '{:.2f}%', '平均到達ページ': '{:.1f}',
+        '平均滞在時間': '{:.1f}秒', 'エンゲージメント率': '{:.2f}%',
     }), use_container_width=True, hide_index=True)
     
+    # --- 指標選択 ---
+    st.markdown("##### グラフに表示する指標を選択")
+    all_metrics = [
+        'セッション数', 'CV数', 'CVR', 'クリック数', 'CTR', 
+        'FV残存率', '最終CTA到達率', '平均到達ページ', '平均滞在時間', 'エンゲージメント率'
+    ]
+    selected_metrics = st.multiselect(
+        "最大2つまで選択できます",
+        all_metrics,
+        default=['CVR', 'セッション数'],
+        max_selections=2,
+        label_visibility="collapsed"
+    )
+
     # グラフ表示
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig = px.bar(segment_stats, x=segment_name, y='CVR', title=f'{segment_name}別コンバージョン率')
-        fig.update_layout(dragmode=False)
-        fig.update_traces(hovertemplate='%{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_14')
-    
-    with col2:
-        fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間', title=f'{segment_name}別平均滞在時間')
-        fig.update_layout(dragmode=False)
-        fig.update_traces(hovertemplate='%{x}<br>平均滞在時間: %{y:.1f}秒<extra></extra>')
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15') # type: ignore
+    if selected_metrics:
+        graph_cols = st.columns(len(selected_metrics))
+        for i, metric in enumerate(selected_metrics):
+            with graph_cols[i]:
+                # 単位を決定
+                unit = ''
+                if '%' in metric or '率' in metric:
+                    unit = '%'
+                elif '時間' in metric:
+                    unit = '秒'
+                
+                # グラフを作成
+                fig = px.line(
+                    segment_stats, 
+                    x=segment_name, 
+                    y=metric, 
+                    title=f'{segment_name}別{metric}',
+                    markers=True
+                )
+                fig.update_layout(dragmode=False, yaxis_title=metric)
+                fig.update_traces(hovertemplate=f'%{{x}}<br>{metric}: %{{y:,.2f}}{unit}<extra></extra>')
+                st.plotly_chart(fig, use_container_width=True, key=f'ad_analysis_chart_{i}')
+    else:
+        st.info("グラフを表示するには、上のプルダウンから少なくとも1つの指標を選択してください。")
 
     st.markdown("---")
 
