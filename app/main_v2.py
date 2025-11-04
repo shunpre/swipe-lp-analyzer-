@@ -1992,6 +1992,9 @@ elif selected_analysis == "広告分析":
 
     # --- よくある質問 ---
     st.markdown("#### このページの分析について質問する")
+    if 'segment_faq_toggle' not in st.session_state:
+        st.session_state.segment_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
     if 'ad_faq_toggle' not in st.session_state:
         st.session_state.ad_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -1999,21 +2002,21 @@ elif selected_analysis == "広告分析":
     with faq_cols[0]:
         if st.button(f"パフォーマンスが最も良い{segment_name}は？", key="faq_segment_1", use_container_width=True):
             st.session_state.segment_faq_toggle[1] = not st.session_state.segment_faq_toggle[1]
-            st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False
+            st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False # type: ignore
         if st.session_state.segment_faq_toggle[1] and not segment_stats.empty:
             if not segment_stats.empty:
                 best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
                 st.info(f"**{best_segment[segment_name]}** です。コンバージョン率が **{best_segment['コンバージョン率']:.2f}%** と最も高いパフォーマンスを示しています。")
         
         if st.button(f"パフォーマンスが良いセグメントに集中すべき？", key="faq_segment_3", use_container_width=True):
-            st.session_state.segment_faq_toggle[3] = not st.session_state.segment_faq_toggle[3]
+            st.session_state.segment_faq_toggle[3] = not st.session_state.segment_faq_toggle[3] # type: ignore
             st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[4] = False, False, False
-        if st.session_state.segment_faq_toggle[3]:
+        if st.session_state.segment_faq_toggle.get(3, False):
             st.info("はい、短期的には最も効果的なアプローチです。パフォーマンスが良いセグメント（例：特定の広告チャネルやデバイス）への予算配分を増やすことで、全体のコンバージョン数を効率的に伸ばすことができます。")
     with faq_cols[1]:
         if st.button(f"パフォーマンスが最も悪い{segment_name}の原因は？", key="faq_segment_2", use_container_width=True):
             st.session_state.segment_faq_toggle[2] = not st.session_state.segment_faq_toggle[2]
-            st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False
+            st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False # type: ignore
         if st.session_state.segment_faq_toggle[2] and not segment_stats.empty:
             if not segment_stats.empty:
                 worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
@@ -2022,7 +2025,7 @@ elif selected_analysis == "広告分析":
         if st.button(f"セグメント毎にLPを変えるべき？", key="faq_segment_4", use_container_width=True):
             st.session_state.segment_faq_toggle[4] = not st.session_state.segment_faq_toggle[4]
             st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[3] = False, False, False
-        if st.session_state.segment_faq_toggle[4]:
+        if st.session_state.segment_faq_toggle.get(4, False):
             st.info("はい、中長期的には非常に有効な施策です。例えば、PCユーザーには詳細な情報を、スマホユーザーには要点を絞ったコンテンツを見せるなど、セグメントに合わせてLPをパーソナライズすることで、CVRの大幅な向上が期待できます。")
 
 # タブ4: A/Bテスト分析
