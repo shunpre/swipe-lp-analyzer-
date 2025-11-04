@@ -201,21 +201,42 @@ filter_cols = st.columns(5)
 
 with filter_cols[0]:
     # 期間選択
-    period_options = {
-        "過去7日間": 7,
-        "過去30日間": 30,
-        "過去90日間": 90,
-        "カスタム期間": None
-    }
-    selected_period = st.selectbox("📅 期間", list(period_options.keys()), index=1)
+    period_options = [
+        "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+    ]
+    selected_period = st.selectbox("📅 期間", period_options, index=2)
     
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min()
+        end_date = df['event_date'].max()
+    elif selected_period == "カスタム":
         start_date = st.date_input("開始日", df['event_date'].min())
         end_date = st.date_input("終了日", df['event_date'].max())
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
 with filter_cols[1]:
     # LP選択

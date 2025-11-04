@@ -383,17 +383,14 @@ if selected_analysis == "全体サマリー":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択（キーを一意にするためにプレフィックスを追加）
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="summary_period_selector")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="summary_period_selector")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -410,17 +407,40 @@ if selected_analysis == "全体サマリー":
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="summary_channel_selector")
 
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min())
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max())
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 
@@ -1183,17 +1203,14 @@ elif selected_analysis == "ページ分析":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="page_analysis_period")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="page_analysis_period")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -1211,17 +1228,40 @@ elif selected_analysis == "ページ分析":
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="page_analysis_channel")
     
     enable_comparison = False
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min(), key="page_analysis_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="page_analysis_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 
@@ -1640,17 +1680,14 @@ elif selected_analysis == "セグメント分析":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="segment_analysis_period")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="segment_analysis_period")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -1668,17 +1705,40 @@ elif selected_analysis == "セグメント分析":
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="segment_analysis_channel")
     
     enable_comparison = False
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min(), key="segment_analysis_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="segment_analysis_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 
@@ -1867,17 +1927,14 @@ elif selected_analysis == "A/Bテスト分析":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="ab_test_period")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="ab_test_period")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -1895,17 +1952,40 @@ elif selected_analysis == "A/Bテスト分析":
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="ab_test_channel")
     
     enable_comparison = False
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min(), key="ab_test_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="ab_test_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 
@@ -2271,17 +2351,14 @@ elif selected_analysis == "インタラクション分析":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="interaction_period")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="interaction_period")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -2299,17 +2376,40 @@ elif selected_analysis == "インタラクション分析":
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="interaction_channel")
     
     enable_comparison = False
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min(), key="interaction_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="interaction_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 
@@ -2493,17 +2593,14 @@ elif selected_analysis == "動画・スクロール分析":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="video_scroll_period")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="video_scroll_period")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -2521,17 +2618,40 @@ elif selected_analysis == "動画・スクロール分析":
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="video_scroll_channel")
     
     enable_comparison = False
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min(), key="video_scroll_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="video_scroll_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 
@@ -2743,17 +2863,14 @@ elif selected_analysis == "時系列分析":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="timeseries_period")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="timeseries_period")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -2771,17 +2888,40 @@ elif selected_analysis == "時系列分析":
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="timeseries_channel")
     
     enable_comparison = False
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min(), key="timeseries_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="timeseries_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 
@@ -3471,17 +3611,14 @@ elif selected_analysis == "AIによる分析・考察":
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択
-        period_options = {
-            "過去7日間": 7,
-            "過去30日間": 30,
-            "過去90日間": 90,
-            "カスタム期間": None
-        }
-        selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="ai_analysis_period")
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="ai_analysis_period")
 
     with filter_cols[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
             "LP選択", 
             lp_options, 
@@ -3498,17 +3635,40 @@ elif selected_analysis == "AIによる分析・考察":
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="ai_analysis_channel")
 
-    # カスタム期間の場合
-    if selected_period == "カスタム期間":
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("開始日", df['event_date'].min(), key="ai_analysis_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="ai_analysis_end_date")
-    else:
-        days = period_options[selected_period]
-        end_date = df['event_date'].max()
-        start_date = end_date - timedelta(days=days)
 
     st.markdown("---")
 

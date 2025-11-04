@@ -100,25 +100,29 @@ st.sidebar.markdown("---")
 st.sidebar.header("フィルター設定")
 
 # 期間選択（GA4スタイル）
-period_options = {
-    "過去7日間": 7,
-    "過去30日間": 30,
-    "過去90日間": 90,
-    "カスタム期間": None
-}
+period_options = day - timedelta(days=1)
+elif selected_period == "過去7日間":
+    start_date = today 
+elif selected_period == "過去14日間":    start_date = today - timedelta(days=13)
 
-selected_period = st.sidebar.selectbox("期間を選択", list(period_options.keys()), index=1)
-
-if selected_period == "カスタム期間":
+elif selected_period == "過去30日間":
+    start_date = today - timedelta(days=29)
+    end_date = today
+elif selected_period ==replace(day=1)
+    end_date = today
+elif selected_period == "先月":
+    last_month_end = today.replace(day=1) - timedelta(days=1)
+    start_date = last_month_end.replace(day=1)
+    end_date = last_month_end
+elif selected_period == "全期間":
+    start_date = df['event_date'].min()
+    end_date = df['event_date'].max()
+elif selected_period == "カスタム":
     col1, col2 = st.sidebar.columns(2)
     with col1:
         start_date = st.date_input("開始日", df['event_date'].min())
     with col2:
         end_date = st.date_input("終了日", df['event_date'].max())
-else:
-    days = period_options[selected_period]
-    end_date = df['event_date'].max()
-    start_date = end_date - timedelta(days=days)
 
 # LP選択
 lp_options = ["すべて"] + sorted(df['page_location'].dropna().unique().tolist())
@@ -126,11 +130,7 @@ selected_lps = st.sidebar.multiselect("LP選択", lp_options, default=["すべ�
 
 # チャネル選択
 channel_map = {
-    "google": "Organic Search",
-    "facebook": "Organic Social",
-    "instagram": "Organic Social",
-    "twitter": "Organic Social",
-    "direct": "Direct"
+    "google": "Organic Search", wOrganic Social",
 }
 df['channel'] = df['utm_source'].map(channel_map).fillna("Other")
 
@@ -138,11 +138,7 @@ channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
 selected_channels = st.sidebar.multiselect("チャネル", channel_options, default=["すべて"])
 
 # デバイス選択
-device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-selected_devices = st.sidebar.multiselect("デバイス", device_options, default=["すべて"])
-
-# A/Bテスト選択
-ab_options = ["すべて"] + sorted(df['ab_test_variant'].dropna().unique().tolist())
+device_options = ["すべて"] + sorted(df['d#スnt'].dropna().unique().tolist())
 selected_ab = st.sidebar.multiselect("A/Bテスト", ab_options, default=["すべて"])
 
 # 比較機能の設定
@@ -310,5 +306,3 @@ with col5:
     else:
         st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%")
         st.metric("平均読込時間", f"{avg_load_time:.0f}ms")
-
-
