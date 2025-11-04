@@ -2617,10 +2617,10 @@ elif selected_analysis == "LPOの基礎知識":
         """)
 
 elif selected_analysis == "インタラクション分析":
-    filter_cols_1 = st.columns(4)
     st.markdown('<div class="sub-header">インタラクション分析</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">各インタラクション（クリック行動など）が、最終的なコンバージョンにどれだけ貢献しているかを分析します。</div>', unsafe_allow_html=True)
 
     filter_cols_1 = st.columns(4)
     filter_cols_2 = st.columns(4)
@@ -2745,68 +2745,123 @@ elif selected_analysis == "インタラクション分析":
     # このページで必要なKPIを計算
     total_sessions = filtered_df['session_id'].nunique()
 
-    # インタラクションダミーデータを生成
-    interaction_data = {
-        '要素': ['CTAボタン', 'フローティングバナー', '離脱防止ポップアップ', '会社情報リンク'],
-        '表示回数': [total_sessions, total_sessions, int(total_sessions * 0.3), int(total_sessions * 0.15)],
-        'クリック数 (CTs)': [
-            int(total_sessions * 0.25),  # CTAボタン
-            int(total_sessions * 0.12),  # フローティングバナー
-            int(total_sessions * 0.08),  # 離脱防止ポップアップ
-            int(total_sessions * 0.05)   # 会社情報リンク
-        ]
-    }
-    
-    interaction_df = pd.DataFrame(interaction_data)
-    interaction_df['クリック率 (CTR)'] = interaction_df.apply(lambda row: safe_rate(row['クリック数 (CTs)'], row['表示回数']) * 100, axis=1)
-    
-    # インタラクション要素一覧表
+    # --- インタラクション要素一覧 ---
     st.markdown("#### インタラクション要素一覧")
-    st.markdown('<div class="graph-description">LP内の各インタラクション要素の表示回数、クリック数、クリック率を表示します。</div>', unsafe_allow_html=True) # type: ignore
-    
-    st.dataframe(interaction_df.style.format({
-        '表示回数': '{:,.0f}',
-        'クリック数 (CTs)': '{:,.0f}',
-        'クリック率 (CTR)': '{:.2f}%'
-    }), use_container_width=True, hide_index=True)
-    
-    # CTR比較グラフ
-    st.markdown("#### 要素別クリック率 (CTR) 比較")
-    st.markdown('<div class="graph-description">各インタラクション要素のCTRを比較します。CTRが高い要素はユーザーの関心を引いています。</div>', unsafe_allow_html=True) # type: ignore
-    
-    fig = px.bar(interaction_df, x='要素', y='クリック率 (CTR)', text='クリック率 (CTR)')
-    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='CTR (%)', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_ctr')
-    
-    # クリック数比較グラフ
-    st.markdown("#### 要素別クリック数 (CTs) 比較")
-    st.markdown('<div class="graph-description">各インタラクション要素の絶対クリック数を比較します。</div>', unsafe_allow_html=True) # type: ignore
-    
-    fig = px.bar(interaction_df, x='要素', y='クリック数 (CTs)', text='クリック数 (CTs)')
-    fig.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-    fig.update_layout(height=400, showlegend=False, xaxis_title='インタラクション要素', yaxis_title='クリック数', dragmode=False)
-    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_cts')
-    
-    # デバイス別分析
-    st.markdown("#### デバイス別インタラクション分析")
-    st.markdown('<div class="graph-description">デバイスごとのインタラクション率を比較します。</div>', unsafe_allow_html=True) # type: ignore
-    
-    device_interaction_data = {
-        'デバイス': ['PC', 'スマートフォン', 'タブレット'],
-        'CTA CTR': [28.5, 22.3, 25.1],
-        'フローティングバナー CTR': [10.2, 14.5, 12.3],
-        '離脱防止ポップアップ CTR': [6.8, 9.2, 7.5],
-        '会社情報 CTR': [4.2, 5.8, 4.9]
+    st.markdown('<div class="graph-description">LP内の各インタラクション要素の発生回数と、その行動を取ったユニークなセッション数を表示します。</div>', unsafe_allow_html=True)
+
+    interactions_for_list = {
+        'CTAボタンクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)),
+        'フローティングバナークリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)),
+        '離脱防止ポップアップクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)),
+        '動画視聴': filtered_df['event_name'] == 'video_play'
     }
-    
-    device_interaction_df = pd.DataFrame(device_interaction_data)
-    st.dataframe(device_interaction_df.style.format({
-        'CTA CTR': '{:.1f}%',
-        'フローティングバナー CTR': '{:.1f}%',
-        '離脱防止ポップアップ CTR': '{:.1f}%',
-        '会社情報 CTR': '{:.1f}%'
+
+    interaction_list_data = []
+    for name, condition in interactions_for_list.items():
+        # 発生回数（イベントの行数）
+        count = condition.sum()
+        # 発生セッション数（ユニークなセッションIDの数）
+        session_count = filtered_df[condition]['session_id'].nunique()
+
+        interaction_list_data.append({
+            'インタラクション要素': name,
+            '発生回数': count,
+            '発生セッション数': session_count
+        })
+
+    interaction_list_df = pd.DataFrame(interaction_list_data)
+
+    st.dataframe(interaction_list_df.style.format({
+        '発生回数': '{:,.0f}',
+        '発生セッション数': '{:,.0f}'
     }), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+
+    # --- CV貢献度分析ロジック ---
+    interactions = {
+        'CTAボタン': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)),
+        'フローティングバナー': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)),
+        '離脱防止ポップアップ': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)),
+        '動画視聴': filtered_df['event_name'] == 'video_play'
+    }
+
+    contribution_data = []
+
+    for name, condition in interactions.items():
+        # インタラクションを行ったセッションID
+        interacted_session_ids = filtered_df[condition]['session_id'].unique()
+        
+        # 全セッションID
+        all_session_ids = filtered_df['session_id'].unique()
+
+        # インタラクションを行わなかったセッションID
+        non_interacted_session_ids = np.setdiff1d(all_session_ids, interacted_session_ids)
+
+        # CVしたセッションID
+        cv_session_ids = filtered_df[filtered_df['cv_type'].notna()]['session_id'].unique()
+
+        # グループA: インタラクション有り
+        interacted_cv_sessions = np.intersect1d(interacted_session_ids, cv_session_ids)
+        cvr_with_interaction = safe_rate(len(interacted_cv_sessions), len(interacted_session_ids)) * 100
+
+        # グループB: インタラクション無し
+        non_interacted_cv_sessions = np.intersect1d(non_interacted_session_ids, cv_session_ids)
+        cvr_without_interaction = safe_rate(len(non_interacted_cv_sessions), len(non_interacted_session_ids)) * 100
+
+        # CVRリフト率
+        cvr_lift = safe_rate(cvr_with_interaction - cvr_without_interaction, cvr_without_interaction) * 100
+
+        contribution_data.append({
+            'インタラクション要素': name,
+            'インタラクション有りCVR (%)': cvr_with_interaction,
+            'インタラクション無しCVR (%)': cvr_without_interaction,
+            'CVRリフト率 (%)': cvr_lift
+        })
+
+    contribution_df = pd.DataFrame(contribution_data)
+
+    # CV貢献度テーブル
+    st.markdown("#### インタラクション別 CV貢献度")
+    st.markdown('<div class="graph-description">各行動（インタラクション）の「有り/無し」でユーザーを分け、それぞれのコンバージョン率（CVR）を比較します。「CVRリフト率」が高いほど、その行動がCVに強く貢献していることを示します。</div>', unsafe_allow_html=True)
+
+    st.dataframe(contribution_df.style.format({
+        'インタラクション有りCVR (%)': '{:.2f}%',
+        'インタラクション無しCVR (%)': '{:.2f}%',
+        'CVRリフト率 (%)': '{:+.1f}%'
+    }), use_container_width=True, hide_index=True)
+
+    # CV貢献度 比較グラフ
+    st.markdown("#### CV貢献度 比較グラフ")
+    st.markdown('<div class="graph-description">各インタラクションの「有り/無し」でのCVRを棒グラフで比較します。差が大きいほど、その行動がCVに与える影響が大きいことを意味します。</div>', unsafe_allow_html=True)
+
+    # グラフ用にデータを整形
+    plot_df = contribution_df.melt(
+        id_vars=['インタラクション要素'],
+        value_vars=['インタラクション有りCVR (%)', 'インタラクション無しCVR (%)'],
+        var_name='グループ',
+        value_name='CVR'
+    )
+
+    fig = px.bar(
+        plot_df,
+        x='インタラクション要素',
+        y='CVR',
+        color='グループ',
+        barmode='group',
+        text='CVR'
+    )
+    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+    fig.update_layout(
+        height=500,
+        yaxis_title='コンバージョン率 (%)',
+        xaxis_title='インタラクション要素',
+        legend_title='グループ',
+        dragmode=False,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
+    )
+    st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_contribution')
 
     st.markdown("---")
 
@@ -2825,29 +2880,25 @@ elif selected_analysis == "インタラクション分析":
         with st.container():
             with st.spinner("AIがインタラクションデータを分析中..."):
                 # クリック率が最も高い要素を特定
-                if not interaction_df.empty:
-                    best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
+                if not contribution_df.empty:
+                    best_lift_element = contribution_df.loc[contribution_df['CVRリフト率 (%)'].idxmax()]
                 else:
-                    # データがない場合のフォールバック
-                    best_ctr_element = pd.Series({'要素': 'N/A', 'クリック率 (CTR)': 0})
+                    best_lift_element = pd.Series({'インタラクション要素': 'N/A', 'CVRリフト率 (%)': 0})
                 
                 st.markdown("#### 1. 現状の評価")
                 st.info(f"""
-                インタラクション要素の中で、**「{best_ctr_element['要素']}」** が最も高いクリック率（{best_ctr_element['クリック率 (CTR)']:.2f}%）を記録しており、ユーザーの関心を最も強く引いている要素と言えます。
+                インタラクション要素の中で、**「{best_lift_element['インタラクション要素']}」** がCVRリフト率 **{best_lift_element['CVRリフト率 (%)']:.1f}%** と最も高く、コンバージョンに最も貢献している行動と考えられます。
                 
-                一方で、クリック率が低い要素は、ユーザーに気づかれていないか、魅力的に感じられていない可能性があります。
+                この行動を取ったユーザーは、取らなかったユーザーに比べてCVRが大幅に高いことを意味します。
                 """)
 
                 st.markdown("#### 2. 今後の考察と改善案")
                 st.warning(f"""
-                **高CTR要素の活用:**
-                「{best_ctr_element['要素']}」はユーザーの関心が高いことが証明されたため、この要素から主要なCTAやコンバージョンポイントへの導線を強化することで、全体のCVR向上が期待できます。
+                **CV貢献度の高い行動を促進する:**
+                「{best_lift_element['インタラクション要素']}」という行動を、より多くのユーザーに取ってもらうための施策が有効です。例えば、このボタンをより目立たせる、配置を変える、などの改善が考えられます。
                 
-                **低CTR要素の改善:**
-                クリック率が低い要素については、以下の改善策が考えられます。
-                - **視認性の向上**: デザイン（色、サイズ、配置）を見直し、より目立たせる。
-                - **文言の変更**: ユーザーのメリットや緊急性を訴求するコピーに変更する。
-                - **A/Bテスト**: 複数のデザインや文言パターンでA/Bテストを行い、最適な組み合わせを見つける。
+                **CV貢献度の低い行動の分析:**
+                CVRリフト率が低い、あるいはマイナスになっている行動は、ユーザーを混乱させているか、CVから遠ざけている可能性があります。その要素の必要性自体を見直すか、役割を明確にする改善が必要です。
                 """)
             if st.button("AI分析を閉じる", key="interaction_ai_close"):
                 st.session_state.interaction_ai_open = False
@@ -2862,10 +2913,10 @@ elif selected_analysis == "インタラクション分析":
         if st.button("最もクリックされている要素は？", key="faq_interaction_1", use_container_width=True):
             st.session_state.interaction_faq_toggle[1] = not st.session_state.interaction_faq_toggle[1]
             st.session_state.interaction_faq_toggle[2], st.session_state.interaction_faq_toggle[3], st.session_state.interaction_faq_toggle[4] = False, False, False
-        if st.session_state.interaction_faq_toggle[1]:
-            if not interaction_df.empty:
-                best_ctr_element = interaction_df.loc[interaction_df['クリック率 (CTR)'].idxmax()]
-                st.info(f"クリック率（CTR）が最も高いのは「**{best_ctr_element['要素']}**」で、{best_ctr_element['クリック率 (CTR)']:.2f}%です。ユーザーの関心が最も高い要素です。")
+        if st.session_state.interaction_faq_toggle[1] and not contribution_df.empty:
+            best_lift_element = contribution_df.loc[contribution_df['CVRリフト率 (%)'].idxmax()]
+            st.info(f"コンバージョンへの貢献度が最も高いのは「**{best_lift_element['インタラクション要素']}**」です。この行動を取ったユーザーのCVRは、取らなかったユーザーに比べて **{best_lift_element['CVRリフト率 (%)']:.1f}%** 高くなっています。")
+
         
         if st.button("クリック率が低い要素はどうすれば？", key="faq_interaction_3", use_container_width=True):
             st.session_state.interaction_faq_toggle[3] = not st.session_state.interaction_faq_toggle[3]
