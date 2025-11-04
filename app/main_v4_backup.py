@@ -90,6 +90,48 @@ else:
 lp_options = ["すべて"] + sorted(df['page_location'].dropna().unique().tolist())
 selected_lps = st.sidebar.multiselect("LP選択", lp_options, default=["すべて"])
 
+def assign_channel(row):
+    """
+    utm_sourceとutm_mediumに基づいてチャネルを割り当てる関数。
+    YouTube広告やその他の有料広告に対応。
+    """
+    source = str(row.get('utm_source', '')).lower()
+    medium = str(row.get('utm_medium', '')).lower()
+    campaign = str(row.get('utm_campaign', '')).lower()
+    referrer = str(row.get('page_referrer', '')).lower()
+
+    # 1. 有料広告 (Paid)
+    if medium in ['cpc', 'ppc', 'paidsearch', 'paidsocial', 'social_ad', 'paidvideo', 'display', 'banner', 'cpm']:
+        if source in ['google', 'yahoo', 'bing']:
+            return 'Paid Search'
+        elif source in ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'line']:
+            return 'Paid Social'
+        elif source == 'youtube':
+            return 'Paid Video'
+        elif medium in ['display', 'banner', 'cpm']:
+            return 'Display'
+        return 'Other Paid' # 上記以外の有料広告
+
+    # 2. オーガニック (Organic)
+    if medium == 'organic':
+        return 'Organic Search'
+    elif source in ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'line'] or medium in ['social', 'social-network', 'social-media', 'sm']:
+        return 'Organic Social'
+
+    # 3. 直接流入 (Direct)
+    if source == 'direct' and (medium in ['(none)', 'none', '']):
+        return 'Direct'
+
+    # 4. Eメール (Email)
+    if medium == 'email':
+        return 'Email'
+
+    # 5. リファラル (Referral)
+    if medium == 'referral' or (referrer and 'google' not in referrer and 'yahoo' not in referrer and 'bing' not in referrer and 'facebook' not in referrer and 'instagram' not in referrer and 'twitter' not in referrer):
+        return 'Referral'
+
+    return 'Other' # どの条件にも当てはまらない場合
+
 # チャネル選択
 channel_map = {
     "google": "Organic Search",
@@ -99,6 +141,7 @@ channel_map = {
     "direct": "Direct"
 }
 df['channel'] = df['utm_source'].map(channel_map).fillna("Referral")
+df['channel'] = df.apply(assign_channel, axis=1)
 channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
 selected_channels = st.sidebar.multiselect("チャネル", channel_options, default=["すべて"])
 
