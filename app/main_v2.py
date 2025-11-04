@@ -2004,9 +2004,9 @@ elif selected_analysis == "広告分析":
             st.session_state.segment_faq_toggle[1] = not st.session_state.segment_faq_toggle[1]
             st.session_state.segment_faq_toggle[2], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False # type: ignore
         if st.session_state.segment_faq_toggle[1] and not segment_stats.empty:
-            if not segment_stats.empty:
-                best_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
-                st.info(f"**{best_segment[segment_name]}** です。コンバージョン率が **{best_segment['コンバージョン率']:.2f}%** と最も高いパフォーマンスを示しています。")
+            if not segment_stats.empty and 'CVR' in segment_stats.columns:
+                best_segment = segment_stats.loc[segment_stats['CVR'].idxmax()]
+                st.info(f"**{best_segment[segment_name]}** です。コンバージョン率が **{best_segment['CVR']:.2f}%** と最も高いパフォーマンスを示しています。")
         
         if st.button(f"パフォーマンスが良いセグメントに集中すべき？", key="faq_segment_3", use_container_width=True):
             st.session_state.segment_faq_toggle[3] = not st.session_state.segment_faq_toggle[3] # type: ignore
@@ -2018,9 +2018,9 @@ elif selected_analysis == "広告分析":
             st.session_state.segment_faq_toggle[2] = not st.session_state.segment_faq_toggle[2]
             st.session_state.segment_faq_toggle[1], st.session_state.segment_faq_toggle[3], st.session_state.segment_faq_toggle[4] = False, False, False # type: ignore
         if st.session_state.segment_faq_toggle[2] and not segment_stats.empty:
-            if not segment_stats.empty:
-                worst_segment = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
-                st.info(f"**{worst_segment[segment_name]}** のパフォーマンスが低い原因として、{segment_type}が「デバイス別」なら「表示崩れや操作性の問題」、{segment_type}が「チャネル別」なら「広告ターゲティングとLP内容のミスマッチ」などが考えられます。")
+            if not segment_stats.empty and 'CVR' in segment_stats.columns:
+                worst_segment = segment_stats.loc[segment_stats['CVR'].idxmin()]
+                st.info(f"**{worst_segment[segment_name]}** のパフォーマンスが低い原因として、{analysis_target}が「デバイス別」なら「表示崩れや操作性の問題」、{analysis_target}が「チャネル別」なら「広告ターゲティングとLP内容のミスマッチ」などが考えられます。")
         
         if st.button(f"セグメント毎にLPを変えるべき？", key="faq_segment_4", use_container_width=True):
             st.session_state.segment_faq_toggle[4] = not st.session_state.segment_faq_toggle[4]
