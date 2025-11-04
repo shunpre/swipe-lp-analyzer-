@@ -1825,11 +1825,11 @@ elif selected_analysis == "セグメント分析":
 
     # セグメント別統計を計算
     segment_stats = display_df.groupby(segment_col).agg(
-        'session_id': 'nunique',
-        'stay_ms': 'mean',
-        'max_page_reached': 'mean',
-        'scroll_pct': 'mean' # type: ignore
-    ).reset_index() # type: ignore
+        session_id=('session_id', 'nunique'),
+        stay_ms=('stay_ms', 'mean'),
+        max_page_reached=('max_page_reached', 'mean'),
+        scroll_pct=('scroll_pct', 'mean')
+    ).reset_index()
     segment_stats.columns = [segment_name, 'セッション数', '平均滞在時間(ms)', '平均到達ページ数', '平均逆行率']
     segment_stats['平均滞在時間(秒)'] = segment_stats['平均滞在時間(ms)'] / 1000
     
@@ -4626,7 +4626,7 @@ elif selected_analysis == "アラート":
     # BigQueryのv_alertsビューと同様の計算をpandasで実行
     # 1. 日次KPIサマリーを作成 (v_kpi_daily相当)
     daily_kpi = df.groupby(df['event_date'].dt.date).agg(
-        sessions=('session_id', 'nunique'),
+        sessions=('session_id', 'nunique'), # type: ignore
         # cv_typeがNaNでないセッションのユニーク数をカウント
         conversions=('session_id', lambda x: df.loc[x.index][df.loc[x.index]['cv_type'].notna()]['session_id'].nunique())
     ).reset_index()
