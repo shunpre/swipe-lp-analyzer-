@@ -4600,26 +4600,6 @@ elif selected_analysis == "AIによる分析・考察":
             else:
                 st.warning("分析データがありません。")
     
-    # st.markdown("---")
-    
-    # # フリーチャット（プロトタイプ）
-    # st.markdown("#### チャットで質問する")
-    
-    # user_question = st.text_input("チャットで質問する", placeholder="質問を入力してください", label_visibility="collapsed", key="ai_page_free_chat_input")
-    
-    # if st.button("送信", key="ai_page_free_chat_submit"):
-    #     if user_question:
-    #         with st.chat_message("user"):
-    #             st.markdown(user_question)
-
-    #         with st.chat_message("assistant"):
-    #             with st.spinner("AIが回答を生成中..."):
-    #                 # ここで実際のAI応答生成ロジックを呼び出す
-    #                 response = f"ご質問ありがとうございます。「{user_question}」について、AIがデータに基づいて回答を生成します。（これはプロトタイプの固定回答です）"
-    #                 st.markdown(response)
-    #     else:
-    #         st.warning("質問を入力してください")
-
 # タブ10: 使用ガイド
 elif selected_analysis == "使用ガイド":
     st.markdown('<div class="sub-header">使用ガイド</div>', unsafe_allow_html=True)
