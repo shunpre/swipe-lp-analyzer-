@@ -1112,7 +1112,7 @@ if selected_analysis == "全体サマリー":
                 st.session_state.summary_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'summary_faq_toggle' not in st.session_state:
         st.session_state.summary_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -1572,7 +1572,7 @@ elif selected_analysis == "ページ分析":
                 st.session_state.page_analysis_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'page_faq_toggle' not in st.session_state:
         st.session_state.page_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -1798,7 +1798,7 @@ elif selected_analysis == "セグメント分析":
                 st.session_state.segment_analysis_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'segment_faq_toggle' not in st.session_state:
         st.session_state.segment_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -2197,7 +2197,7 @@ elif selected_analysis == "A/Bテスト分析":
                 st.session_state.ab_test_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'ab_test_faq_toggle' not in st.session_state:
         st.session_state.ab_test_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -2426,7 +2426,7 @@ elif selected_analysis == "インタラクション分析":
                 st.session_state.interaction_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'interaction_faq_toggle' not in st.session_state:
         st.session_state.interaction_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -2673,7 +2673,7 @@ elif selected_analysis == "動画・スクロール分析":
                 st.session_state.video_scroll_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'video_faq_toggle' not in st.session_state:
         st.session_state.video_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -2954,7 +2954,7 @@ elif selected_analysis == "時系列分析":
                 st.session_state.timeseries_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'time_faq_toggle' not in st.session_state:
         st.session_state.time_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -3060,7 +3060,7 @@ elif selected_analysis == "リアルタイムビュー":
                 st.session_state.realtime_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'realtime_faq_toggle' not in st.session_state:
         st.session_state.realtime_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -3399,7 +3399,7 @@ elif selected_analysis == "デモグラフィック情報":
                 st.session_state.demographic_ai_open = False
 
     # --- よくある質問 ---
-    st.markdown("#### よくある質問")
+    st.markdown("#### このページの分析について質問する")
     if 'demographic_faq_toggle' not in st.session_state:
         st.session_state.demographic_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
@@ -3912,7 +3912,7 @@ elif selected_analysis == "AIによる分析・考察":
     
     # 質問ボタンにトグル機能を追加
     st.markdown("---")
-    st.markdown("### よくある質問")
+    st.markdown("### このページの分析について質問する")
     
     # FAQ用のデータ計算を事前に初期化
     page_stats_global = pd.DataFrame(columns=['ページ番号', '離脱セッション数', '平均滞在時間_ms', '離脱率', '平均滞在時間_秒'])
