@@ -4673,7 +4673,7 @@ elif selected_analysis == "アラート":
             st.markdown("**【デモ】セッション数が前日比で 60.1% 大幅に減少しました。**")
             st.markdown(f"<small>前日: 1,250, 本日: 498</small>", unsafe_allow_html=True)
         with col3:
-            st.button("時系列分析で確認", key=f"alert_demo_session", use_container_width=True, on_click=navigate_to, args=('時系列分析',))
+            st.button("全体サマリで確認", key=f"alert_demo_session", use_container_width=True, on_click=navigate_to, args=('全体サマリ',))
     st.markdown("---")
 
     # --- デモ用アラート（中） ---
@@ -4686,7 +4686,7 @@ elif selected_analysis == "アラート":
             st.markdown("**【デモ】モバイルデバイスのコンバージョン率が過去7日間平均より 35.8% 低下しています。**")
             st.markdown(f"<small>過去7日平均: 2.85%, 本日: 1.83%</small>", unsafe_allow_html=True)
         with col3:
-            st.button("セグメント分析で確認", key=f"alert_demo_mobile_cvr", use_container_width=True, on_click=navigate_to, args=('セグメント分析',))
+            st.button("デモグラフィック情報で確認", key=f"alert_demo_mobile_cvr", use_container_width=True, on_click=navigate_to, args=('デモグラフィック情報',))
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1.5])
         with col1:
@@ -4695,7 +4695,7 @@ elif selected_analysis == "アラート":
             st.markdown("**【デモ】Organic Socialチャネルからの流入が過去7日間平均より 42.0% 減少しています。**")
             st.markdown(f"<small>過去7日平均: 350セッション/日, 本日: 203セッション</small>", unsafe_allow_html=True)
         with col3:
-            st.button("セグメント分析で確認", key=f"alert_demo_social_inflow", use_container_width=True, on_click=navigate_to, args=('セグメント分析',))
+            st.button("広告分析で確認", key=f"alert_demo_social_inflow", use_container_width=True, on_click=navigate_to, args=('広告分析',))
     st.markdown("---")
     # --- デモ用アラートここまで ---
 
@@ -4741,7 +4741,7 @@ elif selected_analysis == "アラート":
                 'level': 'high', 'title': 'セッションが急減',
                 'description': f"**セッション数が前日比で {abs(latest_alert_data['sessions_dod']):.1%} 大幅に減少しました。**",
                 'details': f"前日: {int(latest_alert_data['sessions_prev']):,}, 本日: {int(latest_alert_data['sessions']):,}",
-                'action': '時系列分析で確認', 'page': '時系列分析'
+                'action': '全体サマリで確認', 'page': '全体サマリ'
             })
 
         # --- 重要度：中 ---
