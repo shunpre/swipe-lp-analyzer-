@@ -319,8 +319,20 @@ conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
 df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
 # サイドバー: タイトル
-st.sidebar.markdown('<a href="?page=使用ガイド" target="_self" style="text-decoration: none;"><h1 style="color: #002060; font-size: 1.8rem; font-weight: bold; margin-bottom: 1rem; line-height: 1.3;">瞬ジェネ<br>AIアナリスト</h1></a>', unsafe_allow_html=True)
-st.sidebar.markdown("---") # type: ignore
+st.sidebar.markdown(
+    """
+    <a href="?page=使用ガイド" target="_self" style="
+        display: block;
+        color: #002060;
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        line-height: 1.3;
+        text-decoration: none;">
+        瞬ジェネ<br>AIアナリスト
+    </a>
+    """, unsafe_allow_html=True)
+st.sidebar.markdown("---")
 
 # デフォルトのページ（URLに何もない場合）
 DEFAULT_PAGE = "使用ガイド"
