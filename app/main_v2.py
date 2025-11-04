@@ -390,14 +390,6 @@ if selected_analysis == "全体サマリー":
         selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="summary_period_selector")
 
     with filter_cols[1]:
-        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="summary_device_selector")
-
-    with filter_cols[3]:
-        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="summary_channel_selector")
-
-    with filter_cols[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist()) # type: ignore
         selected_lp = st.selectbox(
@@ -407,6 +399,14 @@ if selected_analysis == "全体サマリー":
             key="summary_lp", # キーを明示
             disabled=not lp_options # 選択肢がなければ操作不可
         )
+
+    with filter_cols[2]:
+        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="summary_device_selector")
+
+    with filter_cols[3]:
+        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="summary_channel_selector")
 
     # カスタム期間の場合
     if selected_period == "カスタム期間":
