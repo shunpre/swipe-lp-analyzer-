@@ -3922,15 +3922,17 @@ elif selected_analysis == "AIによる分析・考察":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    filter_cols = st.columns(5)
-    with filter_cols[0]:
+    filter_cols_1 = st.columns(4)
+    filter_cols_2 = st.columns(4)
+
+    with filter_cols_1[0]:
         # 期間選択
         period_options = [
             "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
         ]
         selected_period = st.selectbox("期間を選択", period_options, index=2, key="ai_analysis_period")
 
-    with filter_cols[1]:
+    with filter_cols_1[1]:
         # LP選択
         lp_options = sorted(df['page_location'].dropna().unique().tolist())
         selected_lp = st.selectbox(
@@ -3941,16 +3943,26 @@ elif selected_analysis == "AIによる分析・考察":
             disabled=not lp_options
         )
 
-    with filter_cols[2]:
+    with filter_cols_1[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="ai_analysis_device")
 
-    with filter_cols[3]:
+    with filter_cols_1[3]:
+        # 新規/リピート フィルター
+        user_type_options = ["すべて", "新規", "リピート"]
+        selected_user_type = st.selectbox("新規/リピート", user_type_options, index=0, key="ai_analysis_user_type")
+
+    with filter_cols_2[0]:
+        # CV/非CV フィルター
+        conversion_status_options = ["すべて", "コンバージョン", "非コンバージョン"]
+        selected_conversion_status = st.selectbox("CV/非CV", conversion_status_options, index=0, key="ai_analysis_conversion_status")
+
+    with filter_cols_2[1]:
         # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
         selected_channel = st.selectbox("チャネル", channel_options, index=0, key="ai_analysis_channel")
 
-    with filter_cols[4]:
+    with filter_cols_2[2]:
         # チャネルフィルターを「参照元/メディア」に変更
         source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
         selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="ai_analysis_source_medium") # ラベルは変更済み
@@ -4010,6 +4022,12 @@ elif selected_analysis == "AIによる分析・考察":
     if selected_device != "すべて":
         filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
 
+    if selected_user_type != "すべて":
+        filtered_df = filtered_df[filtered_df['user_type'] == selected_user_type]
+
+    if selected_conversion_status != "すべて":
+        filtered_df = filtered_df[filtered_df['conversion_status'] == selected_conversion_status]
+
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
@@ -4065,6 +4083,10 @@ elif selected_analysis == "AIによる分析・考察":
             # --- 比較データにもクロス分析用フィルターを適用 ---
             if selected_device != "すべて":
                 comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
+            if selected_user_type != "すべて":
+                comparison_df = comparison_df[comparison_df['user_type'] == selected_user_type]
+            if selected_conversion_status != "すべて":
+                comparison_df = comparison_df[comparison_df['conversion_status'] == selected_conversion_status]
             if selected_channel != "すべて":
                 comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
             if selected_channel != "すべて":
