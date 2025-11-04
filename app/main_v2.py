@@ -378,6 +378,8 @@ if selected_analysis == "全体サマリー":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
+    # ページ上部にフィルターを配置
+
     filter_cols = st.columns(4)
     with filter_cols[0]:
         # 期間選択（キーを一意にするためにプレフィックスを追加）
@@ -422,6 +424,7 @@ if selected_analysis == "全体サマリー":
 
     st.markdown("---")
 
+    # ページ上部にフィルターを配置ここまで
     comparison_type = None # 初期化
     # 期間フィルターのみを適用したDataFrame（テーブル表示用）
     period_filtered_df = df[
@@ -449,6 +452,28 @@ if selected_analysis == "全体サマリー":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
+    # --- データダウンロード機能 ---
+    st.markdown("##### フィルター適用後のデータをダウンロード")
+    st.markdown('<div class="graph-description">現在選択されているフィルター条件で絞り込んだ生データをCSVファイルとしてダウンロードできます。日報や週報の作成にご活用ください。</div>', unsafe_allow_html=True)
+
+    # CSVに変換する関数
+    @st.cache_data
+    def convert_df_to_csv(df_to_convert):
+        # IMPORTANT: utf-8-sig を使用してExcelでの日本語文字化けを防ぐ
+        return df_to_convert.to_csv(index=False).encode('utf-8-sig')
+
+    csv_data = convert_df_to_csv(filtered_df)
+    
+    # ダウンロードボタン
+    st.download_button(
+       label="CSV形式でダウンロード",
+       data=csv_data,
+       file_name=f"analysis_data_{pd.to_datetime(start_date).strftime('%Y%m%d')}_{pd.to_datetime(end_date).strftime('%Y%m%d')}.csv",
+       mime='text/csv',
+       use_container_width=True,
+       type="primary"
+    )
+
     # データが空の場合の処理
     if len(filtered_df) == 0:
         st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
@@ -468,6 +493,7 @@ if selected_analysis == "全体サマリー":
 
     st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
 
+    # 主要KPIを算出して表示
     # 比較機能をKPIヘッダーの下に配置
     comp_cols = st.columns([1, 1, 4]) # チェックボックス、選択ボックス、スペーサー
     with comp_cols[0]:
@@ -4417,10 +4443,8 @@ elif selected_analysis == "アラート":
         if high_alerts:
             st.markdown("#### 重要度：高（実績値）")
             for alert in high_alerts:
-                with st.container():
+                with st.container(): # type: ignore
                     col1, col2, col3 = st.columns([1, 4, 1.5])
-                    with col1:
-                        st.error(alert['title'])
                     with col2:
                         st.markdown(alert['description'])
                         st.markdown(f"<small>{alert['details']}</small>", unsafe_allow_html=True)
@@ -4428,13 +4452,11 @@ elif selected_analysis == "アラート":
                         st.button(alert['action'], key=f"alert_{alert['title']}", use_container_width=True, on_click=navigate_to, args=(alert['page'],))
             st.markdown("---")
 
-        if medium_alerts:
+        if medium_alerts: # type: ignore
             st.markdown("#### 重要度：中（実績値）")
             for alert in medium_alerts:
-                with st.container():
+                with st.container(): # type: ignore
                     col1, col2, col3 = st.columns([1, 4, 1.5])
-                    with col1:
-                        st.warning(alert['title'])
                     with col2:
                         st.markdown(alert['description'])
                         st.markdown(f"<small>{alert['details']}</small>", unsafe_allow_html=True)
@@ -4442,7 +4464,7 @@ elif selected_analysis == "アラート":
                         st.button(alert['action'], key=f"alert_{alert['title']}", use_container_width=True, on_click=navigate_to, args=(alert['page'],))
             st.markdown("---")
 
-    else:
+    else: # type: ignore
         st.info("アラートを生成するための十分なデータがありません（最低8日分のデータが必要です）。")
 
 # フッター
