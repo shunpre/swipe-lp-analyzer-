@@ -319,11 +319,11 @@ conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
 df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
 # サイドバー: タイトル
-st.sidebar.markdown('<h1 style="color: #002060; font-size: 1.8rem; font-weight: bold; margin-bottom: 1rem; line-height: 1.3;">瞬ジェネ<br>AIアナリスト</h1>', unsafe_allow_html=True)
-st.sidebar.markdown("---")
+st.sidebar.markdown('<a href="?page=使用ガイド" target="_self" style="text-decoration: none;"><h1 style="color: #002060; font-size: 1.8rem; font-weight: bold; margin-bottom: 1rem; line-height: 1.3;">瞬ジェネ<br>AIアナリスト</h1></a>', unsafe_allow_html=True)
+st.sidebar.markdown("---") # type: ignore
 
 # デフォルトのページ（URLに何もない場合）
-DEFAULT_PAGE = "AIによる分析・考察"
+DEFAULT_PAGE = "使用ガイド"
 
 try:
     # Streamlit 1.10.0以降の推奨される方法
@@ -346,8 +346,8 @@ menu_groups = {
     "AIアナリスト": ["AIによる分析・考察"],
     "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報", "アラート"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
-    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析"],
-    "ヘルプ": ["使用ガイド", "専門用語解説", "FAQ"]
+    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析"], # type: ignore
+    "ヘルプ": ["専門用語解説", "FAQ"]
 }
 
 for group_name, items in menu_groups.items():
@@ -359,7 +359,7 @@ for group_name, items in menu_groups.items():
         else:
             css_class = ""       # 一致しなければなし
         
-        # HTMLのアンカーリンクをst.markdownで作成
+        # HTMLのリンクをst.markdownで作成
         # href に ?page={item}#top-anchor を設定
         # target="_self" は、iframe内で遷移を完結させるために重要
         st.sidebar.markdown(
