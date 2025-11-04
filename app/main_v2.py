@@ -1828,40 +1828,27 @@ elif selected_analysis == "広告分析":
 
     st.markdown("---")
 
-    # --- ドリルダウンフィルター ---
-    drilldown_cols = st.columns(2)
+    # --- 分析対象の選択 ---
+    analysis_target = st.radio(
+        "分析の切り口を選択してください",
+        ('キャンペーン別', '広告コンテンツ別'),
+        horizontal=True,
+        key="ad_analysis_target"
+    )
 
-    # 選択されたチャネルでデータをフィルタリング
-    drilldown_df = filtered_df.copy()
-
-    # 1. キャンペーンフィルター
-    with drilldown_cols[0]:
-        campaign_options = ['すべて'] + sorted(drilldown_df['utm_campaign'].dropna().unique().tolist())
-        selected_campaign = st.selectbox("1. キャンペーン", campaign_options, key="ad_campaign_filter")
-
-    # 選択されたキャンペーンでデータをフィルタリング
-    if selected_campaign != 'すべて':
-        drilldown_df = drilldown_df[drilldown_df['utm_campaign'] == selected_campaign]
-
-    # 2. 広告コンテンツフィルター（表示のみ、ここではフィルタリングしない）
-    with drilldown_cols[1]:
-        content_options = ['すべて'] + sorted(drilldown_df['utm_content'].dropna().unique().tolist())
-        st.selectbox("4. 広告コンテンツ", content_options, key="ad_content_filter", disabled=True)
-
-    st.markdown("---")
+    st.markdown("---") # type: ignore
 
     # --- 分析テーブル表示 ---
-    # 選択された階層に応じて表示する内容を決定
-    if selected_campaign == 'すべて':
+    if analysis_target == 'キャンペーン別':
         st.markdown("#### キャンペーン別 パフォーマンス")
         segment_col = 'utm_campaign'
         segment_name = 'キャンペーン'
-        display_df = drilldown_df
+        display_df = filtered_df.dropna(subset=['utm_campaign'])
     else:
         st.markdown("#### 広告コンテンツ別 パフォーマンス")
         segment_col = 'utm_content'
         segment_name = '広告コンテンツ'
-        display_df = drilldown_df.dropna(subset=['utm_content'])
+        display_df = filtered_df.dropna(subset=['utm_content'])
 
     # データが空の場合の処理
     if display_df.empty or display_df[segment_col].nunique() == 0:
