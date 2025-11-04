@@ -2619,8 +2619,7 @@ elif selected_analysis == "LPOの基礎知識":
 elif selected_analysis == "インタラクション分析":
     st.markdown('<div class="sub-header">インタラクション分析</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-    st.markdown('<div class="graph-description">各インタラクション（クリック行動など）が、最終的なコンバージョンにどれだけ貢献しているかを分析します。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True) # type: ignore
 
     filter_cols_1 = st.columns(4)
     filter_cols_2 = st.columns(4)
@@ -2747,33 +2746,49 @@ elif selected_analysis == "インタラクション分析":
 
     # --- インタラクション要素一覧 ---
     st.markdown("#### インタラクション要素一覧")
-    st.markdown('<div class="graph-description">LP内の各インタラクション要素の発生回数と、その行動を取ったユニークなセッション数を表示します。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">LP内の各インタラクション要素について、要素が表示されたセッション数、クリック数、およびクリック率を表示します。</div>', unsafe_allow_html=True)
 
     interactions_for_list = {
-        'CTAボタンクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)),
-        'フローティングバナークリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)),
-        '離脱防止ポップアップクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)),
-        '動画視聴': filtered_df['event_name'] == 'video_play'
+        'CTAボタンクリック': {'condition': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)), 'page_num': 9},
+        'フローティングバナークリック': {'condition': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)), 'page_num': 1}, # 全ページで表示されると仮定
+        '離脱防止ポップアップクリック': {'condition': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)), 'page_num': 1}, # 全ページで表示されると仮定
+        '動画視聴開始': {'condition': filtered_df['event_name'] == 'video_play', 'page_num': 1} # 動画はP1にあると仮定
     }
 
     interaction_list_data = []
-    for name, condition in interactions_for_list.items():
-        # 発生回数（イベントの行数）
-        count = condition.sum()
-        # 発生セッション数（ユニークなセッションIDの数）
-        session_count = filtered_df[condition]['session_id'].nunique()
+    for name, details in interactions_for_list.items():
+        condition = details['condition']
+        page_num = details['page_num']
+
+        # クリック数または視聴開始数（イベントの行数）
+        action_count = condition.sum()
+        
+        # その行動を取ったユニークなセッション数
+        action_session_count = filtered_df[condition]['session_id'].nunique()
+
+        # 表示セッション数（要素が存在するページに到達したセッション数）
+        # page_numが1の場合は全セッションが表示機会を持つとみなす
+        if page_num == 1:
+            impression_sessions = total_sessions
+        else:
+            impression_sessions = filtered_df[filtered_df['max_page_reached'] >= page_num]['session_id'].nunique()
+
+        # クリック率（行動セッション数 / 表示セッション数）
+        rate = safe_rate(action_session_count, impression_sessions) * 100
 
         interaction_list_data.append({
             'インタラクション要素': name,
-            '発生回数': count,
-            '発生セッション数': session_count
+            '表示セッション数': impression_sessions,
+            'クリック数または視聴開始数': action_count,
+            'クリック率または視聴開始率': rate
         })
 
     interaction_list_df = pd.DataFrame(interaction_list_data)
 
     st.dataframe(interaction_list_df.style.format({
-        '発生回数': '{:,.0f}',
-        '発生セッション数': '{:,.0f}'
+        '表示セッション数': '{:,.0f}',
+        'クリック数または視聴開始数': '{:,.0f}',
+        'クリック率または視聴開始率': '{:.2f}%'
     }), use_container_width=True, hide_index=True)
 
     st.markdown("---")
@@ -2781,10 +2796,10 @@ elif selected_analysis == "インタラクション分析":
 
     # --- CV貢献度分析ロジック ---
     interactions = {
-        'CTAボタン': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)),
-        'フローティングバナー': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)),
-        '離脱防止ポップアップ': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)),
-        '動画視聴': filtered_df['event_name'] == 'video_play'
+        'CTAボタンクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)),
+        'フローティングバナークリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)),
+        '離脱防止ポップアップクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)),
+        '動画視聴開始': filtered_df['event_name'] == 'video_play'
     }
 
     contribution_data = []
@@ -3065,6 +3080,44 @@ elif selected_analysis == "動画・スクロール分析":
 
     # このページで必要なKPIを計算
     total_sessions = filtered_df['session_id'].nunique()
+
+    # --- 動画視聴ファネル ---
+    st.markdown("#### 動画視聴ファネル")
+    st.markdown('<div class="graph-description">動画の再生開始から視聴完了までのユーザーの残存率を可視化します。どの段階で離脱が多いかを把握できます。</div>', unsafe_allow_html=True)
+
+    # GTMで計測されると想定されるイベント名
+    video_events = {
+        '再生開始': 'video_play',
+        '25%視聴': 'video_progress_25',
+        '50%視聴': 'video_progress_50',
+        '75%視聴': 'video_progress_75',
+        '視聴完了': 'video_completion'
+    }
+
+    funnel_data = []
+    # 再生開始したユニークセッション数を基準とする
+    start_sessions_count = filtered_df[filtered_df['event_name'] == video_events['再生開始']]['session_id'].nunique()
+
+    if start_sessions_count > 0:
+        for stage, event_name in video_events.items():
+            # そのイベントを発生させたユニークセッション数をカウント
+            sessions_count = filtered_df[filtered_df['event_name'] == event_name]['session_id'].nunique()
+            funnel_data.append({'段階': stage, 'セッション数': sessions_count})
+
+        video_funnel_df = pd.DataFrame(funnel_data)
+
+        fig_video_funnel = go.Figure(go.Funnel(
+            y=video_funnel_df['段階'],
+            x=video_funnel_df['セッション数'],
+            textinfo="value+percent initial",
+            hovertemplate='段階: %{y}<br>セッション数: %{x:,}<extra></extra>'
+        ))
+        fig_video_funnel.update_layout(height=500, dragmode=False)
+        st.plotly_chart(fig_video_funnel, use_container_width=True, key='plotly_chart_video_funnel')
+    else:
+        st.info("選択された期間に動画の再生データがありません。")
+
+    st.markdown("---")
 
     # 逆行率分析
     st.markdown("ページ別平均逆行率")
