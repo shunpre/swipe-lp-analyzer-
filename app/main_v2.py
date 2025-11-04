@@ -1750,8 +1750,7 @@ elif selected_analysis == "ページ分析":
 
 # タブ3: セグメント分析
 elif selected_analysis == "広告分析":
-    st.markdown('<div class="sub-header">広告分析（ドリルダウン）</div>', unsafe_allow_html=True)
-    st.markdown('<div class="graph-description">広告チャネルからメディア、キャンペーン、広告コンテンツへと段階的に深掘りして分析します。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">広告分析</div>', unsafe_allow_html=True)
 
     # --- ページ上部の共通フィルター ---
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
@@ -1829,6 +1828,9 @@ elif selected_analysis == "広告分析":
     st.markdown("---")
 
     # --- 分析対象の選択 ---
+    st.markdown('<div class="sub-header">分析軸の選択</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">「キャンペーン別」または「広告コンテンツ別」にパフォーマンスを分析します。</div>', unsafe_allow_html=True)
+
     analysis_target = st.radio(
         "分析の切り口を選択してください",
         ('キャンペーン別', '広告コンテンツ別'),
