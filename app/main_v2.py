@@ -1859,50 +1859,70 @@ elif selected_analysis == "広告分析":
 
     # セグメント別統計を計算
     segment_stats = display_df.groupby(segment_col).agg(
-        session_id=('session_id', 'nunique'),
-        stay_ms=('stay_ms', 'mean'),
-        max_page_reached=('max_page_reached', 'mean'),
-        scroll_pct=('scroll_pct', 'mean')
+        セッション数=('session_id', 'nunique'),
+        クリック数=('event_name', lambda x: (x == 'click').sum()),
+        平均滞在時間=('stay_ms', 'mean'),
+        平均到達ページ=('max_page_reached', 'mean')
     ).reset_index()
-    segment_stats.columns = [segment_name, 'セッション数', '平均滞在時間(ms)', '平均到達ページ数', '平均逆行率']
-    segment_stats['平均滞在時間(秒)'] = segment_stats['平均滞在時間(ms)'] / 1000
+    segment_stats.rename(columns={segment_col: segment_name}, inplace=True)
     
     # コンバージョン数
     segment_cv = display_df[display_df['cv_type'].notna()].groupby(segment_col)['session_id'].nunique().reset_index()
-    segment_cv.columns = [segment_name, 'コンバージョン数']
-    
-    segment_stats = segment_stats.merge(segment_cv, on=segment_name, how='left').fillna(0)
-    segment_stats['コンバージョン率'] = segment_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
-    
+    segment_cv.rename(columns={segment_col: segment_name, 'session_id': 'CV数'}, inplace=True)
+    segment_stats = pd.merge(segment_stats, segment_cv, on=segment_name, how='left').fillna(0)
+
+    # FV残存数
+    segment_fv = display_df[display_df['max_page_reached'] >= 2].groupby(segment_col)['session_id'].nunique().reset_index()
+    segment_fv.rename(columns={segment_col: segment_name, 'session_id': 'FV残存数'}, inplace=True)
+    segment_stats = pd.merge(segment_stats, segment_fv, on=segment_name, how='left').fillna(0)
+
+    # 最終CTA到達数
+    segment_final_cta = display_df[display_df['max_page_reached'] >= 10].groupby(segment_col)['session_id'].nunique().reset_index()
+    segment_final_cta.rename(columns={segment_col: segment_name, 'session_id': '最終CTA到達数'}, inplace=True)
+    segment_stats = pd.merge(segment_stats, segment_final_cta, on=segment_name, how='left').fillna(0)
+
     # エンゲージメント率（滞在時間30秒以上）
     engaged_sessions = display_df[display_df['stay_ms'] >= 30000].groupby(segment_col)['session_id'].nunique().reset_index()
-    engaged_sessions.columns = [segment_name, 'エンゲージセッション数']
-    
-    segment_stats = segment_stats.merge(engaged_sessions, on=segment_name, how='left').fillna(0)
-    segment_stats['エンゲージメント率'] = (segment_stats['エンゲージセッション数'] / segment_stats['セッション数'] * 100)
+    engaged_sessions.rename(columns={segment_col: segment_name, 'session_id': 'エンゲージセッション数'}, inplace=True)
+    segment_stats = pd.merge(segment_stats, engaged_sessions, on=segment_name, how='left').fillna(0)
+
+    # 率の計算
+    segment_stats['CVR'] = segment_stats.apply(lambda row: safe_rate(row['CV数'], row['セッション数']) * 100, axis=1)
+    segment_stats['CTR'] = segment_stats.apply(lambda row: safe_rate(row['クリック数'], row['セッション数']) * 100, axis=1)
+    segment_stats['FV残存率'] = segment_stats.apply(lambda row: safe_rate(row['FV残存数'], row['セッション数']) * 100, axis=1)
+    segment_stats['最終CTA到達率'] = segment_stats.apply(lambda row: safe_rate(row['最終CTA到達数'], row['セッション数']) * 100, axis=1)
     segment_stats['エンゲージメント率'] = segment_stats.apply(lambda row: safe_rate(row['エンゲージセッション数'], row['セッション数']) * 100, axis=1)
+    segment_stats['平均滞在時間'] = segment_stats['平均滞在時間'] / 1000
+
     # テーブル表示
-    display_cols = [segment_name, 'セッション数', 'コンバージョン数', 'コンバージョン率', 'エンゲージメント率', '平均滞在時間(秒)', '平均到達ページ数']
+    display_cols = [
+        segment_name, 'セッション数', 'CV数', 'CVR', 'クリック数', 'CTR', 
+        'FV残存率', '最終CTA到達率', '平均到達ページ', '平均滞在時間', 'エンゲージメント率'
+    ]
     st.dataframe(segment_stats[display_cols].style.format({
         'セッション数': '{:,.0f}',
-        'コンバージョン数': '{:,.0f}',
-        'コンバージョン率': '{:.2f}%',
+        'CV数': '{:,.0f}',
+        'CVR': '{:.2f}%',
+        'クリック数': '{:,.0f}',
+        'CTR': '{:.2f}%',
+        'FV残存率': '{:.2f}%',
+        '最終CTA到達率': '{:.2f}%',
+        '平均到達ページ': '{:.1f}',
+        '平均滞在時間': '{:.1f}秒',
         'エンゲージメント率': '{:.2f}%',
-        '平均滞在時間(秒)': '{:.1f}',
-        '平均到達ページ数': '{:.1f}'
-    }), use_container_width=True)
+    }), use_container_width=True, hide_index=True)
     
     # グラフ表示
     col1, col2 = st.columns(2)
     
     with col1:
-        fig = px.bar(segment_stats, x=segment_name, y='コンバージョン率', title=f'{segment_name}別コンバージョン率')
+        fig = px.bar(segment_stats, x=segment_name, y='CVR', title=f'{segment_name}別コンバージョン率')
         fig.update_layout(dragmode=False)
         fig.update_traces(hovertemplate='%{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_14')
     
     with col2:
-        fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間(秒)', title=f'{segment_name}別平均滞在時間')
+        fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間', title=f'{segment_name}別平均滞在時間')
         fig.update_layout(dragmode=False)
         fig.update_traces(hovertemplate='%{x}<br>平均滞在時間: %{y:.1f}秒<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15') # type: ignore
