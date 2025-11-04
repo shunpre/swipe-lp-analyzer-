@@ -1950,23 +1950,23 @@ elif selected_analysis == "広告分析":
 
     # --- AI分析と考察 ---
     st.markdown("### AIによる分析と考察")
-    st.markdown('<div class="graph-description">セグメント分析の結果に基づき、AIが現状の評価と改善のための考察を提示します。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">広告のキャンペーンやコンテンツ別のパフォーマンスに基づき、AIが現状の評価と改善のための考察を提示します。</div>', unsafe_allow_html=True)
 
     # AI分析の表示状態を管理
-    if 'segment_analysis_ai_open' not in st.session_state:
-        st.session_state.segment_analysis_ai_open = False
+    if 'ad_analysis_ai_open' not in st.session_state:
+        st.session_state.ad_analysis_ai_open = False
 
-    if st.button("AI分析を実行", key="segment_analysis_ai_btn", type="primary", use_container_width=True):
-        st.session_state.segment_analysis_ai_open = True
+    if st.button("AI分析を実行", key="ad_analysis_ai_btn", type="primary", use_container_width=True):
+        st.session_state.ad_analysis_ai_open = True
 
-    if st.session_state.segment_analysis_ai_open:
+    if st.session_state.ad_analysis_ai_open:
         with st.container():
             with st.spinner("AIがセグメントデータを分析中..."):
                 if not segment_stats.empty:
                     best_segment_row = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
                     worst_segment_row = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
-                    best_segment = {'name': best_segment_row[segment_name], 'cvr': best_segment_row['コンバージョン率']}
-                    worst_segment = {'name': worst_segment_row[segment_name], 'cvr': worst_segment_row['コンバージョン率']}
+                    best_segment = {'name': best_segment_row[segment_name], 'cvr': best_segment_row['コンバージョン率']} # type: ignore
+                    worst_segment = {'name': worst_segment_row[segment_name], 'cvr': worst_segment_row['コンバージョン率']} # type: ignore
                 else:
                     best_segment, worst_segment = (None, None)
                 
@@ -1974,26 +1974,26 @@ elif selected_analysis == "広告分析":
                 st.info(f"""
                 {segment_type}では、パフォーマンスに顕著な差が見られます。
                 - **最もパフォーマンスが高いセグメント**: **{best_segment['name']}** (CVR: {best_segment['cvr']:.2f}%)
-                - **最もパフォーマンスが低いセグメント**: **{worst_segment['name']}** (CVR: {worst_segment['cvr']:.2f}%)
+                - **最もパフォーマンスが低いセグメント**: **{worst_segment['name']}** (CVR: {worst_segment['cvr']:.2f}%) # type: ignore
                 
-                特に **{worst_segment['name']}** のセグメントは、他のセグメントと比較してCVRが低く、改善の機会が大きい領域です。
+                特に **{worst_segment['name']}** のセグメントは、他のセグメントと比較してCVRが低く、改善の機会が大きい領域です。 # type: ignore
                 """)
 
                 st.markdown("#### 2. 今後の考察と改善案")
                 st.warning(f"""
-                **{worst_segment['name']}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。
+                **{worst_segment['name']}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。 # type: ignore
                 - **{segment_type}が「デバイス別」の場合**: {worst_segment['name']}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
                 - **{segment_type}が「チャネル別」の場合**: {worst_segment['name']}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
                 
                 逆に、**{best_segment['name']}** は非常に効果的なセグメントです。このセグメントへの広告予算の増額や、類似ユーザーへのアプローチ拡大を検討する価値があります。
                 """)
-            if st.button("AI分析を閉じる", key="segment_analysis_ai_close"):
-                st.session_state.segment_analysis_ai_open = False
+            if st.button("AI分析を閉じる", key="ad_analysis_ai_close"):
+                st.session_state.ad_analysis_ai_open = False
 
     # --- よくある質問 ---
     st.markdown("#### このページの分析について質問する")
-    if 'segment_faq_toggle' not in st.session_state:
-        st.session_state.segment_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+    if 'ad_faq_toggle' not in st.session_state:
+        st.session_state.ad_faq_toggle = {1: False, 2: False, 3: False, 4: False}
 
     faq_cols = st.columns(2)
     with faq_cols[0]:
