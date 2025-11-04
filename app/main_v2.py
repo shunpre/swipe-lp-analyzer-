@@ -1962,17 +1962,17 @@ elif selected_analysis == "広告分析":
     if st.session_state.ad_analysis_ai_open:
         with st.container():
             with st.spinner("AIがセグメントデータを分析中..."):
-                if not segment_stats.empty:
-                    best_segment_row = segment_stats.loc[segment_stats['コンバージョン率'].idxmax()]
-                    worst_segment_row = segment_stats.loc[segment_stats['コンバージョン率'].idxmin()]
-                    best_segment = {'name': best_segment_row[segment_name], 'cvr': best_segment_row['コンバージョン率']} # type: ignore
-                    worst_segment = {'name': worst_segment_row[segment_name], 'cvr': worst_segment_row['コンバージョン率']} # type: ignore
+                if not segment_stats.empty and 'CVR' in segment_stats.columns:
+                    best_segment_row = segment_stats.loc[segment_stats['CVR'].idxmax()]
+                    worst_segment_row = segment_stats.loc[segment_stats['CVR'].idxmin()]
+                    best_segment = {'name': best_segment_row[segment_name], 'cvr': best_segment_row['CVR']}
+                    worst_segment = {'name': worst_segment_row[segment_name], 'cvr': worst_segment_row['CVR']}
                 else:
                     best_segment, worst_segment = (None, None)
                 
                 st.markdown("#### 1. 現状の評価")
                 st.info(f"""
-                {segment_type}では、パフォーマンスに顕著な差が見られます。
+                {analysis_target}では、パフォーマンスに顕著な差が見られます。
                 - **最もパフォーマンスが高いセグメント**: **{best_segment['name']}** (CVR: {best_segment['cvr']:.2f}%)
                 - **最もパフォーマンスが低いセグメント**: **{worst_segment['name']}** (CVR: {worst_segment['cvr']:.2f}%) # type: ignore
                 
@@ -1982,8 +1982,8 @@ elif selected_analysis == "広告分析":
                 st.markdown("#### 2. 今後の考察と改善案")
                 st.warning(f"""
                 **{worst_segment['name']}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。 # type: ignore
-                - **{segment_type}が「デバイス別」の場合**: {worst_segment['name']}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
-                - **{segment_type}が「チャネル別」の場合**: {worst_segment['name']}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
+                - **{analysis_target}が「デバイス別」の場合**: {worst_segment['name']}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
+                - **{analysis_target}が「チャネル別」の場合**: {worst_segment['name']}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
                 
                 逆に、**{best_segment['name']}** は非常に効果的なセグメントです。このセグメントへの広告予算の増額や、類似ユーザーへのアプローチ拡大を検討する価値があります。
                 """)
