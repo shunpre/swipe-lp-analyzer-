@@ -365,44 +365,66 @@ def assign_channel(row):
     utm_sourceとutm_mediumに基づいてチャネルを割り当てる関数。
     YouTube広告やその他の有料広告に対応。
     """
-    source = str(row.get('utm_source', '')).lower()
-    medium = str(row.get('utm_medium', '')).lower()
-    campaign = str(row.get('utm_campaign', '')).lower()
-    referrer = str(row.get('page_referrer', '')).lower()
+    source = str(row.get('utm_source', '(direct)')).lower()
+    medium = str(row.get('utm_medium', '(none)')).lower()
+    referrer = str(row.get('page_referrer', ''))
 
-    # 1. 有料広告 (Paid)
-    if medium in ['cpc', 'ppc', 'paidsearch', 'paidsocial', 'social_ad', 'paidvideo', 'display', 'banner', 'cpm']:
-        if source in ['google', 'yahoo', 'bing']:
-            return 'Paid Search'
-        elif source in ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'line']:
-            return 'Paid Social'
-        elif source == 'youtube':
-            return 'Paid Video'
-        elif medium in ['display', 'banner', 'cpm']:
-            return 'Display'
-        return 'Other Paid' # 上記以外の有料広告
+    # 1. Paid Search (有料検索)
+    # mediumがcpc, ppc, paidsearchの場合。sourceが検索エンジン系であることを優先。
+    if medium in ['cpc', 'ppc', 'paidsearch']:
+        return 'Paid Search'
 
-    # 2. オーガニック (Organic)
+    # 2. Paid Social (有料ソーシャル)
+    # mediumがpaid_social, paidsocial, social_adなど。
+    if medium in ['paid_social', 'paidsocial', 'social_ad']:
+        return 'Paid Social'
+
+    # 3. Paid Video (有料動画)
+    if medium in ['paidvideo', 'paid_video']:
+        return 'Paid Video'
+
+    # 4. Display (ディスプレイ広告)
+    if medium in ['display', 'banner', 'cpm']:
+        return 'Display'
+
+    # 5. Organic Search (自然検索)
     if medium == 'organic':
         return 'Organic Search'
-    elif source in ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'line'] or medium in ['social', 'social-network', 'social-media', 'sm']:
+
+    # 6. Organic Social (自然ソーシャル)
+    # mediumがsocial、またはsourceが主要SNSの場合
+    if medium == 'social' or source in ['facebook', 'instagram', 'twitter', 'x.com', 't.co', 'linkedin', 'tiktok', 'youtube']:
         return 'Organic Social'
 
-    # 3. 直接流入 (Direct)
-    if source == 'direct' and (medium in ['(none)', 'none', '']):
+    # 7. Direct (直接流入)
+    if source == '(direct)' and medium == '(none)':
         return 'Direct'
 
-    # 4. Eメール (Email)
+    # 8. Email
     if medium == 'email':
         return 'Email'
 
-    # 5. リファラル (Referral)
-    if medium == 'referral' or (referrer and 'google' not in referrer and 'yahoo' not in referrer and 'bing' not in referrer and 'facebook' not in referrer and 'instagram' not in referrer and 'twitter' not in referrer):
+    # 9. Referral (参照)
+    if medium == 'referral':
         return 'Referral'
 
     return 'Other' # どの条件にも当てはまらない場合
 
 df['channel'] = df.apply(assign_channel, axis=1)
+
+# --- 参照元/メディア 列の作成 ---
+# twitterをXに置換
+df['utm_source_display'] = df['utm_source'].replace('twitter', 'X')
+
+# NaN値を '(none)' に置換
+df['utm_source_display'].fillna('(direct)', inplace=True)
+df['utm_medium'].fillna('(none)', inplace=True)
+
+# source / medium を作成
+df['source_medium'] = df['utm_source_display'] + ' / ' + df['utm_medium']
+
+# 論理的に不自然な組み合わせを除外 (例: direct / cpc)
+df = df[~((df['utm_source_display'] == '(direct)') & (df['utm_medium'] != '(none)'))]
 
 # 選択された分析項目に応じて表示を切り替え
 
@@ -414,7 +436,8 @@ if selected_analysis == "全体サマリー":
 
     # ページ上部にフィルターを配置
 
-    filter_cols = st.columns(4)
+    # フィルターを5列に変更
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         # 期間選択（キーを一意にするためにプレフィックスを追加）
         period_options = [
@@ -438,8 +461,14 @@ if selected_analysis == "全体サマリー":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="summary_device_selector")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="summary_channel_selector")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="summary_channel_selector")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="summary_source_medium_selector") # ラベルは変更済み
 
     # 期間設定
     today = df['event_date'].max().date()
@@ -505,6 +534,9 @@ if selected_analysis == "全体サマリー":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
 
     # --- データダウンロード機能 ---
     st.markdown("##### フィルター適用後のデータをダウンロード")
@@ -577,6 +609,8 @@ if selected_analysis == "全体サマリー":
                 comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
             if selected_channel != "すべて":
                 comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
+            if selected_channel != "すべて":
+                comparison_df = comparison_df[comparison_df['source_medium'] == selected_source_medium]
 
             # 比較データが空の場合は無効化
             if len(comparison_df) == 0:
@@ -1234,7 +1268,7 @@ elif selected_analysis == "ページ分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    filter_cols = st.columns(4)
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         # 期間選択
         period_options = [
@@ -1258,8 +1292,14 @@ elif selected_analysis == "ページ分析":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="page_analysis_device")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="page_analysis_channel")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="page_analysis_channel")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="page_analysis_source_medium") # ラベルは変更済み
     
     enable_comparison = False
     # 期間設定
@@ -1318,6 +1358,9 @@ elif selected_analysis == "ページ分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
 
     # 比較機能は無効化
     comparison_df = None
@@ -1707,147 +1750,104 @@ elif selected_analysis == "ページ分析":
 
 # タブ3: セグメント分析
 elif selected_analysis == "セグメント分析":
-    st.markdown('<div class="sub-header">セグメント分析</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">広告分析（ドリルダウン）</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">広告チャネルからメディア、キャンペーン、広告コンテンツへと段階的に深掘りして分析します。</div>', unsafe_allow_html=True)
+
     # メインエリア: フィルターと比較設定
-    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-
-    filter_cols = st.columns(4)
-    with filter_cols[0]:
-        # 期間選択
-        period_options = [
-            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
-        ]
-        selected_period = st.selectbox("期間を選択", period_options, index=2, key="segment_analysis_period")
-
-    with filter_cols[1]:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox(
-            "LP選択", 
-            lp_options, 
-            index=0 if lp_options else None,
-            key="segment_analysis_lp",
-            disabled=not lp_options
-        )
-
-    with filter_cols[2]:
-        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="segment_analysis_device")
-
-    with filter_cols[3]:
-        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="segment_analysis_channel")
+    # --- ドリルダウンフィルター ---
+    drilldown_cols = st.columns(4)
     
-    enable_comparison = False
-    # 期間設定
-    today = df['event_date'].max().date()
-    
-    if selected_period == "今日":
-        start_date = today
-        end_date = today
-    elif selected_period == "昨日":
-        start_date = today - timedelta(days=1)
-        end_date = today - timedelta(days=1)
-    elif selected_period == "過去7日間":
-        start_date = today - timedelta(days=6)
-        end_date = today
-    elif selected_period == "過去14日間":
-        start_date = today - timedelta(days=13)
-        end_date = today
-    elif selected_period == "過去30日間":
-        start_date = today - timedelta(days=29)
-        end_date = today
-    elif selected_period == "今月":
-        start_date = today.replace(day=1)
-        end_date = today
-    elif selected_period == "先月":
-        last_month_end = today.replace(day=1) - timedelta(days=1)
-        start_date = last_month_end.replace(day=1)
-        end_date = last_month_end
-    elif selected_period == "全期間":
-        start_date = df['event_date'].min().date()
-        end_date = df['event_date'].max().date()
-    elif selected_period == "カスタム":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="segment_analysis_start_date")
-        with col2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="segment_analysis_end_date")
+    # 1. チャネルフィルター
+    with drilldown_cols[0]:
+        # 広告関連のチャネルのみを抽出
+        ad_channels = ['Paid Search', 'Paid Social', 'Paid Video', 'Display', 'Other Paid']
+        channel_options = ['すべて'] + [ch for ch in df['channel'].unique() if ch in ad_channels]
+        selected_channel = st.selectbox("1. チャネル", channel_options, key="ad_channel_filter")
+
+    # 選択されたチャネルでデータをフィルタリング
+    drilldown_df = df.copy()
+    if selected_channel != 'すべて':
+        drilldown_df = drilldown_df[drilldown_df['channel'] == selected_channel]
+
+    # 2. 参照元/メディアフィルター
+    with drilldown_cols[1]:
+        source_medium_options = ['すべて'] + sorted(drilldown_df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("2. 参照元/メディア", source_medium_options, key="ad_source_medium_filter")
+
+    # 選択された参照元/メディアでデータをフィルタリング
+    if selected_source_medium != 'すべて':
+        drilldown_df = drilldown_df[drilldown_df['source_medium'] == selected_source_medium]
+
+    # 3. キャンペーンフィルター
+    with drilldown_cols[2]:
+        campaign_options = ['すべて'] + sorted(drilldown_df['utm_campaign'].dropna().unique().tolist())
+        selected_campaign = st.selectbox("3. キャンペーン", campaign_options, key="ad_campaign_filter")
+
+    # 選択されたキャンペーンでデータをフィルタリング
+    if selected_campaign != 'すべて':
+        drilldown_df = drilldown_df[drilldown_df['utm_campaign'] == selected_campaign]
+
+    # 4. 広告コンテンツフィルター（表示のみ、ここではフィルタリングしない）
+    with drilldown_cols[3]:
+        content_options = ['すべて'] + sorted(drilldown_df['utm_content'].dropna().unique().tolist())
+        st.selectbox("4. 広告コンテンツ", content_options, key="ad_content_filter", disabled=True)
 
     st.markdown("---")
 
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # --- クロス分析用フィルター適用 ---
-    if selected_device != "すべて":
-        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
-
-    if selected_channel != "すべて":
-        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    # 比較機能は無効化
-    comparison_df = None
-
-    # データが空の場合の処理
-    if len(filtered_df) == 0:
-        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
-        st.stop()
-
-    # セグメント選択
-    segment_type = st.selectbox("分析するセグメントを選択", [
-        "デバイス別", "チャネル別", "UTMソース別", "A/Bテスト別"
-    ], key="segment_analysis_segment_type")
-    
-    if segment_type == "デバイス別":
-        segment_col = 'device_type'
-        segment_name = 'デバイス'
-    elif segment_type == "チャネル別":
+    # --- 分析テーブル表示 ---
+    # 選択された階層に応じて表示する内容を決定
+    if selected_channel == 'すべて':
+        st.markdown("#### チャネル別 パフォーマンス")
         segment_col = 'channel'
         segment_name = 'チャネル'
-    elif segment_type == "UTMソース別":
-        segment_col = 'utm_source'
-        segment_name = 'UTMソース'
+        # 広告関連チャネルのみ表示
+        display_df = drilldown_df[drilldown_df['channel'].isin(ad_channels)]
+    elif selected_source_medium == 'すべて':
+        st.markdown("#### 参照元/メディア別 パフォーマンス")
+        segment_col = 'source_medium'
+        segment_name = '参照元/メディア'
+        display_df = drilldown_df
+    elif selected_campaign == 'すべて':
+        st.markdown("#### キャンペーン別 パフォーマンス")
+        segment_col = 'utm_campaign'
+        segment_name = 'キャンペーン'
+        display_df = drilldown_df.dropna(subset=['utm_campaign'])
     else:
-        segment_col = 'ab_variant'
-        segment_name = 'A/Bテスト'
-    
-    # セグメント別統計
-    segment_stats = filtered_df.groupby(segment_col).agg({
+        st.markdown("#### 広告コンテンツ別 パフォーマンス")
+        segment_col = 'utm_content'
+        segment_name = '広告コンテンツ'
+        display_df = drilldown_df.dropna(subset=['utm_content'])
+
+    # データが空の場合の処理
+    if display_df.empty or display_df[segment_col].nunique() == 0:
+        st.info("選択された条件に該当する広告データがありません。")
+        st.stop()
+
+    # セグメント別統計を計算
+    segment_stats = display_df.groupby(segment_col).agg(
         'session_id': 'nunique',
         'stay_ms': 'mean',
         'max_page_reached': 'mean',
-        'scroll_pct': 'mean'
-    }).reset_index()
+        'scroll_pct': 'mean' # type: ignore
+    ).reset_index() # type: ignore
     segment_stats.columns = [segment_name, 'セッション数', '平均滞在時間(ms)', '平均到達ページ数', '平均逆行率']
     segment_stats['平均滞在時間(秒)'] = segment_stats['平均滞在時間(ms)'] / 1000
     
     # コンバージョン数
-    segment_cv = filtered_df[filtered_df['cv_type'].notna()].groupby(segment_col)['session_id'].nunique().reset_index()
+    segment_cv = display_df[display_df['cv_type'].notna()].groupby(segment_col)['session_id'].nunique().reset_index()
     segment_cv.columns = [segment_name, 'コンバージョン数']
     
     segment_stats = segment_stats.merge(segment_cv, on=segment_name, how='left').fillna(0)
     segment_stats['コンバージョン率'] = segment_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
     # エンゲージメント率（滞在時間30秒以上）
-    engaged_sessions = filtered_df[filtered_df['stay_ms'] >= 30000].groupby(segment_col)['session_id'].nunique().reset_index()
+    engaged_sessions = display_df[display_df['stay_ms'] >= 30000].groupby(segment_col)['session_id'].nunique().reset_index()
     engaged_sessions.columns = [segment_name, 'エンゲージセッション数']
     
     segment_stats = segment_stats.merge(engaged_sessions, on=segment_name, how='left').fillna(0)
     segment_stats['エンゲージメント率'] = (segment_stats['エンゲージセッション数'] / segment_stats['セッション数'] * 100)
     segment_stats['エンゲージメント率'] = segment_stats.apply(lambda row: safe_rate(row['エンゲージセッション数'], row['セッション数']) * 100, axis=1)
     # テーブル表示
-    st.markdown(f"#### {segment_type}の詳細")
     display_cols = [segment_name, 'セッション数', 'コンバージョン数', 'コンバージョン率', 'エンゲージメント率', '平均滞在時間(秒)', '平均到達ページ数']
     st.dataframe(segment_stats[display_cols].style.format({
         'セッション数': '{:,.0f}',
@@ -1862,13 +1862,13 @@ elif selected_analysis == "セグメント分析":
     col1, col2 = st.columns(2)
     
     with col1:
-        fig = px.bar(segment_stats, x=segment_name, y='コンバージョン率', title=f'{segment_type}のコンバージョン率')
+        fig = px.bar(segment_stats, x=segment_name, y='コンバージョン率', title=f'{segment_name}別コンバージョン率')
         fig.update_layout(dragmode=False)
         fig.update_traces(hovertemplate='%{x}<br>コンバージョン率: %{y:.2f}%<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_14')
     
     with col2:
-        fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間(秒)', title=f'{segment_type}の平均滞在時間')
+        fig = px.bar(segment_stats, x=segment_name, y='平均滞在時間(秒)', title=f'{segment_name}別平均滞在時間')
         fig.update_layout(dragmode=False)
         fig.update_traces(hovertemplate='%{x}<br>平均滞在時間: %{y:.1f}秒<extra></extra>')
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_15') # type: ignore
@@ -1958,7 +1958,7 @@ elif selected_analysis == "A/Bテスト分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    filter_cols = st.columns(4)
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         # 期間選択
         period_options = [
@@ -1982,8 +1982,14 @@ elif selected_analysis == "A/Bテスト分析":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="ab_test_device")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="ab_test_channel")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="ab_test_channel")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="ab_test_source_medium") # ラベルは変更済み
     
     enable_comparison = False
     # 期間設定
@@ -2042,6 +2048,9 @@ elif selected_analysis == "A/Bテスト分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
 
     # 比較機能は無効化
     comparison_df = None
@@ -2382,7 +2391,7 @@ elif selected_analysis == "インタラクション分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    filter_cols = st.columns(4)
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         # 期間選択
         period_options = [
@@ -2406,8 +2415,14 @@ elif selected_analysis == "インタラクション分析":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="interaction_device")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="interaction_channel")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="interaction_channel")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="interaction_source_medium") # ラベルは変更済み
     
     enable_comparison = False
     # 期間設定
@@ -2466,6 +2481,9 @@ elif selected_analysis == "インタラクション分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
 
     # 比較機能は無効化
     comparison_df = None
@@ -2624,7 +2642,7 @@ elif selected_analysis == "動画・スクロール分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    filter_cols = st.columns(4)
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         # 期間選択
         period_options = [
@@ -2648,8 +2666,14 @@ elif selected_analysis == "動画・スクロール分析":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="video_scroll_device")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="video_scroll_channel")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="video_scroll_channel")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="video_scroll_source_medium") # ラベルは変更済み
     
     enable_comparison = False
     # 期間設定
@@ -2708,6 +2732,9 @@ elif selected_analysis == "動画・スクロール分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
 
     # 比較機能は無効化
     comparison_df = None
@@ -2894,7 +2921,7 @@ elif selected_analysis == "時系列分析":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    filter_cols = st.columns(4)
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         # 期間選択
         period_options = [
@@ -2918,8 +2945,14 @@ elif selected_analysis == "時系列分析":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="timeseries_device")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="timeseries_channel")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="timeseries_channel")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="timeseries_source_medium") # ラベルは変更済み
     
     enable_comparison = False
     # 期間設定
@@ -2978,6 +3011,9 @@ elif selected_analysis == "時系列分析":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
 
     # 比較機能は無効化
     comparison_df = None
@@ -3297,7 +3333,7 @@ elif selected_analysis == "デモグラフィック情報":
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True) # type: ignore
 
     # --- フィルター設定 ---
-    filter_cols = st.columns(4)
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         period_options = {"過去7日間": 7, "過去30日間": 30, "過去90日間": 90, "カスタム期間": None}
         selected_period = st.selectbox("期間を選択", list(period_options.keys()), index=1, key="demographic_period")
@@ -3317,8 +3353,14 @@ elif selected_analysis == "デモグラフィック情報":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="demographic_device")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="demographic_channel")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="demographic_channel")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="demographic_source_medium") # ラベルは変更済み
 
     enable_comparison = False
 
@@ -3355,6 +3397,9 @@ elif selected_analysis == "デモグラフィック情報":
 
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
 
     # 比較機能は無効化
     comparison_df = None
@@ -3642,7 +3687,7 @@ elif selected_analysis == "AIによる分析・考察":
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
-    filter_cols = st.columns(4)
+    filter_cols = st.columns(5)
     with filter_cols[0]:
         # 期間選択
         period_options = [
@@ -3666,8 +3711,14 @@ elif selected_analysis == "AIによる分析・考察":
         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="ai_analysis_device")
 
     with filter_cols[3]:
+        # チャネルフィルターを追加
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル選択", channel_options, index=0, key="ai_analysis_channel")
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="ai_analysis_channel")
+
+    with filter_cols[4]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="ai_analysis_source_medium") # ラベルは変更済み
 
     # 期間設定
     today = df['event_date'].max().date()
@@ -3727,6 +3778,9 @@ elif selected_analysis == "AIによる分析・考察":
     if selected_channel != "すべて":
         filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
 
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
+
     # is_conversion列を作成
     filtered_df['is_conversion'] = filtered_df['cv_type'].notna().astype(int)
 
@@ -3778,6 +3832,8 @@ elif selected_analysis == "AIによる分析・考察":
                 comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
             if selected_channel != "すべて":
                 comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
+            if selected_channel != "すべて":
+                comparison_df = comparison_df[comparison_df['source_medium'] == selected_source_medium]
 
             # 比較データが空の場合は無効化
             if len(comparison_df) == 0:

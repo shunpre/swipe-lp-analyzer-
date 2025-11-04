@@ -48,12 +48,20 @@ def generate_dummy_data(num_events=5000, num_days=30):
     device_weights = [0.7, 0.25, 0.05]
     
     # UTMパラメータ
-    utm_sources = ["google", "facebook", "instagram", "twitter", "direct"]
-    utm_mediums = ["cpc", "social", "organic", "referral", "none"]
+    traffic_sources = {
+        "google": {"mediums": ["organic", "cpc"], "referrer": "https://www.google.com/"},
+        "yahoo": {"mediums": ["organic", "cpc"], "referrer": "https://www.yahoo.co.jp/"},
+        "bing": {"mediums": ["organic", "cpc"], "referrer": "https://www.bing.com/"},
+        "facebook": {"mediums": ["social", "paidsocial", "referral"], "referrer": "https://www.facebook.com/"},
+        "instagram": {"mediums": ["social", "paidsocial", "referral"], "referrer": "https://www.instagram.com/"},
+        "twitter": {"mediums": ["social", "paidsocial", "referral"], "referrer": "https://t.co/"},
+        "youtube": {"mediums": ["paidvideo", "referral"], "referrer": "https://www.youtube.com/"},
+        "smartnews": {"mediums": ["display", "referral"], "referrer": "https://www.smartnews.com/"},
+        "news-app": {"mediums": ["display", "referral"], "referrer": "android-app://com.example.news"},
+        "direct": {"mediums": ["(none)"], "referrer": None}
+    }
+    source_keys = list(traffic_sources.keys())
     utm_campaigns = ["spring_sale", "summer_campaign", "brand_awareness", None]
-    
-    # チャネル
-    channels = ["Direct", "Organic Social", "Referral", "Organic Search", "Paid Search"]
     
     # A/Bテストバリアント
     ab_variants = ["A", "B"]
@@ -120,12 +128,18 @@ def generate_dummy_data(num_events=5000, num_days=30):
         scroll_pct = random.uniform(0.1, 1.0)
         
         # UTM/トラフィック
-        utm_source = random.choice(utm_sources)
-        utm_medium = random.choice(utm_mediums)
+        utm_source = random.choice(source_keys)
+        source_info = traffic_sources[utm_source]
+        utm_medium = random.choice(source_info["mediums"])
         utm_campaign = random.choice(utm_campaigns)
         utm_content = random.choice([f"ad_{i}" for i in range(1, 6)] + [None])
         device_type = random.choices(device_types, weights=device_weights)[0]
         
+        # リファラーをUTMソースと連動させる
+        page_referrer = source_info["referrer"]
+        if utm_source != "direct" and random.random() < 0.1: # 10%の確率でリファラーが取れないケース
+            page_referrer = None
+
         # ナビゲーション
         direction = random.choice(directions)
         navigation_method = random.choice(navigation_methods)
@@ -167,15 +181,6 @@ def generate_dummy_data(num_events=5000, num_days=30):
             cv_type = None
             cv_value = None
             value = None
-        
-        # リファラー
-        page_referrer = random.choice([
-            "https://www.google.com/",
-            "https://www.facebook.com/",
-            "https://www.instagram.com/",
-            "https://twitter.com/",
-            None
-        ])
         
         # 前ページパス
         if page_num_dom > 1:
