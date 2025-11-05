@@ -2752,7 +2752,7 @@ elif selected_analysis == "インタラクション分析":
         'CTAボタンクリック': {'condition': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)), 'page_num': 9},
         'フローティングバナークリック': {'condition': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)), 'page_num': 1}, # 全ページで表示されると仮定
         '離脱防止ポップアップクリック': {'condition': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)), 'page_num': 1}, # 全ページで表示されると仮定
-        '動画視聴開始': {'condition': filtered_df['event_name'] == 'video_play', 'page_num': 1} # 動画はP1にあると仮定
+        '動画視聴完了': {'condition': filtered_df['event_name'] == 'video_completion', 'page_num': 1} # 動画はP1にあると仮定
     }
 
     interaction_list_data = []
@@ -2779,16 +2779,16 @@ elif selected_analysis == "インタラクション分析":
         interaction_list_data.append({
             'インタラクション要素': name,
             '表示セッション数': impression_sessions,
-            'クリック数または視聴開始数': action_count,
-            'クリック率または視聴開始率': rate
+            'クリック数または視聴完了数': action_count,
+            'クリック率または視聴完了率': rate
         })
 
     interaction_list_df = pd.DataFrame(interaction_list_data)
 
     st.dataframe(interaction_list_df.style.format({
         '表示セッション数': '{:,.0f}',
-        'クリック数または視聴開始数': '{:,.0f}',
-        'クリック率または視聴開始率': '{:.2f}%'
+        'クリック数または視聴完了数': '{:,.0f}',
+        'クリック率または視聴完了率': '{:.2f}%'
     }), use_container_width=True, hide_index=True)
 
     st.markdown("---")
@@ -2799,7 +2799,7 @@ elif selected_analysis == "インタラクション分析":
         'CTAボタンクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('cta|btn-primary', na=False)),
         'フローティングバナークリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('floating', na=False)),
         '離脱防止ポップアップクリック': (filtered_df['event_name'] == 'click') & (filtered_df['elem_classes'].str.contains('exit', na=False)),
-        '動画視聴開始': filtered_df['event_name'] == 'video_play'
+        '動画視聴完了': filtered_df['event_name'] == 'video_completion'
     }
 
     contribution_data = []
