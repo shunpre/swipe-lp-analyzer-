@@ -358,8 +358,8 @@ menu_groups = {
     "AIアナリスト": ["AIによる分析・考察"],
     "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報", "アラート"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
-    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析"],
-    "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
+    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "フォーム分析"],
+    "ヘルプ": ["使用ガイド", "LPOの基礎知識", "専門用語解説", "FAQ"]
 }
 
 for group_name, items in menu_groups.items():
@@ -3285,6 +3285,169 @@ elif selected_analysis == "動画・スクロール分析":
         if st.session_state.video_faq_toggle[4]:
             st.info("スクロールされないのは、ファーストビュー（FV）に魅力がない証拠です。ユーザーが「続きを読む価値がある」と感じるような、強力なキャッチコピー、魅力的な画像、権威付け（実績や推薦文など）をFVに配置することが効果的です。")
 
+elif selected_analysis == "フォーム分析":
+    st.markdown('<div class="sub-header">フォーム分析（デモ）</div>', unsafe_allow_html=True)
+
+    # --- フィルター機能 ---
+    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
+    filter_cols_1 = st.columns(4)
+    filter_cols_2 = st.columns(4)
+
+    with filter_cols_1[0]:
+        period_options = ["今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="form_analysis_period")
+
+    with filter_cols_1[1]:
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else None, key="form_analysis_lp", disabled=not lp_options)
+
+    with filter_cols_1[2]:
+        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="form_analysis_device")
+
+    with filter_cols_1[3]:
+        user_type_options = ["すべて", "新規", "リピート"]
+        selected_user_type = st.selectbox("新規/リピート", user_type_options, index=0, key="form_analysis_user_type")
+
+    with filter_cols_2[0]:
+        conversion_status_options = ["すべて", "コンバージョン", "非コンバージョン"]
+        selected_conversion_status = st.selectbox("CV/非CV", conversion_status_options, index=0, key="form_analysis_conversion_status")
+
+    with filter_cols_2[1]:
+        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="form_analysis_channel")
+
+    with filter_cols_2[2]:
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="form_analysis_source_medium")
+
+    # 期間設定
+    today = df['event_date'].max().date()
+    if selected_period == "今日":
+        start_date, end_date = today, today
+    elif selected_period == "昨日":
+        start_date, end_date = today - timedelta(days=1), today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date, end_date = today - timedelta(days=6), today
+    elif selected_period == "過去14日間":
+        start_date, end_date = today - timedelta(days=13), today
+    elif selected_period == "過去30日間":
+        start_date, end_date = today - timedelta(days=29), today
+    elif selected_period == "今月":
+        start_date, end_date = today.replace(day=1), today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date, end_date = last_month_end.replace(day=1), last_month_end
+    elif selected_period == "全期間":
+        start_date, end_date = df['event_date'].min().date(), df['event_date'].max().date()
+    elif selected_period == "カスタム":
+        c1, c2 = st.columns(2)
+        with c1:
+            start_date = st.date_input("開始日", df['event_date'].min(), key="form_analysis_start")
+        with c2:
+            end_date = st.date_input("終了日", df['event_date'].max(), key="form_analysis_end")
+
+    st.markdown("---")
+    st.markdown(
+        '<div class="graph-description">このページは入力フォームのパフォーマンスを分析するためのデモページです。'
+        '現在は固定のデモデータを表示しており、上のフィルターを操作しても表示内容は変わりません。</div>',
+        unsafe_allow_html=True
+    )
+
+    # --- 将来的にこの関数をBigQueryからのデータ取得に置き換える ---
+    @st.cache_data
+    def load_dummy_form_data():
+        """フォーム分析用のダミーデータを生成する"""
+        data = {
+            'フォーム表示セッション': 1000,
+            'フォーム未記入直帰セッション': 150,
+            '平均進行ページ数': 3.2,
+            '平均滞在時間_sec': 125.5,
+            '逆行イベント数': 80,
+            'ステップ表示総数': 3200, # 1000セッション * 3.2ページ
+            '送信完了セッション': 450,
+            '離脱防止ポップアップ表示数': 120,
+            '離脱防止ポップアップ再開数': 30,
+            '保存して再開セッション': 50,
+        }
+        return data
+
+    form_data = load_dummy_form_data()
+
+    # --- KPI計算 ---
+    form_view_sessions = form_data['フォーム表示セッション']
+    bounce_rate = safe_rate(form_data['フォーム未記入直帰セッション'], form_view_sessions) * 100
+    avg_progress_page = form_data['平均進行ページ数']
+    avg_stay_time = form_data['平均滞在時間_sec']
+    backflow_rate = safe_rate(form_data['逆行イベント数'], form_data['ステップ表示総数']) * 100
+    completion_rate = safe_rate(form_data['送信完了セッション'], form_view_sessions) * 100
+    exit_popup_resume_rate = safe_rate(form_data['離脱防止ポップアップ再開数'], form_data['離脱防止ポップアップ表示数']) * 100
+    save_resume_rate = safe_rate(form_data['保存して再開セッション'], form_view_sessions) * 100 # 保存したセッション数が不明なため、全体に対する率としてデモ表示
+
+    # --- KPI表示 ---
+    st.markdown("#### フォーム全体パフォーマンス")
+    kpi_cols_1 = st.columns(4)
+    kpi_cols_2 = st.columns(4)
+
+    kpi_cols_1[0].metric("フォーム表示", f"{form_view_sessions:,}")
+    kpi_cols_1[1].metric("送信完了率", f"{completion_rate:.1f}%")
+    kpi_cols_1[2].metric("フォーム未記入直帰率", f"{bounce_rate:.1f}%", delta_color="inverse")
+    kpi_cols_1[3].metric("平均進行ページ数", f"{avg_progress_page:.1f} P")
+
+    kpi_cols_2[0].metric("平均滞在時間", f"{avg_stay_time:.1f} 秒")
+    kpi_cols_2[1].metric("逆行率", f"{backflow_rate:.1f}%", delta_color="inverse")
+    kpi_cols_2[2].metric("離脱防止ポップアップ再開率", f"{exit_popup_resume_rate:.1f}%")
+    kpi_cols_2[3].metric("保存して再開した率", f"{save_resume_rate:.1f}%")
+
+    st.markdown("---")
+
+    # --- フォーム進行ファネル（ダミー） ---
+    st.markdown("#### フォーム進行ファネル")
+    st.markdown('<div class="graph-description">フォームの各ステップで、どれだけのユーザーが離脱したかを可視化します。</div>', unsafe_allow_html=True)
+
+    funnel_steps = ['フォーム表示', 'ステップ1入力完了', 'ステップ2入力完了', 'ステップ3入力完了', '確認画面表示', '送信完了']
+    funnel_values = [
+        form_view_sessions,
+        int(form_view_sessions * 0.85), # 15%が未記入直帰
+        int(form_view_sessions * 0.70),
+        int(form_view_sessions * 0.60),
+        int(form_view_sessions * 0.55),
+        form_data['送信完了セッション']
+    ]
+
+    fig_form_funnel = go.Figure(go.Funnel(
+        y = funnel_steps,
+        x = funnel_values,
+        textinfo = "value+percent initial"
+    ))
+    fig_form_funnel.update_layout(height=500, dragmode=False)
+    st.plotly_chart(fig_form_funnel, use_container_width=True)
+
+    st.markdown("---")
+
+    # --- ページ（ステップ）ごとの詳細指標テーブル（ダミー） ---
+    st.markdown("#### ページ（ステップ）ごとの詳細指標")
+    st.markdown('<div class="graph-description">フォームの各ステップにおけるユーザー行動の詳細です。</div>', unsafe_allow_html=True)
+
+    page_detail_data = {
+        'ページ（ステップ）': ['ステップ1', 'ステップ2', 'ステップ3', '確認画面'],
+        '離脱率': [15.0, 17.6, 8.3, 9.1],
+        '平均滞在時間(秒)': [35.2, 45.8, 28.1, 65.5],
+        '逆行率': [2.1, 3.5, 1.8, 5.2],
+        '離脱防止ポップアップ再開率': [25.0, 28.1, 19.5, 35.2],
+        '保存して再開した率': [5.1, 4.3, 3.1, 8.9]
+    }
+    page_detail_df = pd.DataFrame(page_detail_data)
+
+    st.dataframe(page_detail_df.style.format({
+        '離脱率': '{:.1f}%',
+        '平均滞在時間(秒)': '{:.1f}',
+        '逆行率': '{:.1f}%',
+        '離脱防止ポップアップ再開率': '{:.1f}%',
+        '保存して再開した率': '{:.1f}%'
+    }), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
 
 
 # タブ6: 時系列分析
