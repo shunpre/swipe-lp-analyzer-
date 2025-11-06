@@ -358,7 +358,7 @@ menu_groups = {
     "AIアナリスト": ["AIによる分析・考察"],
     "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報", "アラート"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
-    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析"],
+    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析"],
     "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
 }
 
@@ -5201,6 +5201,65 @@ elif selected_analysis == "アラート":
 
     else: # type: ignore
         st.info("アラートを生成するための十分なデータがありません（最低8日分のデータが必要です）。")
+
+elif selected_analysis == "瞬フォーム分析":
+    st.markdown('<div class="sub-header">瞬フォーム分析</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">瞬フォームのパフォーマンスを分析します。</div>', unsafe_allow_html=True)
+
+    # --- スコアカード ---
+    st.markdown('<div class="sub-header">スコアカード</div>', unsafe_allow_html=True)
+    col1, col2, col3, col4 = st.columns(4)
+    col5, col6, col7, col8 = st.columns(4)
+    
+    with col1:
+        st.metric("フォーム表示回数", 12345)
+    with col2:
+        st.metric("フォーム表示直帰率", "12.3%")
+    with col3:
+        st.metric("フォーム送信率", "45.6%")
+    with col4:
+        st.metric("平均進行ページ数", 5.6)
+    with col5:
+        st.metric("平均滞在時間", "1:23")
+    with col6:
+        st.metric("ページ逆行率", "7.8%")
+    with col7:
+        st.metric("離脱防止POPから再開率", "89.0%")
+    with col8:
+        st.metric("一時保存からの再開率", "90.1%")
+
+    # --- ページごとの分析 ---
+    st.markdown('<div class="sub-header">ページごとの分析</div>', unsafe_allow_html=True)
+    
+    # ダミーデータ
+    data = {
+        'ページ': ['ページ1', 'ページ2', 'ページ3', 'ページ4', 'ページ5'],
+        '平均滞在時間': ['0:10', '0:15', '0:12', '0:18', '0:20'],
+        'ページ逆行率': ['1.2%', '2.3%', '1.5%', '2.0%', '2.5%'],
+        '離脱防止POPから再開率': ['91.0%', '88.0%', '92.0%', '89.0%', '90.0%'],
+        '一時保存からの再開率': ['92.0%', '90.0%', '93.0%', '91.0%', '94.0%']
+    }
+    df_page = pd.DataFrame(data)
+
+    st.dataframe(df_page, use_container_width=True)
+
+    # --- 説明 ---
+    st.markdown("""
+    <div class="graph-description">
+    各指標の説明：
+    <ul>
+        <li><b>フォーム表示回数</b>: フォームが表示された回数です。</li>
+        <li><b>フォーム表示直帰率</b>: フォームを表示してすぐに離脱したユーザーの割合です。</li>
+        <li><b>フォーム送信率</b>: フォームを送信したユーザーの割合です。</li>
+        <li><b>平均進行ページ数</b>: ユーザーが平均して何ページ進んだかを示します。</li>
+        <li><b>平均滞在時間</b>: ユーザーがフォームに滞在した平均時間です。</li>
+        <li><b>ページ逆行率</b>: ユーザーがページを戻った割合です。</li>
+        <li><b>離脱防止POPから再開率</b>: 離脱防止POPアップを表示後、フォームに戻って再開したユーザーの割合です。</li>
+        <li><b>一時保存からの再開率</b>: 一時保存機能を利用してフォームを再開したユーザーの割合です。</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # フッター
 st.markdown("---")
