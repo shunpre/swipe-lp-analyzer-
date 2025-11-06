@@ -320,7 +320,7 @@ df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids)
 
 # サイドバー: タイトル
 st.sidebar.markdown(
-    """
+    f""" # 修正1: 文字化け対応のため、f-string内の日本語を直接記述
     <a href="?page=使用ガイド" target="_self" style="
         display: block;
         color: #002060;
@@ -356,7 +356,7 @@ menu_groups = {
     "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報", "アラート"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"], # Changed "フォーム分析" to "瞬フォーム分析"
     "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析"],
-    "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"] # Removed "使用ガイド"
+    "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
 }
 
 for group_name, items in menu_groups.items():
@@ -378,7 +378,7 @@ for group_name, items in menu_groups.items():
 
     st.sidebar.markdown("---")
 
-def assign_channel(row):
+def assign_channel(row): # type: ignore
     """
     utm_sourceとutm_mediumに基づいてチャネルを割り当てる関数。
     YouTube広告やその他の有料広告に対応。
@@ -441,35 +441,10 @@ df['utm_medium'].fillna('(none)', inplace=True)
 # source / medium を作成
 df['source_medium'] = df['utm_source_display'] + ' / ' + df['utm_medium']
 
-# 論理的に不自然な組み合わせを除外 (例: direct / cpc)
+# 論理的に不自然な組み合わせを除外 (例: direct / cpc) # type: ignore
 df = df[~((df['utm_source_display'] == '(direct)') & (df['utm_medium'] != '(none)'))]
 
-# 修正2: 「使用ガイド」をデフォルトページとして最初にチェックする
-if selected_analysis == "使用ガイド" or selected_analysis is None:
-    st.markdown('<div class="sub-header">使用ガイド</div>', unsafe_allow_html=True)
-
-    st.markdown("""
-    1.  **分析ページを選択する**
-        - 画面左側のサイドバーから、見たい分析ページ（例：「全体サマリー」「ページ分析」など）をクリックします。
-
-    2.  **データを絞り込む（フィルター）**
-        - 各ページの画面上部にあるフィルターを使って、分析したいデータ（期間、LP、デバイス、新規/リピート、CV/非CV、チャネル、参照元/メディア）を絞り込めます。
-        - 「比較機能」を使えば、前の期間とのパフォーマンス差を簡単に確認できます。
-
-    3.  **AIの力を借りる**
-        - 各分析ページには「**AI分析を実行**」ボタンがあります。これをクリックすると、表示されているデータに基づいてAIが現状の評価と改善案を提案します。
-        - 「**このページの分析について質問する**」セクションにある各質問ボタンを押すと、その分析でよくある疑問点に対する回答をAIが示します。
-
-    ---
-
-    ### 各分析ページでできること
-
-    （...以下、各分析ページの説明が続きます...）
-
-    ---
-
-    まずは「**AIによる分析・考察**」ページで、あなたのLPの課題を入力して、AIに分析させてみましょう！
-    """)
+# 選択された分析項目に応じて表示を切り替え
 
 if selected_analysis == "全体サマリー":
     st.markdown('<div class="sub-header">全体サマリー</div>', unsafe_allow_html=True)
@@ -3307,7 +3282,7 @@ elif selected_analysis == "動画・スクロール分析":
         if st.session_state.video_faq_toggle[4]:
             st.info("スクロールされないのは、ファーストビュー（FV）に魅力がない証拠です。ユーザーが「続きを読む価値がある」と感じるような、強力なキャッチコピー、魅力的な画像、権威付け（実績や推薦文など）をFVに配置することが効果的です。")
 
-elif selected_analysis == "瞬フォーム分析": # 修正3: メニュー名を変更
+elif selected_analysis == "瞬フォーム分析":
     st.markdown('<div class="sub-header">瞬フォーム分析（デモ）</div>', unsafe_allow_html=True)
 
     # --- フィルター機能 ---
@@ -3468,36 +3443,9 @@ elif selected_analysis == "瞬フォーム分析": # 修正3: メニュー名を
     fig_form_funnel.update_layout(height=500, dragmode=False)
     st.plotly_chart(fig_form_funnel, use_container_width=True)
 
-    st.markdown("---")
-
-
 # タブ6: 時系列分析
 elif selected_analysis == "時系列分析":
     st.markdown('<div class="sub-header">時系列分析</div>', unsafe_allow_html=True)
-
-    # --- ページ（ステップ）ごとの詳細指標テーブル（ダミー） ---
-    st.markdown("#### ページ（ステップ）ごとの詳細指標")
-    st.markdown('<div class="graph-description">フォームの各ステップにおけるユーザー行動の詳細です。</div>', unsafe_allow_html=True)
-
-    page_detail_data = {
-        'ページ（ステップ）': ['ステップ1', 'ステップ2', 'ステップ3', '確認画面'],
-        '離脱率': [15.0, 17.6, 8.3, 9.1],
-        '平均滞在時間(秒)': [35.2, 45.8, 28.1, 65.5],
-        '逆行率': [2.1, 3.5, 1.8, 5.2],
-        '離脱防止ポップアップ再開率': [25.0, 28.1, 19.5, 35.2],
-        '保存して再開した率': [5.1, 4.3, 3.1, 8.9]
-    }
-    page_detail_df = pd.DataFrame(page_detail_data)
-
-    st.dataframe(page_detail_df.style.format({
-        '離脱率': '{:.1f}%',
-        '平均滞在時間(秒)': '{:.1f}',
-        '逆行率': '{:.1f}%',
-        '離脱防止ポップアップ再開率': '{:.1f}%',
-        '保存して再開した率': '{:.1f}%'
-    }), use_container_width=True, hide_index=True)
-
-    st.markdown("---")
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
@@ -4295,6 +4243,681 @@ elif selected_analysis == "デモグラフィック情報":
         if st.session_state.demographic_faq_toggle[4]:
             st.info("もし男女でCVRやサイト内行動に大きな差が見られる場合は、訴求メッセージやデザインを男女別に最適化（パーソナライズ）することが有効です。例えば、男性には機能性を、女性には共感を呼ぶストーリーを訴求するなどの方法が考えられます。")
 
+
+
+
+# タブ9: AI提案
+elif selected_analysis == "AIによる分析・考察":
+    st.markdown('<div class="sub-header">AI による分析・考察</div>', unsafe_allow_html=True)
+    # メインエリア: フィルターと比較設定
+    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
+
+    filter_cols_1 = st.columns(4)
+    filter_cols_2 = st.columns(4)
+
+    with filter_cols_1[0]:
+        # 期間選択
+        period_options = [
+            "今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"
+        ]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="ai_analysis_period")
+
+    with filter_cols_1[1]:
+        # LP選択
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="ai_analysis_lp",
+            disabled=not lp_options
+        )
+
+    with filter_cols_1[2]:
+        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="ai_analysis_device")
+
+    with filter_cols_1[3]:
+        # 新規/リピート フィルター
+        user_type_options = ["すべて", "新規", "リピート"]
+        selected_user_type = st.selectbox("新規/リピート", user_type_options, index=0, key="ai_analysis_user_type")
+
+    with filter_cols_2[0]:
+        # CV/非CV フィルター
+        conversion_status_options = ["すべて", "コンバージョン", "非コンバージョン"]
+        selected_conversion_status = st.selectbox("CV/非CV", conversion_status_options, index=0, key="ai_analysis_conversion_status")
+
+    with filter_cols_2[1]:
+        # チャネルフィルターを追加
+        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="ai_analysis_channel")
+
+    with filter_cols_2[2]:
+        # チャネルフィルターを「参照元/メディア」に変更
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="ai_analysis_source_medium") # ラベルは変更済み
+
+    # 期間設定
+    today = df['event_date'].max().date()
+    
+    if selected_period == "今日":
+        start_date = today
+        end_date = today
+    elif selected_period == "昨日":
+        start_date = today - timedelta(days=1)
+        end_date = today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date = today - timedelta(days=6)
+        end_date = today
+    elif selected_period == "過去14日間":
+        start_date = today - timedelta(days=13)
+        end_date = today
+    elif selected_period == "過去30日間":
+        start_date = today - timedelta(days=29)
+        end_date = today
+    elif selected_period == "今月":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date = last_month_end.replace(day=1)
+        end_date = last_month_end
+    elif selected_period == "全期間":
+        start_date = df['event_date'].min().date()
+        end_date = df['event_date'].max().date()
+    elif selected_period == "カスタム":
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input("開始日", df['event_date'].min(), key="ai_analysis_start_date")
+        with col2:
+            end_date = st.date_input("終了日", df['event_date'].max(), key="ai_analysis_end_date")
+
+    st.markdown("---")
+
+    comparison_type = None # 初期化
+    # データフィルタリング
+    filtered_df = df.copy()
+
+    # 期間フィルター
+    filtered_df = filtered_df[
+        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
+        (filtered_df['event_date'] <= pd.to_datetime(end_date))
+    ]
+
+    # LPフィルター
+    if selected_lp:
+        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+
+    # --- クロス分析用フィルター適用 ---
+    if selected_device != "すべて":
+        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
+
+    if selected_user_type != "すべて":
+        filtered_df = filtered_df[filtered_df['user_type'] == selected_user_type]
+
+    if selected_conversion_status != "すべて":
+        filtered_df = filtered_df[filtered_df['conversion_status'] == selected_conversion_status]
+
+    if selected_channel != "すべて":
+        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
+
+    # is_conversion列を作成
+    filtered_df['is_conversion'] = filtered_df['cv_type'].notna().astype(int)
+
+    # データが空の場合の処理
+    if len(filtered_df) == 0:
+        st.warning("⚠️ 選択した条件に該当するデータがありません。フィルターを変更してください。")
+        st.stop()
+
+    # 基本メトリクス計算
+    total_sessions = filtered_df['session_id'].nunique()
+    total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
+    conversion_rate = safe_rate(total_conversions, total_sessions) * 100
+    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
+    click_rate = safe_rate(total_clicks, total_sessions) * 100
+    avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
+    avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
+    fv_retention_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 2]['session_id'].nunique(), total_sessions) * 100
+    final_cta_rate = safe_rate(filtered_df[filtered_df['max_page_reached'] >= 10]['session_id'].nunique(), total_sessions) * 100
+    avg_load_time = filtered_df['load_time_ms'].mean()
+
+    st.markdown('<div class="sub-header">主要指標（KPI）</div>', unsafe_allow_html=True)
+
+    # 比較機能をKPIヘッダーの下に配置
+    comp_cols = st.columns([1, 1, 4]) # チェックボックス、選択ボックス、スペーサー
+    with comp_cols[0]:
+        enable_comparison = st.checkbox("比較機能を有効化", value=False, key="ai_analysis_compare_check")
+    with comp_cols[1]:
+        if enable_comparison:
+            comparison_options = {
+                "前期間": "previous_period", "前週": "previous_week",
+                "前月": "previous_month", "前年": "previous_year"
+            }
+            selected_comparison = st.selectbox("比較対象", list(comparison_options.keys()), key="ai_analysis_compare_select", label_visibility="collapsed")
+            comparison_type = comparison_options[selected_comparison]
+
+    # 比較データの取得
+    comparison_df = None
+    comp_start = None
+    comp_end = None
+    if enable_comparison and comparison_type:
+        result = get_comparison_data(df, pd.Timestamp(start_date), pd.Timestamp(end_date), comparison_type)
+        if result is not None:
+            comparison_df, comp_start, comp_end = result
+            # 比較データにも同じフィルターを適用
+            if selected_lp:
+                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
+            # --- 比較データにもクロス分析用フィルターを適用 ---
+            if selected_device != "すべて":
+                comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
+            if selected_user_type != "すべて":
+                comparison_df = comparison_df[comparison_df['user_type'] == selected_user_type]
+            if selected_conversion_status != "すべて":
+                comparison_df = comparison_df[comparison_df['conversion_status'] == selected_conversion_status]
+            if selected_channel != "すべて":
+                comparison_df = comparison_df[comparison_df['channel'] == selected_channel]
+            if selected_channel != "すべて":
+                comparison_df = comparison_df[comparison_df['source_medium'] == selected_source_medium]
+
+            # 比較データが空の場合は無効化
+            if len(comparison_df) == 0:
+                comparison_df = None
+                st.info(f"比較期間（{comp_start.strftime('%Y-%m-%d')} 〜 {comp_end.strftime('%Y-%m-%d')}）にデータがありません。")
+
+
+    # 比較データのKPI計算
+    comp_kpis = {}
+    if comparison_df is not None and len(comparison_df) > 0:
+        comp_total_sessions = comparison_df['session_id'].nunique()
+        comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique() # type: ignore
+        comp_conversion_rate = safe_rate(comp_total_conversions, comp_total_sessions) * 100
+        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click']) # type: ignore
+        comp_click_rate = safe_rate(comp_total_clicks, comp_total_sessions) * 100
+        comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
+        comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
+        comp_fv_retention_rate = (comparison_df[comparison_df['max_page_reached'] >= 2]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
+        comp_final_cta_rate = (comparison_df[comparison_df['max_page_reached'] >= 10]['session_id'].nunique() / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
+        comp_avg_load_time = comparison_df['load_time_ms'].mean()
+        
+        comp_kpis = {
+            'sessions': comp_total_sessions,
+            'conversions': comp_total_conversions,
+            'conversion_rate': comp_conversion_rate,
+            'clicks': comp_total_clicks,
+            'click_rate': comp_click_rate,
+            'avg_stay_time': comp_avg_stay_time,
+            'avg_pages_reached': comp_avg_pages_reached,
+            'fv_retention_rate': comp_fv_retention_rate,
+            'final_cta_rate': comp_final_cta_rate,
+            'avg_load_time': comp_avg_load_time
+        }
+
+    # KPIカード表示 (他のページからコピー)
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1: # type: ignore
+        # セッション数
+        delta_sessions = total_sessions - comp_kpis.get('sessions', 0) if comp_kpis else None
+        st.metric("セッション数", f"{total_sessions:,}", delta=f"{delta_sessions:+,}" if delta_sessions is not None else None) # type: ignore
+        
+        # FV残存率
+        delta_fv = fv_retention_rate - comp_kpis.get('fv_retention_rate', 0) if comp_kpis else None
+        st.metric("FV残存率", f"{fv_retention_rate:.1f}%", delta=f"{delta_fv:+.1f}%" if delta_fv is not None else None)
+
+    with col2:
+        # コンバージョン数
+        delta_conversions = total_conversions - comp_kpis.get('conversions', 0) if comp_kpis else None
+        st.metric("コンバージョン数", f"{total_conversions:,}", delta=f"{delta_conversions:+,}" if delta_conversions is not None else None) # type: ignore
+
+        # 最終CTA到達率
+        delta_cta = final_cta_rate - comp_kpis.get('final_cta_rate', 0) if comp_kpis else None
+        st.metric("最終CTA到達率", f"{final_cta_rate:.1f}%", delta=f"{delta_cta:+.1f}%" if delta_cta is not None else None)
+
+    with col3:
+        # コンバージョン率
+        delta_cvr = conversion_rate - comp_kpis.get('conversion_rate', 0) if comp_kpis else None
+        st.metric("コンバージョン率", f"{conversion_rate:.2f}%", delta=f"{delta_cvr:+.2f}%" if delta_cvr is not None else None) # type: ignore
+
+        # 平均到達ページ数
+        delta_pages = avg_pages_reached - comp_kpis.get('avg_pages_reached', 0) if comp_kpis else None
+        st.metric("平均到達ページ数", f"{avg_pages_reached:.1f}", delta=f"{delta_pages:+.1f}" if delta_pages is not None else None)
+
+    with col4:
+        # クリック数
+        delta_clicks = total_clicks - comp_kpis.get('clicks', 0) if comp_kpis else None
+        st.metric("クリック数", f"{total_clicks:,}", delta=f"{delta_clicks:+,}" if delta_clicks is not None else None) # type: ignore
+
+        # 平均滞在時間
+        delta_stay = avg_stay_time - comp_kpis.get('avg_stay_time', 0) if comp_kpis else None
+        st.metric("平均滞在時間", f"{avg_stay_time:.1f}秒", delta=f"{delta_stay:+.1f} 秒" if delta_stay is not None else None)
+
+    with col5:
+        # クリック率
+        delta_click_rate = click_rate - comp_kpis.get('click_rate', 0) if comp_kpis else None
+        st.metric("クリック率", f"{click_rate:.2f}%", delta=f"{delta_click_rate:+.2f}%" if delta_click_rate is not None else None) # type: ignore
+
+        # 平均読込時間
+        delta_load = avg_load_time - comp_kpis.get('avg_load_time', 0) if comp_kpis else None
+        st.metric("平均読込時間", f"{avg_load_time:.0f}ms", delta=f"{delta_load:+.0f} ms" if delta_load is not None else None, delta_color="inverse")
+
+    # --- ユーザー入力フォーム ---
+    # AI分析の表示状態を管理するフラグを初期化
+    if 'ai_analysis_open' not in st.session_state:
+        st.session_state.ai_analysis_open = False
+
+    st.markdown("---")
+    st.markdown("### 目標値・現状値の入力")
+    st.markdown('<div class="graph-description">AIが選択されたLPの内容とデータを多角的に分析し、現状評価や改善案を提案します。分析精度向上のため、目標値と現状値を入力してください。月間目標は選択期間に応じて日割り計算され、空欄でもAIが推測します。</div>', unsafe_allow_html=True)
+
+    form_cols = st.columns(2)
+    with form_cols[0]:
+        st.markdown("##### **月間目標値**")
+        target_cvr = st.number_input("目標CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=None)
+        target_cv = st.number_input("目標CV数", min_value=0, step=1, value=None)
+        target_cpa = st.number_input("目標CPA", min_value=0, step=100, value=None)
+    
+    with form_cols[1]:
+        st.markdown("##### **現状値**")
+        current_cvr = st.number_input("現状CVR (%)", min_value=0.0, step=0.1, format="%.2f", value=None)
+        current_cv = st.number_input("現状CV数", min_value=0, step=1, value=None)
+        current_cpa = st.number_input("現状CPA", min_value=0, step=100, value=None)
+
+    st.markdown("---")
+    st.markdown("### ターゲット顧客・その他の情報")
+    target_customer = st.text_area("ターゲット顧客について教えてください", placeholder="例：30代女性、都内在住、美容への関心が高い、オーガニック製品を好む")
+    other_info = st.text_area("その他、分析で特に重視してほしい点などがあればご記入ください", placeholder="例：競合の〇〇と比較してほしい、特定の部分のコピーを重点的に見てほしい")
+
+    if st.button("AI分析を実行", key="ai_analysis_main_btn", type="primary", use_container_width=True): # type: ignore
+        st.session_state.ai_analysis_open = True
+
+    if st.session_state.ai_analysis_open:
+        with st.container():
+            # LPのURLからテキストコンテンツを抽出
+            lp_text_content = safe_extract_lp_text_content(extract_lp_text_content, selected_lp)
+            main_headline = lp_text_content['headlines'][0] if lp_text_content['headlines'] else "（ヘッドライン取得不可）"
+            # f-string内でエラーを起こさないようにトリプルクォートを別の文字に置換
+            main_headline_escaped = main_headline.replace('"""', "'''")
+            # ユーザー入力も同様に置換
+            target_customer_escaped = target_customer.replace('"""', "'''") # type: ignore
+
+            # AI分析に必要なデータをここで計算
+            # ページ別統計
+            page_stats = filtered_df.groupby('max_page_reached').agg(
+                離脱セッション数=('session_id', 'nunique'),
+                平均滞在時間_ms=('stay_ms', 'mean')
+            ).reset_index()
+            page_stats['離脱率'] = (page_stats['離脱セッション数'] / total_sessions * 100) if total_sessions > 0 else 0
+            page_stats.rename(columns={'max_page_reached': 'ページ番号'}, inplace=True)
+            max_exit_page = page_stats.loc[page_stats['離脱率'].idxmax()] if not page_stats.empty else {'ページ番号': 'N/A', '離脱率': 0}
+
+            # デバイス別統計（修正）
+            device_stats = filtered_df.groupby('device_type').agg(
+                セッション数=('session_id', 'nunique'),
+                コンバージョン数=('cv_type', lambda x: x.notna().sum())
+            ).reset_index().rename(columns={'device_type': 'デバイス'})
+            if not device_stats.empty:
+                device_stats['コンバージョン率'] = (device_stats['コンバージョン数'] / device_stats['セッション数'] * 100).fillna(0)
+                worst_device = device_stats.loc[device_stats['コンバージョン率'].idxmin()]
+            else:
+                worst_device = {'デバイス': 'N/A', 'コンバージョン率': 0}
+
+            # チャネル別統計（修正）
+            channel_stats = filtered_df.groupby('channel').agg(
+                セッション数=('session_id', 'nunique'),
+                コンバージョン数=('cv_type', lambda x: x.notna().sum())
+            ).reset_index().rename(columns={'channel': 'チャネル'})
+            if not channel_stats.empty:
+                channel_stats['コンバージョン率'] = channel_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
+
+            best_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmax()] if not channel_stats.empty else {'チャネル': 'N/A'}
+            worst_channel = channel_stats.loc[channel_stats['コンバージョン率'].idxmin()] if not channel_stats.empty else {'チャネル': 'N/A'}
+            
+            # AIによる訴求ポイントの推察（簡易版）
+            # 本来はLLMで要約するが、ここではキーワードで代用
+            body_text = " ".join(lp_text_content['body_copy'])
+            keywords = ["限定", "割引", "無料", "簡単", "満足度"]
+            found_keywords = [kw for kw in keywords if kw in body_text]
+            if found_keywords:
+                inferred_appeal_point = f"LPのテキストから「{', '.join(found_keywords)}」というキーワードが検出されました。これらが主要な訴求ポイントと推察されます。"
+            else:
+                inferred_appeal_point = "LPのテキストから主要な訴求ポイントを自動推察します。（現在はキーワード検出のみ）"
+            inferred_appeal_point_escaped = inferred_appeal_point.replace('"""', "'''")
+            
+            # 分析期間の日数を計算
+            analysis_days = (pd.to_datetime(end_date) - pd.to_datetime(start_date)).days + 1
+            
+            # 月間目標を日割り計算
+            daily_target_cv = (target_cv / 30) * analysis_days if target_cv is not None and target_cv > 0 else 0
+            daily_target_cvr = target_cvr if target_cvr is not None else 0 # CVRは期間によらないのでそのまま
+            daily_target_cpa = target_cpa if target_cpa is not None else 0 # CPAも期間によらないのでそのまま
+
+            # セクション1: 客観的かつ詳細な現状分析
+            st.markdown("---")
+            st.markdown("### 1. 客観的かつ詳細な現状分析")
+            
+            with st.expander("全体パフォーマンス評価", expanded=True):
+                st.markdown(f"""
+                **総合評価:**  
+                - **現状のCVR**: **{current_cvr or 0:.2f}%** （期間目標: {daily_target_cvr if daily_target_cvr > 0 else '未設定'}%）
+                - **現状のCV数**: **{current_cv or 0}** （期間目標: {daily_target_cv:.0f}件）
+                - **ファーストビュー(FV)残存率**: **{fv_retention_rate:.1f}%** が最初のページで離脱せずに次に進んでいます。
+                - **最終CTA到達率**: **{final_cta_rate:.1f}%** が最終ページまで到達しています。
+                
+                **AIによるLPコンテンツの評価:**
+                - **ヘッドライン**: 「{main_headline_escaped}」
+                - **訴求ポイント(AI推察)**: {inferred_appeal_point_escaped}
+                - **ターゲット顧客との関連性**: {f"入力されたターゲット顧客「{target_customer_escaped}」に対して、現在のヘッドラインと訴求ポイントは関連性が高いと考えられます。" if target_customer_escaped else "ターゲット顧客が未入力のため、詳細な関連性分析はスキップします。"}
+                """)
+            
+            # セクション2: 現状分析からの今後の考察
+            st.markdown("---")
+            st.markdown("### 2. 現状分析からの今後の考察")
+            
+            with st.expander("トレンド予測と潜在的リスク", expanded=True):
+                st.markdown(f"""
+                **考察:**
+                - **目標達成状況**: 現状のCV数({current_cv or 0}件)は、分析期間({analysis_days}日間)における日割り目標({daily_target_cv:.0f}件)に対して **{(current_cv or 0) - daily_target_cv:.0f}件** の差があります。
+                - **最大の課題**: FV残存率が **{fv_retention_rate:.1f}%** と低いことが、全体のCVRを押し下げる最大の要因と考えられます。多くのユーザーがLPの第一印象で興味を失い、離脱している可能性があります。
+                - **機会**: 最終CTA到達率が **{final_cta_rate:.1f}%** あるため、LPの中盤以降のコンテンツは比較的読まれているようです。FVを突破したユーザーを確実にCVに繋げることができれば、パフォーマンスは大きく改善する可能性があります。
+                """)
+            
+            # セクション3: 改善提案
+            st.markdown("---")
+            st.markdown("### 3. 具体的な改善提案")
+            
+            with st.expander("優先度高: 即実施すべき施策", expanded=True):
+                st.markdown(f"""
+                **1. ボトルネックページの改善（ページ{int(max_exit_page['ページ番号'])}）**
+                
+                - **実施内容**:
+                  - コンテンツの簡素化と視覚的な改善
+                  - 読みやすさの向上（フォントサイズ、行間、余白）
+                  - 画像・動画の最適化（読込時間短縮）
+                  - CTAボタンの追加または強調
+                
+                - **期待効果**: 離脱率{max_exit_page['離脱率']:.1f}% → {max_exit_page['離脱率'] * 0.7:.1f}% (30%減)
+                - **実施期間**: 1-2週間
+                - **必要リソース**: デザイナー1名、エンジニア1名
+                
+                **2. {worst_device['デバイス']}最適化**
+                
+                - **実施内容**:
+                  - レスポンシブデザインの見直し
+                  - タッチ操作の最適化（ボタンサイズ、間隔）
+                  - 読込速度の改善（画像圧縮、遅延読み込み）
+                  - フォーム入力の簡略化
+                
+                - **期待効果**: {worst_device['デバイス']}CVR {worst_device['コンバージョン率']:.2f}% → {worst_device['コンバージョン率'] * 1.3:.2f}% (30%向上)
+                - **実施期間**: 2-3週間
+                - **必要リソース**: UI/UXデザイナー1名、エンジニア1名
+                
+                **3. ファーストビューの最適化**
+                
+                - **実施内容**:
+                  - キャッチコピーの改善（ベネフィットを明確に）
+                  - ヒーロー画像の変更（インパクトと関連性）
+                  - CTAボタンの最適化（色、サイズ、テキスト）
+                  - 信頼性要素の追加（実績、レビュー、ロゴ）
+                
+                - **期待効果**: FV残存率{fv_retention_rate:.1f}% → {fv_retention_rate * 1.15:.1f}% (15%向上)
+                - **実施期間**: 1週間
+                - **必要リソース**: コピーライター1名、デザイナー1名
+                """)
+            
+            with st.expander("優先度中: A/Bテストで検証すべき施策"):
+                st.markdown("""
+                **1. ファーストビューA/Bテスト**
+                
+                - **テスト内容**:
+                  - A: 現状のファーストビュー
+                  - B: ベネフィット強調型のファーストビュー
+                  - C: 社会的証明強調型のファーストビュー
+                
+                - **測定指標**: FV残存率、コンバージョン率
+                - **テスト期間**: 2-4週間
+                - **必要サンプルサイズ**: 各パターンあたり1,000セッション以上
+                
+                **2. CTAボタンA/Bテスト**
+                
+                - **テスト内容**:
+                  - A: 現状のCTAボタン
+                  - B: 色変更（アクセントカラー #002060 → オレンジ系）
+                  - C: テキスト変更（緊急性やベネフィットを強調）
+                
+                - **測定指標**: クリック率、コンバージョン率
+                - **テスト期間**: 1-2週間
+                
+                **3. フォーム長A/Bテスト**
+                
+                - **テスト内容**:
+                  - A: 現状のフォーム（入力項目数）
+                  - B: 簡略化フォーム（必須項目のみ）
+                  - C: 2ステップフォーム（段階的に情報収集）
+                
+                - **測定指標**: フォーム開始率、完了率、コンバージョン率
+                - **テスト期間**: 2-3週間
+                """)
+            
+            with st.expander("優先度低: 中長期的な施策"):
+                st.markdown(f"""
+                **1. パーソナライゼーションの導入**
+                
+                - **実施内容**:
+                  - デバイス別LPの出し分け
+                  - チャネル別メッセージの最適化
+                  - リピーターと新規ユーザーで異なるLPを表示
+                
+                - **期待効果**: 全体CVR 20-30%向上
+                - **実施期間**: 2-3ヶ月
+                - **必要リソース**: エンジニア2-3名、デザイナー1-2名
+                
+                **2. 動画コンテンツの強化**
+                
+                - **実施内容**:
+                  - 製品デモ動画の追加
+                  - 顧客事例インタビュー動画
+                  - アニメーションで複雑な概念を説明
+                
+                - **期待効果**: エンゲージメント向上、CVR 10-15%向上
+                - **実施期間**: 1-2ヶ月
+                - **必要リソース**: 動画クリエイター1-2名
+                
+                **3. リターゲティング戦略の構築**
+                
+                - **実施内容**:
+                  - 離脱ユーザーへのリターゲティング広告
+                  - カート放棄ユーザーへのメール送信
+                  - ページ途中離脱ユーザーへの特別オファー
+                
+                - **期待効果**: 全体コンバージョン数 15-25%増加
+                - **実施期間**: 1-2ヶ月
+                - **必要リソース**: マーケター1名、エンジニア1名
+                
+                **4. チャネル最適化と予算再配分**
+                
+                - **実施内容**:
+                  - {best_channel['チャネル']}への予算増額
+                  - {worst_channel['チャネル']}のターゲティング見直しまたは停止
+                  - 新規チャネルのテスト（リスク分散）
+                
+                - **期待効果**: ROI 20-30%向上
+                - **実施期間**: 継続的
+                - **必要リソース**: マーケティングマネージャー1名
+                """)
+            
+            with st.expander("実施ロードマップ（3ヶ月間）"):
+                st.markdown("""
+                | 時期 | 施策 | 目標KPI | 担当 |
+                |------|------|----------|------|
+                | 1週目 | ファーストビュー最適化 | FV残存率 +15% | デザインチーム |
+                | 2-3週目 | ボトルネックページ改善 | 離脱率 -30% | デザイン+開発 |
+                | 4-5週目 | デバイス最適化 | モバイルCVR +30% | 開発チーム |
+                | 6-8週目 | FVA/Bテスト | 全体CVR +10% | マーケティング |
+                | 9-10週目 | CTAA/Bテスト | クリック率 +15% | マーケティング |
+                | 11-12週目 | リターゲティング導入 | コンバージョン数 +20% | マーケティング |
+                
+                **期待される総合効果:**
+                - コンバージョン率: {conversion_rate:.2f}% → {conversion_rate * 1.5:.2f}% (50%向上)
+                - 月間コンバージョン数: 現在の1.5倍
+                - ROI: 20-30%向上
+                """)
+            
+            # 閉じるボタン
+            if st.button("AI分析を閉じる", key="ai_analysis_close"):
+                st.session_state.ai_analysis_open = False
+
+            st.success("AI分析が完了しました！上記の提案を参考に、LPの改善を進めてください。")
+    
+    # 既存の質問ボタンは保持
+    
+    # 質問ボタンにトグル機能を追加
+    st.markdown("---")
+    st.markdown("### このページの分析について質問する")
+    
+    # FAQ用のデータ計算を事前に初期化
+    page_stats_global = pd.DataFrame(columns=['ページ番号', '離脱セッション数', '平均滞在時間_ms', '離脱率', '平均滞在時間_秒'])
+    ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数', 'コンバージョン率']) # type: ignore
+    device_stats_global = pd.DataFrame(columns=['デバイス', 'セッション数', 'コンバージョン数', 'コンバージョン率'])
+
+    if not filtered_df.empty and total_sessions > 0:
+        # ページ別統計
+        page_stats_global = filtered_df.groupby('max_page_reached').agg(
+            離脱セッション数=('session_id', 'nunique'),
+            平均滞在時間_ms=('stay_ms', 'mean')
+        ).reset_index()
+        page_stats_global['離脱率'] = (page_stats_global['離脱セッション数'] / total_sessions * 100) if total_sessions > 0 else 0
+        page_stats_global['平均滞在時間_秒'] = page_stats_global['平均滞在時間_ms'] / 1000
+        page_stats_global.rename(columns={'max_page_reached': 'ページ番号'}, inplace=True) # type: ignore
+
+        # ab_variant列が存在する場合のみ集計
+        if 'ab_variant' in filtered_df.columns and filtered_df['ab_variant'].notna().any():
+            ab_stats_global = filtered_df.groupby('ab_variant').agg(
+                セッション数=('session_id', 'nunique')
+            ).reset_index().rename(columns={'ab_variant': 'バリアント'})
+            ab_cv_stats = filtered_df[filtered_df['is_conversion'] == 1].groupby('ab_variant')['session_id'].nunique().reset_index(name='コンバージョン数').rename(columns={'ab_variant': 'バリアント'})
+            ab_stats_global = pd.merge(ab_stats_global, ab_cv_stats, on='バリアント', how='left').fillna(0)
+        else:
+            ab_stats_global = pd.DataFrame(columns=['バリアント', 'セッション数', 'コンバージョン数'])
+        
+        if not ab_stats_global.empty and 'セッション数' in ab_stats_global.columns and ab_stats_global['セッション数'].sum() > 0:
+            ab_stats_global['コンバージョン率'] = ab_stats_global.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
+        
+        # デバイス別統計
+        device_stats_global = filtered_df.groupby('device_type').agg(
+            セッション数=('session_id', 'nunique')
+        ).reset_index()
+        device_cv_stats = filtered_df[filtered_df['is_conversion'] == 1].groupby('device_type')['session_id'].nunique().reset_index(name='コンバージョン数')
+        device_stats_global = pd.merge(device_stats_global, device_cv_stats, on='device_type', how='left').fillna(0).rename(columns={'device_type': 'デバイス'})
+        if not device_stats_global.empty and 'セッション数' in device_stats_global.columns and device_stats_global['セッション数'].sum() > 0: # type: ignore
+            device_stats_global['コンバージョン率'] = device_stats_global.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
+
+    # FAQボタンの表示
+    col1, col2 = st.columns(2)
+    
+    # session_stateの初期化
+    if 'ai_faq_toggle' not in st.session_state: # type: ignore
+        st.session_state.ai_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
+    with col1:
+        if st.button("このLPの最大のボトルネックは？", key="faq_btn_1", use_container_width=True):
+            # ボタンが押されたら状態をトグルし、他を閉じる
+            st.session_state.ai_faq_toggle[1] = not st.session_state.ai_faq_toggle[1]
+            st.session_state.ai_faq_toggle[2] = False
+            st.session_state.ai_faq_toggle[3] = False
+            st.session_state.ai_faq_toggle[4] = False
+        
+        if st.session_state.ai_faq_toggle.get(1, False): # type: ignore
+            # 離脱率が最も高いページを特定（データがある場合のみ）
+            if not page_stats_global.empty and '離脱率' in page_stats_global.columns and not page_stats_global['離脱率'].empty:
+                max_exit_page = page_stats_global.loc[page_stats_global['離脱率'].idxmax()]
+                
+                st.info(f"""
+                **分析結果:**
+                
+                最大のボトルネックは**ページ{int(max_exit_page['ページ番号'])}**です。
+                
+                - 離脱率: {max_exit_page['離脱率']:.1f}%
+                - 平均滞在時間: {max_exit_page['平均滞在時間_秒']:.1f}秒
+                
+                **推奨アクション:**
+                1. ページ{int(max_exit_page['ページ番号'])}のコンテンツを見直し、ユーザーの関心を引く要素を追加
+                2. A/Bテストで異なるコンテンツをテスト
+                3. 読込時間が長い場合は、画像の最適化を検討
+                """)
+            else:
+                st.warning("分析データがありません。")
+        
+        if st.button("コンバージョン率を改善するには？", key="faq_btn_2", use_container_width=True):
+            st.session_state.ai_faq_toggle[2] = not st.session_state.ai_faq_toggle[2]
+            st.session_state.ai_faq_toggle[1] = False
+            st.session_state.ai_faq_toggle[3] = False
+            st.session_state.ai_faq_toggle[4] = False
+        
+        if st.session_state.ai_faq_toggle.get(2, False): # type: ignore
+            st.info(f"""
+            **分析結果:**
+            
+            現在のコンバージョン率は**{conversion_rate:.2f}%**です。
+            
+            **推奨アクション:**
+            1. FV残存率({fv_retention_rate:.1f}%)を改善するため、ファーストビューのコンテンツを強化
+            2. 最終CTA到達率({final_cta_rate:.1f}%)を改善するため、ページ遷移をスムーズにする
+            3. デバイス別の分析を行い、パフォーマンスが低いデバイスに最適化
+            4. 高パフォーマンスのチャネルに予算を集中
+            """)
+    
+    with col2: # type: ignore
+        if st.button("A/Bテストの結果、どちらが優れている？", key="faq_btn_3", use_container_width=True):
+            st.session_state.ai_faq_toggle[3] = not st.session_state.ai_faq_toggle[3]
+            st.session_state.ai_faq_toggle[1] = False
+            st.session_state.ai_faq_toggle[2] = False
+            st.session_state.ai_faq_toggle[4] = False
+
+        if st.session_state.ai_faq_toggle.get(3, False): # type: ignore
+            if not ab_stats_global.empty and 'コンバージョン率' in ab_stats_global.columns and not ab_stats_global['コンバージョン率'].empty:
+                best_variant = ab_stats_global.loc[ab_stats_global['コンバージョン率'].idxmax()]
+                st.info(f"""
+            **分析結果:**
+            
+            **バリアント{best_variant['バリアント']}**が最も優れています。
+            
+            - コンバージョン率: {best_variant['コンバージョン率']:.2f}%
+            - セッション数: {int(best_variant['セッション数'])}
+            
+            **推奨アクション:**
+            1. バリアント{best_variant['バリアント']}を本番環境に適用
+            2. さらなる改善のため、次のA/Bテストを計画
+            """)
+            else:
+                st.warning("A/Bテストの分析データがありません。")
+        
+        if st.button("デバイス別のパフォーマンス差は？", key="faq_btn_4", use_container_width=True):
+            st.session_state.ai_faq_toggle[4] = not st.session_state.ai_faq_toggle[4]
+            st.session_state.ai_faq_toggle[1] = False
+            st.session_state.ai_faq_toggle[2] = False
+            st.session_state.ai_faq_toggle[3] = False
+
+        if st.session_state.ai_faq_toggle.get(4, False): # type: ignore
+            if not device_stats_global.empty and 'コンバージョン率' in device_stats_global.columns and not device_stats_global['コンバージョン率'].empty:
+                best_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmax()]
+                worst_device = device_stats_global.loc[device_stats_global['コンバージョン率'].idxmin()]
+                st.info(f"""
+            **分析結果:**
+            
+            **最高パフォーマンス:** {best_device['デバイス']} (CVR: {best_device['コンバージョン率']:.2f}%)
+            **最低パフォーマンス:** {worst_device['デバイス']} (CVR: {worst_device['コンバージョン率']:.2f}%)
+            
+            **推奨アクション:**
+            1. {worst_device['デバイス']}向けにUIを最適化
+            2. {worst_device['デバイス']}での読込速度を改善
+            3. {best_device['デバイス']}の成功要因を他デバイスに適用
+            """)
+            else:
+                st.warning("分析データがありません。")
+    
 # タブ11: 専門用語解説
 elif selected_analysis == "専門用語解説":
     st.markdown('<div class="sub-header">専門用語解説</div>', unsafe_allow_html=True)
@@ -4689,4 +5312,4 @@ elif selected_analysis == "アラート":
 
 # フッター
 st.markdown("---")
-st.markdown("**瞬ジェネ AIアナリスト** - Powered by Streamlit & Gemini 2.5 Pro")
+st.markdown("**瞬ジェネ AI���ナリスト** - Powered by Streamlit & Gemini 2.5 Pro")
