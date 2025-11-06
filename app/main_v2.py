@@ -5203,62 +5203,182 @@ elif selected_analysis == "アラート":
         st.info("アラートを生成するための十分なデータがありません（最低8日分のデータが必要です）。")
 
 elif selected_analysis == "瞬フォーム分析":
-    st.markdown('<div class="sub-header">瞬フォーム分析</div>', unsafe_allow_html=True)
-    st.markdown('<div class="graph-description">瞬フォームのパフォーマンスを分析します。</div>', unsafe_allow_html=True)
-
-    # --- スコアカード ---
-    st.markdown('<div class="sub-header">スコアカード</div>', unsafe_allow_html=True)
-    col1, col2, col3, col4 = st.columns(4)
-    col5, col6, col7, col8 = st.columns(4)
-    
-    with col1:
-        st.metric("フォーム表示回数", 12345)
-    with col2:
-        st.metric("フォーム表示直帰率", "12.3%")
-    with col3:
-        st.metric("フォーム送信率", "45.6%")
-    with col4:
-        st.metric("平均進行ページ数", 5.6)
-    with col5:
-        st.metric("平均滞在時間", "1:23")
-    with col6:
-        st.metric("ページ逆行率", "7.8%")
-    with col7:
-        st.metric("離脱防止POPから再開率", "89.0%")
-    with col8:
-        st.metric("一時保存からの再開率", "90.1%")
-
-    # --- ページごとの分析 ---
-    st.markdown('<div class="sub-header">ページごとの分析</div>', unsafe_allow_html=True)
-    
-    # ダミーデータ
-    data = {
-        'ページ': ['ページ1', 'ページ2', 'ページ3', 'ページ4', 'ページ5'],
-        '平均滞在時間': ['0:10', '0:15', '0:12', '0:18', '0:20'],
-        'ページ逆行率': ['1.2%', '2.3%', '1.5%', '2.0%', '2.5%'],
-        '離脱防止POPから再開率': ['91.0%', '88.0%', '92.0%', '89.0%', '90.0%'],
-        '一時保存からの再開率': ['92.0%', '90.0%', '93.0%', '91.0%', '94.0%']
-    }
-    df_page = pd.DataFrame(data)
-
-    st.dataframe(df_page, use_container_width=True)
-
-    # --- 説明 ---
-    st.markdown("""
-    <div class="graph-description">
-    各指標の説明：
-    <ul>
-        <li><b>フォーム表示回数</b>: フォームが表示された回数です。</li>
-        <li><b>フォーム表示直帰率</b>: フォームを表示してすぐに離脱したユーザーの割合です。</li>
-        <li><b>フォーム送信率</b>: フォームを送信したユーザーの割合です。</li>
-        <li><b>平均進行ページ数</b>: ユーザーが平均して何ページ進んだかを示します。</li>
-        <li><b>平均滞在時間</b>: ユーザーがフォームに滞在した平均時間です。</li>
-        <li><b>ページ逆行率</b>: ユーザーがページを戻った割合です。</li>
-        <li><b>離脱防止POPから再開率</b>: 離脱防止POPアップを表示後、フォームに戻って再開したユーザーの割合です。</li>
-        <li><b>一時保存からの再開率</b>: 一時保存機能を利用してフォームを再開したユーザーの割合です。</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
+     st.markdown('<div class="sub-header">瞬フォーム分析</div>', unsafe_allow_html=True)
+ 
+     # --- フィルター設定 ---
+     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
+     filter_cols_1 = st.columns(4)
+     filter_cols_2 = st.columns(4)
+ 
+     with filter_cols_1[0]:
+         period_options = ["今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"]
+         selected_period = st.selectbox("期間を選択", period_options, index=2, key="shun_form_period")
+ 
+     with filter_cols_1[1]:
+         lp_options = sorted(df['page_location'].dropna().unique().tolist())
+         selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else None, key="shun_form_lp", disabled=not lp_options)
+ 
+     with filter_cols_1[2]:
+         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="shun_form_device")
+ 
+     with filter_cols_1[3]:
+         user_type_options = ["すべて", "新規", "リピート"]
+         selected_user_type = st.selectbox("新規/リピート", user_type_options, index=0, key="shun_form_user_type")
+ 
+     with filter_cols_2[0]:
+         conversion_status_options = ["すべて", "コンバージョン", "非コンバージョン"]
+         selected_conversion_status = st.selectbox("CV/非CV", conversion_status_options, index=0, key="shun_form_conversion_status")
+ 
+     with filter_cols_2[1]:
+         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+         selected_channel = st.selectbox("チャネル", channel_options, index=0, key="shun_form_channel")
+ 
+     with filter_cols_2[2]:
+         source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+         selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="shun_form_source_medium")
+ 
+     # 期間設定
+     today = df['event_date'].max().date()
+     if selected_period == "今日":
+         start_date, end_date = today, today
+     elif selected_period == "昨日":
+         start_date, end_date = today - timedelta(days=1), today - timedelta(days=1)
+     elif selected_period == "過去7日間":
+         start_date, end_date = today - timedelta(days=6), today
+     elif selected_period == "過去14日間":
+         start_date, end_date = today - timedelta(days=13), today
+     elif selected_period == "過去30日間":
+         start_date, end_date = today - timedelta(days=29), today
+     elif selected_period == "今月":
+         start_date, end_date = today.replace(day=1), today
+     elif selected_period == "先月":
+         last_month_end = today.replace(day=1) - timedelta(days=1)
+         start_date, end_date = last_month_end.replace(day=1), last_month_end
+     elif selected_period == "全期間":
+         start_date, end_date = df['event_date'].min().date(), df['event_date'].max().date()
+     elif selected_period == "カスタム":
+         c1, c2 = st.columns(2)
+         with c1:
+             start_date = st.date_input("開始日", df['event_date'].min(), key="shun_form_start")
+         with c2:
+             end_date = st.date_input("終了日", df['event_date'].max(), key="shun_form_end")
+ 
+     st.markdown("---")
+ 
+     # データフィルタリング（現在はUIのみで、実際のデータには適用していません）
+     filtered_df = df[
+         (df['event_date'] >= pd.to_datetime(start_date)) &
+         (df['event_date'] <= pd.to_datetime(end_date))
+     ]
+     # ... 他のフィルターも同様に適用 ...
+ 
+     # --- スコアカード ---
+     st.markdown('<div class="sub-header">スコアカード</div>', unsafe_allow_html=True)
+     col1, col2, col3, col4 = st.columns(4)
+     col5, col6, col7, col8 = st.columns(4)
+     
+     with col1:
+         st.metric("フォーム表示回数", "12,345")
+     with col2:
+         st.metric("フォーム表示直帰率", "12.3%")
+     with col3:
+         st.metric("フォーム送信率", "45.6%")
+     with col4:
+         st.metric("平均進行ページ数", "5.6")
+     with col5:
+         st.metric("平均滞在時間", "1:23")
+     with col6:
+         st.metric("ページ逆行率", "7.8%")
+     with col7:
+         st.metric("離脱防止POPから再開率", "89.0%")
+     with col8:
+         st.metric("一時保存からの再開率", "90.1%")
+ 
+     # --- ページごとの分析 ---
+     st.markdown('<div class="sub-header">ページごとの分析</div>', unsafe_allow_html=True)
+     st.markdown('<div class="graph-description">各ページの滞在時間や逆行率などを確認し、ユーザーがどの質問でつまずいているか（ボトルネック）を特定します。</div>', unsafe_allow_html=True)
+     
+     # ダミーデータ
+     data = {
+         'ページ': ['ページ1', 'ページ2', 'ページ3', 'ページ4', 'ページ5'],
+         '平均滞在時間': ['0:10', '0:15', '0:12', '0:18', '0:20'],
+         'ページ逆行率': ['1.2%', '2.3%', '1.5%', '2.0%', '2.5%'],
+         '離脱防止POPから再開率': ['91.0%', '88.0%', '92.0%', '89.0%', '90.0%'],
+         '一時保存からの再開率': ['92.0%', '90.0%', '93.0%', '91.0%', '94.0%']
+     }
+     df_page = pd.DataFrame(data)
+ 
+     st.dataframe(df_page, use_container_width=True)
+ 
+     st.markdown("---")
+ 
+     # --- AI分析と考察 ---
+     st.markdown("### AIによる分析と考察")
+     st.markdown('<div class="graph-description">瞬フォームのパフォーマンスデータに基づき、AIが現状の評価と改善のための考察を提示します。</div>', unsafe_allow_html=True)
+ 
+     if 'shun_form_ai_open' not in st.session_state:
+         st.session_state.shun_form_ai_open = False
+ 
+     if st.button("AI分析を実行", key="shun_form_ai_btn", type="primary", use_container_width=True):
+         st.session_state.shun_form_ai_open = True
+ 
+     if st.session_state.shun_form_ai_open:
+         with st.container():
+             with st.spinner("AIがフォームデータを分析中..."):
+                 st.markdown("#### 1. 現状の評価")
+                 st.info("""
+                 フォーム全体のパフォーマンスを分析した結果、**フォーム送信率（45.6%）** に改善の余地があることが分かりました。
+                 特に、**ページ3** での平均滞在時間が短く、ページ逆行率が他のページより高い傾向にあります。このページがユーザーにとってのボトルネックとなっている可能性が高いです。
+                 一方で、離脱防止POPや一時保存からの再開率は高く、フォームを完了したいというユーザーの意欲は高いと推察されます。
+                 """)
+ 
+                 st.markdown("#### 2. 今後の考察と改善案")
+                 st.warning("""
+                 **ページ3の質問内容の見直しが最優先課題です。**
+                 - **考察**: ページ3の質問がユーザーにとって分かりにくい、または答えるのが面倒だと感じさせている可能性があります。
+                 - **改善案**:
+                     1. **質問文の簡略化**: より直感的で分かりやすい言葉に修正します。
+                     2. **選択肢の見直し**: 選択肢が多すぎる場合は減らす、またはラジオボタンからプルダウンに変更するなど、UIを改善します。
+                     3. **入力補助機能の追加**: 例えば、住所入力であれば郵便番号からの自動入力機能を追加します。
+                 
+                 これらの改善案についてA/Bテストを実施し、最も効果的な変更を特定することをお勧めします。
+                 """)
+ 
+             if st.button("AI分析を閉じる", key="shun_form_ai_close"):
+                 st.session_state.shun_form_ai_open = False
+ 
+     # --- よくある質問 ---
+     st.markdown("#### このページの分析について質問する")
+     if 'shun_form_faq_toggle' not in st.session_state:
+         st.session_state.shun_form_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+ 
+     faq_cols = st.columns(2)
+     with faq_cols[0]:
+         if st.button("フォームのどこで離脱が多い？", key="faq_shun_form_1", use_container_width=True):
+             st.session_state.shun_form_faq_toggle[1] = not st.session_state.shun_form_faq_toggle[1]
+             st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[3], st.session_state.shun_form_faq_toggle[4] = False, False, False
+         if st.session_state.shun_form_faq_toggle[1]:
+             st.info("ページごとの分析表で「ページ逆行率」が高いページや、「平均滞在時間」が極端に短いページが離脱の多いボトルネックです。このダミーデータでは「ページ3」が該当します。")
+ 
+         if st.button("フォーム送信率を上げるには？", key="faq_shun_form_3", use_container_width=True):
+             st.session_state.shun_form_faq_toggle[3] = not st.session_state.shun_form_faq_toggle[3]
+             st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[4] = False, False, False
+         if st.session_state.shun_form_faq_toggle[3]:
+             st.info("入力項目を減らす、必須項目を分かりやすくする、入力エラーをリアルタイムで表示する、などのEFO（入力フォーム最適化）施策が有効です。また、「一時保存からの再開率」が低い場合は、その機能をより目立たせることも重要です。")
+ 
+     with faq_cols[1]:
+         if st.button("平均進行ページ数が少ない原因は？", key="faq_shun_form_2", use_container_width=True):
+             st.session_state.shun_form_faq_toggle[2] = not st.session_state.shun_form_faq_toggle[2]
+             st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[3], st.session_state.shun_form_faq_toggle[4] = False, False, False
+         if st.session_state.shun_form_faq_toggle[2]:
+             st.info("フォームの序盤（ページ1や2）でユーザーの興味を引けていない、または質問の意図が伝わっていない可能性があります。フォーム導入前のLPの訴求と、フォーム序盤の質問内容に一貫性があるか確認しましょう。")
+ 
+         if st.button("離脱防止POPは効果がある？", key="faq_shun_form_4", use_container_width=True):
+             st.session_state.shun_form_faq_toggle[4] = not st.session_state.shun_form_faq_toggle[4]
+             st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[3] = False, False, False
+         if st.session_state.shun_form_faq_toggle[4]:
+             st.info("「離脱防止POPから再開率」の指標で効果を測定できます。この数値が高い（例: 89.0%）場合、POPが表示されることで多くのユーザーがフォーム入力に復帰しており、効果的であると言えます。")
 
 
 # フッター
